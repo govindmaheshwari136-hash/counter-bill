@@ -110,6 +110,7 @@ tfoot td{font-weight:700;border-top:1px solid var(--line)}
 .grow{flex:1 1 150px}
 .tablewrap{overflow:auto;flex:1;min-height:150px}
 .tablewrap th{position:sticky;top:0;z-index:1}
+.inp.miss,select.miss,input.miss{border-color:var(--danger)!important;box-shadow:0 0 0 1px var(--danger) inset}
 .tablewrap input.needq{border-color:var(--gold);background:rgba(233,162,39,.14);box-shadow:0 0 0 1px var(--gold) inset}
 .tablewrap input.needq::placeholder{color:var(--gold-ink,#7a5200);opacity:.8;font-weight:600}
 @media (prefers-color-scheme:dark){.tablewrap input.needq::placeholder{color:#f3c56b}}
@@ -560,7 +561,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="1.8";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="2.2";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -590,7 +591,11 @@ function payText(p){const parts=PKEYS.map(k=>[KEYNAME[k],p[k]||0]).filter(x=>x[1
 /* the customer box starts with "Cash" — that (or empty) means a walk-in customer with no name */
 const normCust=n=>{n=String(n||"").trim();return /^cash$/i.test(n)?"":n};
 const custKey=n=>normCust(n).toLowerCase().replace(/\s+/g," ");
-function collectedFor(billId){let s=0;(DB.receipts||[]).forEach(r=>r.alloc.forEach(a=>{if(a.bill_id===billId)s+=a.amount}));return r2(s)}
+/* money received against each credit bill — indexed once, rebuilt whenever payments are added, undone or restored */
+let collIdx={arr:null,len:-1,map:null};
+function collectedFor(billId){const rs=DB.receipts||[];
+  if(collIdx.arr!==rs||collIdx.len!==rs.length){const m=new Map();rs.forEach(r=>r.alloc.forEach(a=>m.set(a.bill_id,(m.get(a.bill_id)||0)+a.amount)));collIdx={arr:rs,len:rs.length,map:m}}
+  return r2(collIdx.map.get(billId)||0)}
 function dueOf(b){if(b.status!=="active")return 0;const c=payOf(b).credit;return c>0.004?r2(c-collectedFor(b.id)):0}
 function creditBook(){const map={};DB.bills.forEach(b=>{const d=dueOf(b);if(d<=0.004)return;const k=custKey(b.customer)||"(no name)";
     const e=map[k]=map[k]||{key:k,name:b.customer||"(no name)",phone:"",due:0,bills:[]};e.due=r2(e.due+d);e.bills.push(b);if(b.phone)e.phone=b.phone;e.name=b.customer||e.name});
@@ -645,6 +650,8 @@ function blankDB(){return{seq:0,settings:{...DEFAULT_SETTINGS,shop_name:"My Reta
 /* bring data from older versions up to date */
 function upgradeDB(){if(!DB)return;DB.receipts=DB.receipts||[];const s=DB.settings=DB.settings||{};
   if(s.owner_lock===undefined)s.owner_lock=30;
+  (DB.bills||[]).forEach(b=>{if(b.tax!==undefined&&(typeof b.tax!=="object"||b.tax===null)){
+    b.tax=(b.taxable>0||b.cgst>0||b.igst>0)?{type:"regular",incl:true,seller_gstin:s.gstin||"",seller_state:String(s.gstin||"").slice(0,2),buyer_gstin:"",buyer_addr:"",pos:String(s.gstin||"").slice(0,2),inter:b.igst>0}:{type:"none"}}});
   if(!s.print_mode)s.print_mode="thermal";if(!s.thermal_size)s.thermal_size="L";if(!s.page)s.page="A4";if(!s.paper)s.paper="80";
   if(!s.gst_type)s.gst_type="none";if(s.gstin===undefined)s.gstin="";if(s.gst_incl===undefined)s.gst_incl=true;if(s.gst_default===undefined)s.gst_default=0;if(!Array.isArray(s.paymodes))s.paymodes=["Cash","UPI","Card","Bank","Credit","Split"];
   if(!Array.isArray(s.header_lines)){const l=String(s.header||"").split("\n").map(x=>x.trim()).filter(Boolean).slice(0,4);while(l.length<4)l.push("");s.header_lines=l}}
@@ -680,7 +687,7 @@ function seedDB(){
   // a correction by Ravi on Mehta ji's bill, and a cancellation by owner
   const old=JSON.parse(JSON.stringify(b2));
   b2.items=b2.items.filter(i=>i.name!=="Eggs");b2.items.find(i=>i.name==="Sugar").qty=2;b2.items.forEach((i,k)=>{i.amount=r2(i.qty*i.rate);i.pos=k});
-  Object.assign(b2,totalsOf(b2.items,20,undefined,b2.tax),{rev:1,updated_at:stamp(day(0,10,22)),updated_by:U("ravi").id});b2.pay=buildPay(b2.net,"UPI");
+  Object.assign(b2,totalsOf(b2.items,20,undefined,b2.tax),{tax:b2.tax},{rev:1,updated_at:stamp(day(0,10,22)),updated_by:U("ravi").id});b2.pay=buildPay(b2.net,"UPI");
   DB.corrections.push({id:nextId(),bill_id:b2.id,at:stamp(day(0,10,22)),user_id:U("ravi").id,kind:"edit",changes:diffBill(old,b2),before_net:old.net,after_net:b2.net,rev:1});
   DB.corrections.push({id:nextId(),bill_id:b5.id,at:stamp(day(0,13,10)),user_id:U("owner").id,kind:"cancel",changes:[{t:"del",s:`Bill cancelled (was ₹${Math.round(b5.net).toLocaleString("en-IN")})`}],before_net:b5.net,after_net:0,rev:1});
   b5.status="cancelled";b5.rev=1;b5.updated_by=U("owner").id;b5.updated_at=stamp(day(0,13,10));
@@ -701,6 +708,12 @@ function gstinCheck(g){g=String(g||"").trim().toUpperCase();if(!/^[0-9]{2}[A-Z]{
 const gstType=()=>(S().gst_type||"none");                 /* none | composition | regular */
 const gstIncl=()=>S().gst_incl!==false;                    /* rates on products include GST (MRP style) */
 const sellerState=()=>{const g=String(S().gstin||"");return g.length>=2?g.slice(0,2):""};
+/* Regular GST: every product needs its own HSN code and GST rate before it can be billed (no default rate) */
+const needTaxInfo=()=>gstType()==="regular";
+/* HSN codes have 4, 6 or 8 digits. Excel drops leading zeros (0401 → 401), so an odd length gets its zero back. */
+const normHsn=v=>{let t=String(v??"").trim().replace(/\.0+$/,"").replace(/[\s\-.]/g,"");if(/^\d+$/.test(t)&&t.length%2===1&&t.length<8)t="0"+t;return t};
+const hasTaxInfo=p=>!!p&&/^\d{4,8}$/.test(String(p.hsn||""))&&p.gst!==undefined&&p.gst!==null&&p.gst!==""&&GST_RATES.includes(num(p.gst));
+const missingTaxInfo=()=>DB.products.filter(p=>p.active&&!hasTaxInfo(p));
 function rateOf(p){const v=p&&p.gst;return v===undefined||v===null||v===""?num(S().gst_default??0):num(v)}
 /* the tax set-up a bill is made under; saved on the bill so old bills never change */
 function taxCfg(buyer){const t=gstType();if(t==="none")return{type:"none"};
@@ -711,14 +724,14 @@ function taxCfg(buyer){const t=gstType();if(t==="none")return{type:"none"};
    (taken out of the price when rates include GST, added on top when they don't). Round off is never taxed. */
 function totalsOf(items,discount,round,cfg){cfg=cfg||{type:"none"};
   const sub=r2(items.reduce((s,i)=>s+i.amount,0));const disc=r2(Math.min(Math.max(num(discount),0),sub));
-  const t={subtotal:sub,discount:disc,taxable:0,cgst:0,sgst:0,igst:0,tax:0};let before=r2(sub-disc);
+  const t={subtotal:sub,discount:disc,taxable:0,cgst:0,sgst:0,igst:0,tax_amt:0};let before=r2(sub-disc);   /* tax_amt, not "tax": bill.tax is the bill's GST set-up */
   if(cfg.type==="regular"){let left=disc;
     items.forEach((i,k)=>{const share=k===items.length-1?r2(left):r2(sub?disc*i.amount/sub:0);left=r2(left-share);const line=r2(i.amount-share);const rate=num(i.gst);
       let taxable,cg=0,sg=0,ig=0;
       if(cfg.incl){taxable=r2(line*100/(100+rate));const tx=r2(line-taxable);if(cfg.inter)ig=tx;else{cg=r2(tx/2);sg=r2(tx-cg)}}
       else{taxable=line;if(cfg.inter)ig=r2(taxable*rate/100);else{cg=r2(taxable*rate/200);sg=cg}}
       Object.assign(i,{taxable,cgst:cg,sgst:sg,igst:ig});t.taxable=r2(t.taxable+taxable);t.cgst=r2(t.cgst+cg);t.sgst=r2(t.sgst+sg);t.igst=r2(t.igst+ig)});
-    t.tax=r2(t.cgst+t.sgst+t.igst);if(!cfg.incl)before=r2(t.taxable+t.tax)}
+    t.tax_amt=r2(t.cgst+t.sgst+t.igst);if(!cfg.incl)before=r2(t.taxable+t.tax_amt)}
   else items.forEach(i=>{delete i.taxable;delete i.cgst;delete i.sgst;delete i.igst});
   if(round!==undefined&&round!==null&&String(round).trim()!==""){const rv=r2(num(round));
     if(Math.abs(rv)>ROUND_MAX)throw new Bad(`Round off can be at most ₹${ROUND_MAX} either way. Use Discount for a bigger reduction.`);
@@ -750,19 +763,20 @@ let me=null;
 const isOwner=()=>!!(me&&me.role==="admin");
 
 /* ============================================================ business rules (mirror app.py) */
-function buildItems(raw,oldBase,oldTax){
+function buildItems(raw,oldBase,oldTax,requireTax){
   if(!raw||!raw.length)throw new Bad("Add at least one item.");
   const ob={};Object.entries(oldBase||{}).forEach(([k,v])=>ob[k]=v.slice());const ot={};Object.entries(oldTax||{}).forEach(([k,v])=>ot[k]=v.slice());
   const out=[];
   raw.forEach(i=>{const p=DB.products.find(x=>x.id===i.product_id);if(!p)throw new Bad("A product on this bill no longer exists. Remove it and add it again.");
-    const qty=+num(i.qty).toFixed(3),rate=r2(num(i.rate));if(qty<=0)return;if(qty>100000)throw new Bad(`Check the quantity for ${p.name}.`);if(rate<0)throw new Bad(`Rate for ${p.name} can't be negative.`);
+    const qty=+num(i.qty).toFixed(3),rate=r2(num(i.rate));if(qty<=0)return;if(qty>100000)throw Object.assign(new Bad(`Check the quantity for ${p.name} — ${fq(qty)} looks too large.`),{pid:p.id,field:"qty"});if(rate<0)throw Object.assign(new Bad(`Rate for ${p.name} can't be negative.`),{pid:p.id,field:"rate"});
     const unit=UNITS.includes(i.unit)?i.unit:p.unit;const bases=ob[p.id];const base=bases&&bases.length?bases.shift():p.rate;
     const olds=ot[p.id];const o=olds&&olds.length?olds.shift():null;
+    if(requireTax&&!o&&!hasTaxInfo(p))throw Object.assign(new Bad(`${p.name} has no ${!/^\d{4,8}$/.test(String(p.hsn||""))?"HSN code":"GST rate"} yet. Fill its HSN code and GST rate to bill it (GST rules).`),{pid:p.id,field:"tax"});
     out.push({product_id:p.id,name:p.name,dept:p.dept,unit,qty,rate,base_rate:base,amount:r2(qty*rate),pos:out.length,hsn:o?o.hsn:(p.hsn||""),gst:o?o.gst:rateOf(p)})});
   if(!out.length)throw new Bad("Add at least one item with a quantity.");return out}
 function cleanHeader(d){return{customer:normCust(d.customer).slice(0,80),phone:String(d.phone||"").replace(/[^0-9+ \-]/g,"").slice(0,20),paymode:PAYMODES.includes(d.paymode)||d.paymode==="Split"?d.paymode:"Cash"}}
 function canCorrect(b){if(b.status!=="active")return[false,"This bill is cancelled."];if(isOwner())return[true,""];const rule=S().staff_correct;if(rule==="any")return[true,""];if(rule==="today"&&b.bill_date===today())return[true,""];return[false,rule==="none"?"Only the owner can correct saved bills.":"Only today's bills can be corrected. Ask the owner."]}
-function createBill(d){const items=buildItems(d.items);const h=cleanHeader(d);const cfg=taxCfg(d.buyer);const t=totalsOf(items,d.discount,d.round,cfg);checkTax(cfg,t.net,h);
+function createBill(d){const cfg=taxCfg(d.buyer);const items=buildItems(d.items,undefined,undefined,cfg.type==="regular");const h=cleanHeader(d);const t=totalsOf(items,d.discount,d.round,cfg);checkTax(cfg,t.net,h);
   const pay=buildPay(t.net,h.paymode,d.split);checkModes(pay,h.paymode);if(pay.credit>0.004&&!h.customer)throw new Bad(`₹${fmt(pay.credit)} is on credit — type the customer's name in place of "Cash" so the dues can be tracked.`);h.paymode=modeOf(pay);
   const date=today();const{series,fy,no}=nextNumber(date);
   const b={id:nextId(),fy,no,series,bill_date:date,created_at:stamp(),created_by:me.id,...h,...t,tax:cfg,pay,note:S().bill_note||"",rev:0,updated_at:null,updated_by:null,status:"active",items};DB.bills.push(b);save();return b}
@@ -784,7 +798,7 @@ function diffBill(old,nb){const ch=[],pool={};old.items.forEach(o=>(pool[o.produ
   return ch}
 function correctBill(id,d){const b=DB.bills.find(x=>x.id===id);if(!b)throw new Bad("Bill not found.");const[ok,why]=canCorrect(b);if(!ok)throw new Bad(why);
   const ob={},otx={};b.items.forEach(o=>{(ob[o.product_id]=ob[o.product_id]||[]).push(o.base_rate);(otx[o.product_id]=otx[o.product_id]||[]).push({hsn:o.hsn||"",gst:num(o.gst)})});
-  const items=buildItems(d.items,ob,otx);const h=cleanHeader(d);const bt=b.tax||{type:"none"};
+  const bt=b.tax||{type:"none"};const items=buildItems(d.items,ob,otx,bt.type==="regular");const h=cleanHeader(d);
   let cfg={...bt};if(bt.type==="regular"){const bg=String((d.buyer||{}).gstin||"").trim().toUpperCase();const pos=bg?bg.slice(0,2):((d.buyer||{}).state||bt.seller_state);
     cfg={...bt,buyer_gstin:bg,buyer_addr:String((d.buyer||{}).addr||"").trim().slice(0,160),pos,inter:!!(pos&&bt.seller_state&&pos!==bt.seller_state)}}
   const t=totalsOf(items,d.discount,d.round,cfg);checkTax(cfg,t.net,h);
@@ -856,7 +870,9 @@ function printReceipt(html,paper){
   $("pageStyle").textContent=`@page{size:${paper==="58"?48:paper==="80"?72:paper}mm ${h}mm;margin:0}`;document.body.classList.add("print-rcpt");
   setTimeout(()=>{try{window.print()}catch(e){toast("Printing isn't available on this device.",true)}},60)}
 function printPage(){$("pageStyle").textContent="@page{size:A4;margin:12mm}";document.body.classList.remove("print-rcpt");try{window.print()}catch(e){}}
-addEventListener("afterprint",()=>{document.body.classList.remove("print-rcpt");$("pageStyle").textContent="@page{margin:0}"});
+/* No clean-up after printing: on Android the print screen is made a moment AFTER window.print() returns (and
+   "afterprint" fires straight away), so clearing the receipt then made phones print the whole screen instead.
+   The receipt stays ready in the hidden print area until the next print; it never shows on screen. */
 const csv=rows=>"﻿"+rows.map(r=>r.map(v=>{v=String(v??"");return/[",\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v}).join(",")).join("\n");
 
 /* ============================================================ receipt */
@@ -869,7 +885,7 @@ function receiptHTML(b,dup,paper){
   ${CMP?`<div class="c sm">Composition taxable person, not eligible to collect tax on supplies</div>`:""}<div class="hr"></div>
   ${b.status!=="active"?`<div class="void">CANCELLED</div>`:""}${b.rev&&b.status==="active"?`<div class="tag">REVISED BILL (Rev ${b.rev})</div>`:""}${dup?`<div class="c">— Duplicate copy —</div>`:""}
   <div class="lr"><span>Bill No: <b>${label(b)}</b></span><span>${dmy(b.bill_date)}</span></div>
-  <div class="lr"><span>Time: ${hm(b.created_at)}</span><span>By: ${esc(by)}</span></div>
+  <div>Time: ${hm(b.created_at)}</div>
   <div>${REG?"Buyer":"Customer"}: ${esc(b.customer||"Cash")}${b.phone?" "+esc(b.phone):""}</div>
   ${REG&&T.buyer_gstin?`<div>Buyer GSTIN: <b>${esc(T.buyer_gstin)}</b></div>`:""}${REG&&T.buyer_addr?`<div>Address: ${esc(T.buyer_addr)}</div>`:""}
   ${REG?`<div>Place of supply: ${esc(stateName(T.pos))}</div>`:""}
@@ -907,7 +923,7 @@ function invoiceHTML(b,dup,size){const T=b.tax||{type:"none"},REG=T.type==="regu
   const buyer=`<b>${esc(b.customer||"Cash")}</b>${b.phone?` · ${esc(b.phone)}`:""}`;
   if(W)return `<div class="inv A5L">
   <div class="top"><div class="shop"><span class="nm">${esc(S().shop_name)}</span>${heads.length?`<div>${heads.map(esc).join(" · ")}</div>`:""}${gstLine}${cmpLine}</div>
-    <div class="meta"><div class="ttl">${title}</div><div>Bill No: <b>${label(b)}</b> · ${dmy(b.bill_date)} ${hm(b.created_at)}</div><div>By: ${esc(by)}</div>${tags}</div></div>
+    <div class="meta"><div class="ttl">${title}</div><div>Bill No: <b>${label(b)}</b></div><div>${dmy(b.bill_date)} ${hm(b.created_at)}</div>${tags}</div></div>
   <div class="party"><div><span class="lb">${REG?"Buyer":"Customer"}</span>${buyer}${REG&&T.buyer_gstin?`<span>GSTIN: <b>${esc(T.buyer_gstin)}</b></span>`:""}${REG&&T.buyer_addr?`<span>${esc(T.buyer_addr)}</span>`:""}</div>
     ${REG?`<div><span class="lb">Place of supply</span>${esc(stateName(T.pos))}<span class="lb">Reverse charge</span>No</div>`:""}</div>
   ${table}
@@ -918,7 +934,7 @@ function invoiceHTML(b,dup,size){const T=b.tax||{type:"none"},REG=T.type==="regu
   <div class="ttl">${title}</div>
   <div class="top"><div class="shop"><span class="nm">${esc(S().shop_name)}</span>${heads.map(l=>`<div>${esc(l)}</div>`).join("")}
       ${gstLine}${cmpLine}</div>
-    <div class="meta"><div>Bill No: <b>${label(b)}</b></div><div>Date: ${dmy(b.bill_date)}</div><div>Time: ${hm(b.created_at)}</div><div>By: ${esc(by)}</div>
+    <div class="meta"><div>Bill No: <b>${label(b)}</b></div><div>Date: ${dmy(b.bill_date)}</div><div>Time: ${hm(b.created_at)}</div>
       ${tags}</div></div>
   <div class="party"><div><div class="lb">${REG?"Buyer":"Customer"}</div>${buyer}
       ${REG&&T.buyer_addr?`<div>${esc(T.buyer_addr)}</div>`:""}${REG&&T.buyer_gstin?`<div>GSTIN: <b>${esc(T.buyer_gstin)}</b></div>`:""}</div>
@@ -1214,6 +1230,11 @@ function showPrevDue(){const el=$("prevDue");if(!el)return;const e=dueForName($(
 function setLang(l){LS.set("voiceLang",l);document.querySelectorAll("[data-lang]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lang===l))}
 function renderDepts(){const ps=activeProducts();const counts={};ps.forEach(p=>counts[p.dept]=(counts[p.dept]||0)+1);const names=Object.keys(counts).sort();if(Bill.dept!=="All"&&!counts[Bill.dept])Bill.dept="All";
   $("depts").innerHTML=[`<button class="dept" data-d="All" aria-pressed="${Bill.dept==="All"}">All<span>${ps.length}</span></button>`].concat(names.map(d=>`<button class="dept" data-d="${esc(d)}" aria-pressed="${Bill.dept===d}" style="--dc:${deptColor(d)}"><i class="dot"></i>${esc(d)}<span>${counts[d]}</span></button>`)).join("")}
+/* refresh just one product tile (its ✓ or ×qty badge) instead of redrawing every tile */
+function updTile(pid){const t=document.querySelector(`#grid .tile[data-id="${pid}"]`);if(!t){return}
+  const ls=Bill.lines.filter(l=>l.product_id===pid),inb=ls.length>0,q=+ls.reduce((a,l)=>a+num(l.qty),0).toFixed(3);
+  t.classList.toggle("inbill",inb);let qb=t.querySelector(".qb");if(!inb){if(qb)qb.remove();return}
+  if(!qb){qb=document.createElement("span");qb.className="qb num";t.prepend(qb)}qb.textContent=q>0?"×"+fq(q):"✓"}
 function renderGrid(){const ps=activeProducts();if(!ps.length){$("grid").innerHTML=`<div class="empty"><b>No products yet</b>Add or upload them on the Products page, or add one right here.<div style="margin-top:10px"><button class="btn primary" data-quickadd="">+ Add new product</button></div></div>`;$("catInfo").innerHTML=quickAddLink();return}
   const q=$("search").value.trim().toLowerCase();let list=ps.filter(p=>Bill.dept==="All"||p.dept===Bill.dept);
   if(q){const direct=list.filter(p=>p.name.toLowerCase().includes(q)||String(p.aliases||"").toLowerCase().includes(q));list=direct.length?direct:Voice.match(q,list).filter(x=>x.score>=0.6).map(x=>x.p)}   /* loose spelling: close matches only */
@@ -1232,14 +1253,18 @@ function quickAdd(name){
       <div class="field"><label for="qaUnit">Unit</label><select id="qaUnit">${UNITS.map(u=>`<option>${u}</option>`).join("")}</select></div></div>
     <div class="row"><div class="field"><label for="qaRate">Rate ₹</label><input id="qaRate" inputmode="decimal" placeholder="0"></div>
       <div class="field"><label for="qaQty">Qty on this bill</label><input id="qaQty" inputmode="decimal" placeholder="Type on the bill"></div></div>
+    ${gstType()!=="none"?`<div class="row"><div class="field"><label for="qaHsn">HSN code${needTaxInfo()?"":" (optional)"}</label><input id="qaHsn" inputmode="numeric" maxlength="8" placeholder="e.g. 1006"></div>
+      ${needTaxInfo()?`<div class="field"><label for="qaGst">GST rate</label><select id="qaGst"><option value="">Choose GST %</option>${GST_RATES.map(r=>`<option value="${r}">${r}%</option>`).join("")}</select></div>`:""}</div>`:""}
     <div class="field"><label for="qaAlias">Other names (optional)</label><input id="qaAlias" maxlength="300" placeholder="e.g. what customers call it"></div>
     <div class="row"><button class="btn primary" id="qaSave" style="flex:1">Save &amp; add to bill</button><button class="btn" data-close>Cancel</button></div>`);
   $((name?"qaRate":"qaName")).focus();
   const go=()=>{try{
-      const d=cleanProduct({name:$("qaName").value,dept:$("qaDept").value,unit:$("qaUnit").value,rate:$("qaRate").value,aliases:$("qaAlias").value});
+      const raw={name:$("qaName").value,dept:$("qaDept").value,unit:$("qaUnit").value,rate:$("qaRate").value,aliases:$("qaAlias").value,hsn:$("qaHsn")?$("qaHsn").value:"",gst:$("qaGst")?$("qaGst").value:""};
+      let d=cleanProduct(raw);   /* name, duplicate and rate first … */
       const dup=DB.products.find(x=>x.active&&x.name.toLowerCase()===d.name.toLowerCase());
       if(dup)throw new Bad(`${dup.name} is already in the list — search for it instead.`);
       if(!(num($("qaRate").value)>0))throw new Bad("Enter the rate.");
+      d=cleanProduct(raw,needTaxInfo());   /* … then HSN code and GST rate for a regular GST shop */
       const qty=$("qaQty").value.trim()===""?"":+num($("qaQty").value).toFixed(3);if(qty!==""&&!(qty>0))throw new Bad("Quantity must be more than 0, or leave it empty.");
       const p={id:nextId(),...d,active:true,added_by:me.id,added_at:stamp()};DB.products.push(p);save();
       closeModal();$("search").value="";renderDepts();addProduct(p.id,qty);toast(`${p.name} added to products and to this bill`)
@@ -1263,7 +1288,7 @@ function calc(){const items=Bill.lines.map(l=>({amount:r2(num(l.qty)*num(l.rate)
   const sub=r2(items.reduce((s,i)=>s+i.amount,0));const disc=Math.min(Math.max(num($("disc").value),0),sub);
   const A=totalsOf(items.map(i=>({...i})),disc,undefined,cfg);const auto=A.round_off;
   const man=String(Bill.round??"").trim()!=="";let T=A;if(man){try{T=totalsOf(items.map(i=>({...i})),disc,Bill.round,cfg)}catch(e){T=A}}
-  return{sub,disc,round:T.round_off,auto,manual:man,net:T.net,cfg,taxable:T.taxable,cgst:T.cgst,sgst:T.sgst,igst:T.igst,tax:T.tax}}
+  return{sub,disc,round:T.round_off,auto,manual:man,net:T.net,cfg,taxable:T.taxable,cgst:T.cgst,sgst:T.sgst,igst:T.igst,tax:T.tax_amt}}
 function totals(){const c=calc();splitStatus();$("tCount").textContent=Bill.lines.length;$("tSub").textContent=fmt(c.sub);if(document.activeElement!==$("roundOff"))$("roundOff").value=c.manual?String(Bill.round):(c.round>=0?"+":"")+fmt(c.round);
   $("rMode").textContent=c.manual?"manual":"auto";$("rMode").classList.toggle("man",c.manual);$("roundReset").hidden=!c.manual;$("tGrand").textContent=rs(c.net);
   if($("r46")){const reg=c.cfg.type==="regular",b2b=!!c.cfg.buyer_gstin,big=c.net>=50000,need=reg&&(b2b||big);
@@ -1273,17 +1298,29 @@ function totals(){const c=calc();splitStatus();$("tCount").textContent=Bill.line
   {const on=c.cfg.type==="regular";$("tTaxL").hidden=$("tTax").hidden=!on;if(on){$("tTaxL").textContent=c.cfg.inter?`IGST${c.cfg.incl?" (included)":""} · taxable ₹${fmt(c.taxable)}`:`CGST ₹${fmt(c.cgst)} + SGST ₹${fmt(c.sgst)}${c.cfg.incl?" (included)":""} · taxable ₹${fmt(c.taxable)}`;$("tTax").textContent=(c.cfg.incl?"":"+")+fmt(c.tax)}}$("tWords").textContent=c.net>0?"Rupees "+words(c.net)+" only":"";$("vBillCount").textContent=Bill.lines.length?`(${Bill.lines.length})`:"";
   if($("billFab")){$("billFab").hidden=!Bill.lines.length;$("fabCount").textContent=Bill.lines.length;const miss=Bill.lines.filter(l=>!(num(l.qty)>0)).length;$("fabTotal").textContent=miss?`${miss} qty to type`:rs(c.net)}
   Bill.lines.forEach((l,i)=>{const r=$("lines").rows[i];if(r)r.querySelector(".amt").textContent=fmt(num(l.qty)*num(l.rate))})}
-function addProduct(id,qty){const p=DB.products.find(x=>x.id===id);if(!p)return null;let l=Bill.lines.find(x=>x.product_id===id&&!x.edited);
+function addProduct(id,qty){const p=DB.products.find(x=>x.id===id);if(!p)return null;if(taxGate(p,()=>addProduct(id,qty)))return null;let l=Bill.lines.find(x=>x.product_id===id&&!x.edited);
   if(l)l.qty=+(num(l.qty)+qty).toFixed(3);else{l={k:uidk(),product_id:p.id,name:p.name,dept:p.dept,unit:p.unit,qty,rate:p.rate,base:p.rate,edited:false,gst:rateOf(p)};Bill.lines.push(l)}
-  Bill.persist();renderLines(l.k);renderGrid();if(innerWidth<=900&&$("billing").dataset.view==="cat")toast(`Added ${p.name}`);return l}
+  Bill.persist();renderLines(l.k);updTile(id);if(innerWidth<=900&&$("billing").dataset.view==="cat")toast(`Added ${p.name}`);return l}
 /* Products screen: a tap only SELECTS the product for the bill. The quantity is typed on the bill itself.
    Tapping a selected product again (before a quantity is typed) unselects it. */
+/* ask for a product's HSN code and GST rate right on the bill screen, then carry on */
+function taxFix(p,then){
+  openModal(`<h2>GST details for ${esc(p.name)}</h2><p class="note">This shop is registered under regular GST, so every item on a tax invoice needs its HSN code and GST rate. Saved to the product — you won't be asked again.</p>
+    <div class="row"><div class="field"><label for="txHsn">HSN code</label><input id="txHsn" inputmode="numeric" maxlength="8" value="${esc(p.hsn||"")}" placeholder="4 to 8 digits"></div>
+      <div class="field"><label for="txGst">GST rate</label><select id="txGst"><option value="">Choose GST %</option>${GST_RATES.map(r=>`<option value="${r}" ${p.gst!==undefined&&p.gst!==""&&num(p.gst)===r?"selected":""}>${r}%</option>`).join("")}</select></div></div>
+    <div class="row"><button class="btn primary" id="txSave" style="flex:1">Save</button><button class="btn" data-close>Cancel</button></div>`);
+  $(p.hsn?"txGst":"txHsn").focus();
+  const go=()=>{try{const d=cleanProduct({...p,hsn:$("txHsn").value,gst:$("txGst").value},true);p.hsn=d.hsn;p.gst=d.gst;save();
+      Bill.lines.forEach(l=>{if(l.product_id===p.id&&!Bill.editing)l.gst=d.gst});closeModal();toast(`${p.name}: HSN ${p.hsn} · GST ${p.gst}%`);if(then)then()}catch(err){toast(err instanceof Bad?err.message:"Couldn't save.",true)}};
+  $("txSave").onclick=go;$("txHsn").onkeydown=e=>{if(e.key==="Enter")go()}}
+const taxGate=(p,then)=>{if(billTaxType()==="regular"&&!hasTaxInfo(p)&&!(Bill.editing&&Bill.lines.some(l=>l.product_id===p.id))){taxFix(p,then);return true}return false};
 function selectProduct(id){const p=DB.products.find(x=>x.id===id);if(!p)return;
   const i=Bill.lines.findIndex(x=>x.product_id===id);
-  if(i>=0){const l=Bill.lines[i];if(!(num(l.qty)>0)){Bill.lines.splice(i,1);Bill.persist();renderLines();renderGrid();return}
+  if(i>=0){const l=Bill.lines[i];if(!(num(l.qty)>0)){Bill.lines.splice(i,1);Bill.persist();renderLines();updTile(id);return}
     toast(`${p.name} is already on the bill — change its quantity there`);return}
+  if(taxGate(p,()=>selectProduct(id)))return;
   const l={k:uidk(),product_id:p.id,name:p.name,dept:p.dept,unit:p.unit,qty:"",rate:p.rate,base:p.rate,edited:false,gst:rateOf(p)};Bill.lines.push(l);
-  Bill.persist();renderLines(innerWidth>900?l.k:undefined);renderGrid()}
+  Bill.persist();renderLines(innerWidth>900?l.k:undefined);updTile(id)}
 /* put the cursor in the first quantity still to be typed */
 function focusNextQty(after){const rows=[...document.querySelectorAll("#lines tr")];let start=after?rows.indexOf(after.closest("tr"))+1:0;
   for(let n=0;n<rows.length;n++){const r=rows[(start+n)%rows.length];const q=r.querySelector("[data-f=qty]");if(q&&!(num(q.value)>0)){q.focus();q.select();r.scrollIntoView({block:"center"});return true}}
@@ -1312,14 +1349,14 @@ function bindBilling(){
   $("corrCancel").onclick=()=>{endCorrection();toast("Correction cancelled. The bill was not changed.")};
   $("lines").addEventListener("input",e=>{const f=e.target.dataset.f;if(!f)return;const l=L().find(x=>x.k===e.target.closest("tr").dataset.k);l[f]=e.target.value;
     if(f==="rate"){const was=l.edited;l.edited=Math.abs(num(l.rate)-num(l.base))>.004;if(was!==l.edited){Bill.persist();renderLines();const inp=document.querySelector(`tr[data-k="${l.k}"] [data-f=rate]`);inp.focus();inp.setSelectionRange(99,99);return}}
-    if(f==="qty"){e.target.classList.toggle("needq",!(num(l.qty)>0));renderGrid()}
+    if(f==="qty"){e.target.classList.toggle("needq",!(num(l.qty)>0));updTile(l.product_id)}
     Bill.persist();totals()});
   $("lines").addEventListener("change",e=>{if(e.target.dataset.f==="unit")Bill.persist()});
   $("lines").addEventListener("focusin",e=>{if(e.target.matches("input"))document.body.classList.add("typing")});
   $("lines").addEventListener("focusout",()=>setTimeout(()=>{if(!document.activeElement||!document.activeElement.closest("#lines"))document.body.classList.remove("typing")},50));
   $("lines").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.dataset.f==="qty"){e.preventDefault();focusNextQty(e.target)}});
   $("lines").addEventListener("click",e=>{const tr=e.target.closest("tr");if(!tr)return;const i=L().findIndex(x=>x.k===tr.dataset.k);
-    if(e.target.closest("[data-del]")){L().splice(i,1);Bill.persist();renderLines();renderGrid()}
+    if(e.target.closest("[data-del]")){const pid=L()[i].product_id;L().splice(i,1);Bill.persist();renderLines();updTile(pid)}
     if(e.target.closest("[data-reset]")){L()[i].rate=L()[i].base;L()[i].edited=false;Bill.persist();renderLines()}});
   $("grid").onclick=e=>{const qa=e.target.closest("[data-quickadd]");if(qa){quickAdd(qa.dataset.quickadd);return}const t=e.target.closest(".tile");if(t)selectProduct(+t.dataset.id)};
   $("catInfo").onclick=e=>{const qa=e.target.closest("[data-quickadd]");if(qa)quickAdd($("search").value.trim());if(e.target.closest("[data-fixgroups]"))go("products")};
@@ -1345,6 +1382,9 @@ function bindBilling(){
       else{const b=createBill(body);Bill.reset();if(!shownModes().includes("Cash"))Bill.paymode=shownModes().find(m=>PAID.includes(m))||"Cash";renderBilling();showReceipt(b,false,`✓ Bill ${label(b)} saved · ${rs(b.net)}`,true)}
     }catch(err){toast(err instanceof Bad?err.message:"Something went wrong. Try again.",true);
       if(err instanceof Bad&&/customer's name|buyer's name/.test(err.message)){const c=$("custName");c.focus();c.select()}
+      else if(err instanceof Bad&&err.pid&&err.field==="tax"){const p=DB.products.find(x=>x.id===err.pid);if(p)taxFix(p,()=>toast("Saved — press Save bill again"))}
+      else if(err instanceof Bad&&err.pid){const l=L().find(x=>x.product_id===err.pid&&(err.field!=="qty"||num(x.qty)>100000))||L().find(x=>x.product_id===err.pid);
+        const inp=l&&document.querySelector(`#lines tr[data-k="${l.k}"] [data-f=${err.field}]`);if(inp){setView("bill");inp.focus();inp.select();inp.closest("tr").scrollIntoView({block:"center"})}}
       else if(err instanceof Bad&&/buyer's address/.test(err.message)&&$("bAddr")){$("buyerBox").hidden=false;$("buyerTog").hidden=true;$("bAddr").focus()}}};
   $("copyBill").onclick=async()=>{if(!L().length){toast("Bill is empty",true);return}const c=calc();
     let t=`*${S().shop_name}*\n${Bill.editing?"Bill No: "+label(Bill.editing)+" (revised)\n":""}Date: ${dmy(today())}\n`;if(normCust($("custName").value))t+=`Customer: ${normCust($("custName").value)}\n`;
@@ -1380,6 +1420,7 @@ function logEntryHTML(c){const d=c.after_net-c.before_net;
   <div class="logbody"><ul class="chg">${c.changes.map(x=>`<li class="${x.t}">${esc(x.s)}</li>`).join("")}</ul>
   <div class="netchg">Net ${rs(c.before_net)} → ${rs(c.after_net)} <span class="${d<0?"down":"up"}">(${d<0?"−":"+"}${rs(Math.abs(d))})</span></div></div></div>`}
 let billsMode="date",billsModeSet=false;
+const BILL_PAGE=150;
 function renderBills(){
   const A=isOwner(),mode=A?billsMode:"date",d=billsDate;
   const pending=A?DB.bills.filter(b=>!isVerified(b)).length:0;
@@ -1388,12 +1429,16 @@ function renderBills(){
     ${mode==="date"?`<div class="field"><label for="bDate">Date</label><input type="date" id="bDate" value="${d}" max="${today()}"></div>`:""}
     <div class="field"><label for="bQ">Find</label><input id="bQ" type="search" placeholder="Bill no. or customer"></div></div></div>
   <div class="split"><div class="card" style="padding:0"><div class="tw"><table><thead><tr><th>Bill</th><th>${mode==="verify"?"Date":"Time"}</th><th>Customer</th><th>Paid</th><th class="r">Net ₹</th><th>By</th>${A?"<th>Check</th>":""}</tr></thead><tbody id="bList"></tbody></table></div>
+    <div class="row" style="padding:10px 14px" id="bMoreRow" hidden><button class="btn" id="bMore" type="button" style="flex:1">Show more</button></div>
     <div class="empty" id="bEmpty" hidden></div><div class="note" id="bSum" style="padding:10px 14px"></div></div>
     <div class="card" id="bDetail"><p class="note">${mode==="verify"?"Tap a bill to check it. After checking, press Verify & next.":"Select a bill to see it, reprint it or correct it."}</p></div></div>`;
   const all=()=>mode==="verify"?DB.bills.filter(b=>!isVerified(b)).sort((a,b)=>a.id-b.id):DB.bills.filter(b=>b.bill_date===d).sort((a,b)=>b.id-a.id);
+  let bLimit=BILL_PAGE;   /* long lists are drawn 150 at a time */
   const draw=()=>{const q=$("bQ").value.trim().toLowerCase().replace(/^#/,"");const L=all();
     const list=L.filter(b=>!q||String(b.no)===q||label(b)===q||(b.customer||"cash").toLowerCase().includes(q));
-    $("bList").innerHTML=list.map(b=>`<tr class="click${b.status!=="active"?" cx":""}${billSel===b.id?" sel":""}" data-id="${b.id}"><td class="num"><b>${label(b)}</b> ${b.rev&&b.status==="active"?'<span class="pill">Corrected</span>':""}${b.status!=="active"?'<span class="pill red">Cancelled</span>':""}</td>
+    const selAt=list.findIndex(b=>b.id===billSel);if(selAt>=bLimit)bLimit=selAt+1;
+    $("bMoreRow").hidden=list.length<=bLimit;$("bMore").textContent=`Show more (${list.length-bLimit} more)`;
+    $("bList").innerHTML=list.slice(0,bLimit).map(b=>`<tr class="click${b.status!=="active"?" cx":""}${billSel===b.id?" sel":""}" data-id="${b.id}"><td class="num"><b>${label(b)}</b> ${b.rev&&b.status==="active"?'<span class="pill">Corrected</span>':""}${b.status!=="active"?'<span class="pill red">Cancelled</span>':""}</td>
       <td class="num">${mode==="verify"?dmy(b.bill_date)+" "+hm(b.created_at):hm(b.created_at)}</td><td>${esc(b.customer||"Cash")}</td><td>${esc(modeOf(payOf(b)))}${dueOf(b)>0.004?` <span class="pill red">Due ₹${fmt(dueOf(b))}</span>`:""}</td><td class="r num">${fmt(b.net)}</td><td>${esc(uname(b.created_by))}</td>${A?`<td>${verifyPill(b)}</td>`:""}</tr>`).join("");
     $("bEmpty").hidden=list.length>0;
     $("bEmpty").innerHTML=mode==="verify"?"<b>All bills verified</b>New bills and any bill changed after you verified it will appear here.":"<b>No bills</b>Bills saved on this date will show here.";
@@ -1402,6 +1447,7 @@ function renderBills(){
     const v=b.verified;const vtxt=isVerified(b)?`Verified by ${esc(uname(v.by))} on ${dmy(v.at)} ${hm(v.at)}`:changedAfterVerify(b)?`You verified this on ${dmy(v.at)} ${hm(v.at)}, but it was changed afterwards. Check the change history below.`:"Not verified yet";
     $("bDetail").innerHTML=`<div class="row" style="justify-content:space-between;align-items:center"><h2>Bill ${label(b)}</h2>${!active?'<span class="pill red">Cancelled</span>':b.rev?`<span class="pill">Corrected ${b.rev}×</span>`:""}</div>
       ${A?`<div class="row" style="align-items:center;justify-content:space-between"><span class="note">${verifyPill(b)} ${vtxt}</span>${isVerified(b)?`<button class="btn sm" id="unverify">Undo verify</button>`:`<button class="btn primary" id="verify">${mode==="verify"?"Verify &amp; next":"Mark verified"}</button>`}</div>`:""}
+      <p class="note">Made by <b>${esc(uname(b.created_by))}</b> at ${hm(b.created_at)}${b.updated_by&&b.rev?` · last changed by <b>${esc(uname(b.updated_by))}</b> ${dmy(b.updated_at)} ${hm(b.updated_at)}`:""} <span class="note">(shown here only — not printed)</span></p>
       <div class="rprev">${receiptHTML(b,false)}</div>
       ${dueOf(b)>0.004?`<div class="row" style="align-items:center;justify-content:space-between"><span class="note"><b class="down">₹${fmt(dueOf(b))} still due</b> on this bill (${esc(payText(payOf(b)))})</span><button class="btn primary" id="billRecv">Receive payment</button></div>`:""}
       <div class="row"><button class="btn" id="reprint">Reprint</button>${ok?`<button class="btn" id="correct">Correct this bill</button>`:`<span class="note">${esc(why)}</span>`}${active?`<button class="btn danger" id="cxGo">Cancel bill</button>`:""}</div>
@@ -1413,7 +1459,8 @@ function renderBills(){
     if($("cxGo"))$("cxGo").onclick=e=>{const btn=e.currentTarget;if(!btn.classList.contains("armed")){btn.classList.add("armed");btn.textContent=`Tap again to cancel ${label(b)}`;setTimeout(()=>{if(btn.isConnected){btn.classList.remove("armed");btn.textContent="Cancel bill"}},3000);return}
       try{cancelBill(b.id);toast(`Bill ${label(b)} cancelled`);show(b.id);updateBadge()}catch(err){toast(err.message,true)}};
     if(innerWidth<=900)$("bDetail").scrollIntoView({behavior:"smooth"})};
-  $("bList").onclick=e=>{const tr=e.target.closest("tr");if(tr)show(+tr.dataset.id)};$("bQ").oninput=draw;
+  $("bList").onclick=e=>{const tr=e.target.closest("tr");if(tr)show(+tr.dataset.id)};$("bQ").oninput=()=>{bLimit=BILL_PAGE;draw()};
+  $("bMore").onclick=()=>{bLimit+=BILL_PAGE;draw()};
   document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{billsMode=b.dataset.mode;billsModeSet=true;billSel=null;renderBills()});
   if($("bDate"))$("bDate").onchange=e=>{billsDate=e.target.value||today();billSel=null;renderBills()};
   draw();
@@ -1424,6 +1471,7 @@ function updateBadge(){const btn=document.querySelector('[data-go="bills"]');if(
 
 /* ============================================================ day end report */
 let repFrom=today(),repTo=today();
+const REG_ROWS=300;
 function renderReport(){
   const R=dayReport(repFrom,repTo),s=R.s,top=(R.depts[0]&&R.depts[0].amount)||1;
   $("view").innerHTML=`<div class="head"><h1 class="title">Day end report</h1><div class="row">
@@ -1464,7 +1512,7 @@ function renderReport(){
       <tfoot><tr><td>Total</td><td class="r num">${fmt(R.manualRound.reduce((a,x)=>a+x.round,0))}</td><td></td></tr></tfoot></table></div></div>`:""}
     ${isOwner()?`<div class="card"><h3>Corrections &amp; cancellations</h3>${R.corr.length?`<div class="stack">${R.corr.map(logEntryHTML).join("")}</div>`:`<p class="note">No bills were corrected or cancelled.</p>`}</div>`:""}
     <div class="card" style="padding:0"><h3 style="padding:14px 16px 0">Bill register</h3><div class="tw"><table><thead><tr><th>Bill</th><th>Date</th><th>Time</th><th>Customer</th><th>Paid</th><th class="r">Gross</th><th class="r">Disc.</th><th class="r">Net ₹</th><th>By</th></tr></thead>
-      <tbody>${R.bills.map(b=>`<tr class="${b.status!=="active"?"cx":""}"><td class="num">${label(b)}${b.rev&&b.status==="active"?` <span class="pill">Rev ${b.rev}</span>`:""}</td><td class="num">${dmy(b.bill_date)}</td><td class="num">${hm(b.created_at)}</td><td>${esc(b.customer||"Cash")}</td><td>${esc(payText(payOf(b)))}</td><td class="r num">${fmt(b.subtotal)}</td><td class="r num">${fmt(b.discount)}</td><td class="r num">${fmt(b.net)}</td><td>${esc(uname(b.created_by))}</td></tr>`).join("")||`<tr><td colspan="9" class="note">No bills</td></tr>`}</tbody></table></div></div>
+      <tbody>${R.bills.slice(-REG_ROWS).reverse().map(b=>`<tr class="${b.status!=="active"?"cx":""}"><td class="num">${label(b)}${b.rev&&b.status==="active"?` <span class="pill">Rev ${b.rev}</span>`:""}</td><td class="num">${dmy(b.bill_date)}</td><td class="num">${hm(b.created_at)}</td><td>${esc(b.customer||"Cash")}</td><td>${esc(payText(payOf(b)))}</td><td class="r num">${fmt(b.subtotal)}</td><td class="r num">${fmt(b.discount)}</td><td class="r num">${fmt(b.net)}</td><td>${esc(uname(b.created_by))}</td></tr>`).join("")||`<tr><td colspan="9" class="note">No bills</td></tr>`}</tbody></table></div>${R.bills.length>REG_ROWS?`<p class="note" style="padding:6px 16px 12px">Showing the latest ${REG_ROWS} of ${R.bills.length} bills. <b>Download bill register (CSV)</b> has all of them.</p>`:""}</div>
   </div>`;
   $("rFrom").onchange=e=>{repFrom=e.target.value||today();if(repTo<repFrom)repTo=repFrom;renderReport()};$("rTo").onchange=e=>{repTo=e.target.value||today();if(repTo<repFrom)repFrom=repTo;renderReport()};
   document.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{const n=+b.dataset.q,d=new Date();if(n===1){d.setDate(d.getDate()-1);repFrom=repTo=isoDate(d)}else if(n===7){repTo=isoDate(d);d.setDate(d.getDate()-6);repFrom=isoDate(d)}else repFrom=repTo=today();renderReport()});
@@ -1636,7 +1684,7 @@ function receiveDialog(key){const e=creditBook().find(x=>x.key===key);if(!e){toa
       $("rcPrint").onclick=()=>printReceipt(rcvSlip(r,printSize()),printSize());render()}catch(err){toast(err instanceof Bad?err.message:"Couldn't save the payment.",true)}}};
   draw()}
 function rcvSlip(r,paper){paper=paper||printSize();return `<div class="rcpt w${paper}${thermalClass(paper)}"><div class="c b big">${esc(S().shop_name)}</div>${headLines().map(l=>`<div class="c">${esc(l)}</div>`).join("")}<div class="hr"></div>
-  <div class="c b">PAYMENT RECEIVED</div><div class="lr"><span>${dmy(r.at)} ${hm(r.at)}</span><span>By: ${esc(uname(r.by))}</span></div><div>From: <b>${esc(r.name)}</b>${r.phone?" "+esc(r.phone):""}</div><div class="hr"></div>
+  <div class="c b">PAYMENT RECEIVED</div><div>${dmy(r.at)} ${hm(r.at)}</div><div>From: <b>${esc(r.name)}</b>${r.phone?" "+esc(r.phone):""}</div><div class="hr"></div>
   ${r.alloc.map(a=>{const b=DB.bills.find(x=>x.id===a.bill_id);return `<div class="lr"><span>Bill ${b?label(b):"?"}</span><span>${fmt(a.amount)}</span></div>`}).join("")}
   <div class="hr"></div><div class="lr net"><span>RECEIVED (${esc(r.mode)})</span><span>₹${fmt(r.amount)}</span></div><div class="lr"><span>Balance due</span><span>${fmt(r.after)}</span></div><div class="hr"></div><div class="c">${esc(S().footer)}</div></div>`}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-rprint]");if(!b)return;const r=(DB.receipts||[]).find(x=>x.id===+b.dataset.rprint);if(r)printReceipt(rcvSlip(r,printSize()),printSize())});
@@ -1654,9 +1702,10 @@ function renderLog(){
 }
 
 /* ============================================================ products */
-function cleanProduct(d){const name=String(d.name||"").trim();if(!name)throw new Bad("Enter the item name.");const rate=num(d.rate);if(rate<0)throw new Bad("Rate can't be negative.");
-  const hsn=String(d.hsn??"").replace(/\s/g,"");if(hsn&&!/^\d{4,8}$/.test(hsn))throw new Bad(`HSN code of ${name} should be 4 to 8 digits.`);
+function cleanProduct(d,strict){const name=String(d.name||"").trim();if(!name)throw new Bad("Enter the item name.");const rate=num(d.rate);if(rate<0)throw new Bad("Rate can't be negative.");
+  const hsn=normHsn(d.hsn);if(hsn&&!/^\d{4,8}$/.test(hsn))throw new Bad(`HSN code of ${name} should be 4 to 8 digits.`);
   let gst="";const gs=String(d.gst??"").replace("%","").trim();if(gs!==""){gst=num(gs);if(!GST_RATES.includes(gst))throw new Bad(`GST rate of ${name} should be one of ${GST_RATES.join(", ")}%.`)}
+  if(strict&&!hsn)throw new Bad(`Enter the HSN code of ${name} — needed for GST bills.`);if(strict&&gst==="")throw new Bad(`Choose the GST rate of ${name} — needed for GST bills.`);
   return{name:name.slice(0,120),dept:(String(d.dept||"").trim()||"General").slice(0,60),unit:normUnit(d.unit),rate:r2(rate),aliases:String(d.aliases||"").split(",").map(a=>a.trim()).filter(Boolean).join(", ").slice(0,300),hsn,gst}}
 function parseCSV(t){const rows=[];let row=[],cur="",q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){cur+='"';i++}else q=false}else cur+=c}else if(c=='"')q=true;else if(c==","||c=="\t"){row.push(cur);cur=""}else if(c=="\n"||c=="\r"){if(c=="\r"&&t[i+1]=="\n")i++;row.push(cur);rows.push(row);row=[];cur=""}else cur+=c}
   if(cur||row.length){row.push(cur);rows.push(row)}return rows.filter(r=>r.some(x=>String(x).trim()))}
@@ -1683,17 +1732,22 @@ async function readXlsx(buf){
 function importRows(rows,replace){if(!rows.length)throw new Bad("The file is empty.");const h=rows[0].map(x=>String(x).trim().toLowerCase());const find=re=>h.findIndex(x=>re.test(x));
   let ni=find(/item|name|product|particular|description/),di=find(/dep|categ|section|group/),ui=find(/unit|uom|measure/),ri=h.findIndex(x=>/rate|price|mrp|amount/.test(x)&&!/gst|tax|hsn|igst|cgst/.test(x)),ai=find(/alias|other name|hindi|local/),hi=find(/hsn|sac/),gi=h.findIndex(x=>/gst|tax/.test(x)&&!/hsn|gstin|incl|excl/.test(x));let body=rows.slice(1);
   if(ni<0&&ri<0){const w=rows[0].length;if(w<2||!/^\s*[\d.,₹]+\s*$/.test(String(rows[0][w-1])))throw new Bad("Couldn't find the Item Name and Rate columns. The first row should be: Item Name, Department, Unit, Rate.");ni=0;ri=w-1;di=w>3?1:-1;ui=w>3?2:w>2?1:-1;body=rows}if(ni<0)throw new Bad("Couldn't find an Item Name column. Check the header row.");
-  const cell=(r,i)=>i>=0&&i<r.length&&r[i]!=null?String(r[i]).trim():"";const items=body.map(r=>({name:cell(r,ni).slice(0,120),dept:(cell(r,di)||"General").slice(0,60),unit:normUnit(cell(r,ui)),rate:r2(Math.max(num(cell(r,ri)),0)),aliases:cell(r,ai).slice(0,300),hsn:cell(r,hi).replace(/\s/g,"").replace(/\.0+$/,""),gst:cell(r,gi).replace("%","")})).filter(x=>x.name);
+  const cell=(r,i)=>i>=0&&i<r.length&&r[i]!=null?String(r[i]).trim():"";const items=body.map(r=>({name:cell(r,ni).slice(0,120),dept:(cell(r,di)||"General").slice(0,60),unit:normUnit(cell(r,ui)),rate:r2(Math.max(num(cell(r,ri)),0)),aliases:cell(r,ai).slice(0,300),hsn:normHsn(cell(r,hi)),gst:cell(r,gi).replace("%","")})).filter(x=>x.name);
   if(!items.length)throw new Bad("No product rows found under the header.");
   items.forEach((n,k)=>{if(n.hsn&&!/^\d{4,8}$/.test(n.hsn))throw new Bad(`Row ${k+2}: HSN code "${n.hsn}" of ${n.name} should be 4 to 8 digits.`);
     if(n.gst!==""){let g=num(n.gst);if(g>0&&g<1&&GST_RATES.includes(r2(g*100)))g=r2(g*100);if(!GST_RATES.includes(g))throw new Bad(`Row ${k+2}: GST rate "${n.gst}" of ${n.name} should be one of ${GST_RATES.join(", ")}%.`);n.gst=g}});
   if(replace)DB.products.forEach(p=>p.active=false);let added=0,updated=0;
   items.forEach(n=>{const ex=DB.products.filter(p=>p.name.toLowerCase()===n.name.toLowerCase()).sort((a,b)=>b.active-a.active)[0];
-    if(ex){Object.assign(ex,{dept:n.dept,unit:n.unit,rate:n.rate,active:true});if(n.aliases)ex.aliases=n.aliases;if(hi>=0&&n.hsn)ex.hsn=n.hsn;if(gi>=0&&n.gst!=="")ex.gst=n.gst;updated++}else{DB.products.push({id:nextId(),...n,active:true});added++}});save();return `Upload done: ${added} new, ${updated} updated.`}
+    if(ex){Object.assign(ex,{dept:n.dept,unit:n.unit,rate:n.rate,active:true});if(n.aliases)ex.aliases=n.aliases;if(hi>=0&&n.hsn)ex.hsn=n.hsn;if(gi>=0&&n.gst!=="")ex.gst=n.gst;updated++}else{DB.products.push({id:nextId(),...n,active:true});added++}});save();const miss=needTaxInfo()?missingTaxInfo().length:0;return `Upload done: ${added} new, ${updated} updated.`+(miss?` ${miss} product${miss>1?"s still need":" still needs"} HSN code and GST rate before billing.`:"")}
+const PROD_PAGE=100;
 function renderProducts(){
   const ps=activeProducts(),depts=[...new Set(ps.map(p=>p.dept))];const GT=gstType(),G=GT!=="none",GR=GT==="regular";
   const noRate=GR?ps.filter(p=>p.gst===undefined||p.gst===null||p.gst===""):[],noHsn=G?ps.filter(p=>!p.hsn):[];
-  const gstSel=(v,attr)=>`<select class="inp" ${attr}><option value="" ${v===undefined||v===null||v===""?"selected":""}>GST default ${num(S().gst_default)}%</option>${GST_RATES.map(r=>`<option value="${r}" ${v!==""&&v!==undefined&&v!==null&&num(v)===r?"selected":""}>GST ${r}%</option>`).join("")}</select>`;
+  const gstSel=(v,attr)=>`<select class="inp${GR&&(v===undefined||v===null||v==="")&&!/nGst/.test(attr)?" miss":""}" ${attr}><option value="" ${v===undefined||v===null||v===""?"selected":""}>${GR?"Choose GST %":"GST —"}</option>${GST_RATES.map(r=>`<option value="${r}" ${v!==""&&v!==undefined&&v!==null&&num(v)===r?"selected":""}>GST ${r}%</option>`).join("")}</select>`;
+  const pRow=p=>`<tr data-id="${p.id}"><td><input type="checkbox" data-pick aria-label="Tick ${esc(p.name)}"></td><td><input class="inp" data-f="name" value="${esc(p.name)}" maxlength="120" style="width:100%;min-width:150px" aria-label="Item name"></td><td><select class="inp" data-g aria-label="Group of ${esc(p.name)}" style="border-left:4px solid ${deptColor(p.dept)}">${depts.slice().sort().map(d=>`<option ${d===p.dept?"selected":""}>${esc(d)}</option>`).join("")}<option value="__new">+ New group…</option></select></td>
+        <td><select class="inp" data-f="unit" aria-label="Unit">${UNITS.map(u=>`<option ${u===p.unit?"selected":""}>${u}</option>`).join("")}</select></td><td class="r"><input class="inp num" data-f="rate" value="${p.rate}" inputmode="decimal" style="width:90px;text-align:right" aria-label="Rate"></td>
+        <td class="gx"><input class="inp num${GR&&!/^\d{4,8}$/.test(String(p.hsn||""))?" miss":""}" data-f="hsn" value="${esc(p.hsn||"")}" inputmode="numeric" maxlength="8" style="width:90px;text-align:left" aria-label="HSN code" placeholder="HSN"></td><td class="gx gr">${gstSel(p.gst,'data-f="gst" aria-label="GST rate"')}</td>
+        <td><input class="inp" data-f="aliases" value="${esc(p.aliases)}" maxlength="300" style="width:100%;min-width:130px" aria-label="Other names" placeholder="Other names"></td><td style="white-space:nowrap"><button class="btn sm" data-save hidden>Save</button> <button class="btn sm danger" data-del>Delete</button></td></tr>`;
   $("view").innerHTML=`<div class="head"><h1 class="title">Products</h1></div><div class="stack"><div class="twocol">
     <div class="card"><h2>Upload product list</h2><p class="note">Excel (.xlsx) or CSV with columns <b>Item Name, Department, Unit, Rate</b>. Optional <b>Alias</b> column holds other names people say for the item (e.g. <i>chini, shakkar</i> for Sugar) so voice and search find it.${G?` Add <b>HSN</b>${GR?" and <b>GST %</b>":""} columns for GST.`:""}</p>
       <div class="row"><div class="field"><label for="upMode">When uploading</label><select id="upMode"><option value="merge">Add new, update matching names</option><option value="replace">Replace the whole list</option></select></div>
@@ -1705,7 +1759,8 @@ function renderProducts(){
         <div class="field" style="flex:2 1 180px"><label for="nAlias">Other names (comma separated)</label><input id="nAlias" placeholder="e.g. anda, ande" maxlength="300"></div></div>
       ${G?`<div class="row"><div class="field"><label for="nHsn">HSN code</label><input id="nHsn" inputmode="numeric" maxlength="8" placeholder="e.g. 1006"></div>${GR?`<div class="field"><label for="nGst">GST rate</label>${gstSel("",'id="nGst"')}</div>`:""}</div>`:""}
       <div><button class="btn primary" id="nAdd">Add product</button></div></div></div>
-    ${noRate.length||noHsn.length?`<div class="gwarn"><b>GST details missing:</b> ${noRate.length?`${noRate.length} product(s) have no GST rate (they use the default ${num(S().gst_default)}%)`:""}${noRate.length&&noHsn.length?"; ":""}${noHsn.length?`${noHsn.length} product(s) have no HSN code`:""}. Type <b>no gst</b> or <b>no hsn</b> in the filter below to see them.</div>`:""}
+    ${GR&&missingTaxInfo().length?`<div class="gwarn" id="taxMiss"><b>${missingTaxInfo().length} product${missingTaxInfo().length>1?"s need":" needs"} HSN code and GST rate.</b> As a regular GST shop, a product can't be billed until both are filled. <button class="btn sm" id="showMiss" type="button">Show them</button></div>`:""}
+    ${!GR&&G&&noHsn.length?`<div class="gwarn"><b>${noHsn.length} product(s) have no HSN code.</b> Type <b>no hsn</b> in the filter below to see them.</div>`:""}
     ${ps.length?`<div class="card"><h2>Fix product groups</h2>
       <p class="note">Put in the wrong group? Change the group in the list below and it moves at once. To move many, tick them and use <b>Move ticked</b>. Reports follow the corrected group.</p>
       <div class="row"><div class="field"><label for="bulkDept">Move ticked products to</label><select id="bulkDept">${depts.sort().map(d=>`<option>${esc(d)}</option>`).join("")}<option value="__new">+ New group…</option></select></div>
@@ -1715,11 +1770,8 @@ function renderProducts(){
     <div class="card" style="padding:0"><div class="row" style="justify-content:space-between;padding:14px 16px 0"><h2>Product list (<span id="pCount">${ps.length}</span>)</h2><input class="inp" id="pFilter" type="search" placeholder="Filter" style="max-width:260px"></div>
       <p class="note" style="padding:0 16px">Change a group and it saves at once. For name, unit, rate or other names, edit the row and press Save. A new rate applies to bills made from now on.</p>
       <div class="tw"><table class="ptable${G?"":" nogst"}${GR?"":" nogst2"}"><thead><tr><th><input type="checkbox" id="pAll" aria-label="Tick all shown"></th><th>Item name</th><th>Group</th><th>Unit</th><th class="r">Rate ₹${GR?(gstIncl()?" (incl. GST)":" (excl. GST)"):""}</th><th class="gx">HSN</th><th class="gx gr">GST</th><th>Other names</th><th></th></tr></thead><tbody id="pList">
-      ${ps.map(p=>`<tr data-id="${p.id}"><td><input type="checkbox" data-pick aria-label="Tick ${esc(p.name)}"></td><td><input class="inp" data-f="name" value="${esc(p.name)}" maxlength="120" style="width:100%;min-width:150px" aria-label="Item name"></td><td><select class="inp" data-g aria-label="Group of ${esc(p.name)}" style="border-left:4px solid ${deptColor(p.dept)}">${depts.slice().sort().map(d=>`<option ${d===p.dept?"selected":""}>${esc(d)}</option>`).join("")}<option value="__new">+ New group…</option></select></td>
-        <td><select class="inp" data-f="unit" aria-label="Unit">${UNITS.map(u=>`<option ${u===p.unit?"selected":""}>${u}</option>`).join("")}</select></td><td class="r"><input class="inp num" data-f="rate" value="${p.rate}" inputmode="decimal" style="width:90px;text-align:right" aria-label="Rate"></td>
-        <td class="gx"><input class="inp num" data-f="hsn" value="${esc(p.hsn||"")}" inputmode="numeric" maxlength="8" style="width:90px;text-align:left" aria-label="HSN code" placeholder="HSN"></td><td class="gx gr">${gstSel(p.gst,'data-f="gst" aria-label="GST rate"')}</td>
-        <td><input class="inp" data-f="aliases" value="${esc(p.aliases)}" maxlength="300" style="width:100%;min-width:130px" aria-label="Other names" placeholder="Other names"></td><td style="white-space:nowrap"><button class="btn sm" data-save hidden>Save</button> <button class="btn sm danger" data-del>Delete</button></td></tr>`).join("")}
-      </tbody></table></div>${ps.length?"":`<div class="empty"><b>No products yet</b>Upload your list or add products above.</div>`}</div></div>
+      ${ps.slice(0,PROD_PAGE).map(pRow).join("")}
+      </tbody></table></div><div class="row" style="padding:10px 16px" id="pMoreRow" ${ps.length>PROD_PAGE?"":"hidden"}><button class="btn" id="pMore" type="button" style="flex:1">Show more</button><span class="note" id="pShown"></span></div>${ps.length?"":`<div class="empty"><b>No products yet</b>Upload your list or add products above.</div>`}</div></div>
     <datalist id="deptList">${depts.map(d=>`<option value="${esc(d)}">`).join("")}</datalist>`;
   const rowData=tr=>{const pp=DB.products.find(x=>x.id===+tr.dataset.id)||{};const o={dept:pp.dept,hsn:pp.hsn||"",gst:pp.gst??""};tr.querySelectorAll("[data-f]").forEach(i=>o[i.dataset.f]=i.value);return o};
   const moveTo=(ids,dept)=>{dept=String(dept||"").trim().slice(0,60);if(!dept){toast("Enter a group name.",true);return false}
@@ -1739,10 +1791,19 @@ function renderProducts(){
   const dirty=e=>{if(e.target.closest("[data-pick],[data-g]"))return;const tr=e.target.closest("tr");if(tr)tr.querySelector("[data-save]").hidden=false};$("pList").oninput=dirty;$("pList").onchange=dirty;
   $("pList").onkeydown=e=>{if(e.key==="Enter"){const s=e.target.closest("tr").querySelector("[data-save]");if(!s.hidden)s.click()}};
   $("pList").onclick=e=>{const tr=e.target.closest("tr");if(!tr)return;const id=+tr.dataset.id,p=DB.products.find(x=>x.id===id);
-    if(e.target.closest("[data-save]")){try{const d=cleanProduct(rowData(tr));if(DB.products.some(x=>x.active&&x.id!==id&&x.name.toLowerCase()===d.name.toLowerCase()))throw new Bad(`Another product is already called ${d.name}.`);Object.assign(p,d);save();tr.querySelector("[data-save]").hidden=true;toast(`${p.name} saved · ₹${fmt(p.rate)} per ${p.unit}${GR?` · GST ${rateOf(p)}%`:""}`)}catch(err){toast(err.message,true)}}
-    const del=e.target.closest("[data-del]");if(del){if(!del.classList.contains("armed")){del.classList.add("armed");del.textContent="Sure?";setTimeout(()=>{del.classList.remove("armed");del.textContent="Delete"},2500);return}p.active=false;save();tr.remove();$("pCount").textContent=$("pList").rows.length;toast("Product removed from the list")}};
-  $("pFilter").oninput=e=>{const q=e.target.value.trim().toLowerCase();[...$("pList").rows].forEach(tr=>{const d=rowData(tr);tr.hidden=q==="no gst"?!(d.gst===""):q==="no hsn"?!!d.hsn:q&&!(d.name+" "+d.dept+" "+d.aliases+" "+d.hsn).toLowerCase().includes(q)})};
-  $("nAdd").onclick=()=>{try{const d=cleanProduct({name:$("nName").value,dept:$("nDept").value,unit:$("nUnit").value,rate:$("nRate").value,aliases:$("nAlias").value,hsn:$("nHsn")?$("nHsn").value:"",gst:$("nGst")?$("nGst").value:""});if(DB.products.some(x=>x.active&&x.name.toLowerCase()===d.name.toLowerCase()))throw new Bad(`${d.name} is already in the list.`);DB.products.push({id:nextId(),...d,active:true});save();toast(`Added ${d.name}`);renderProducts();$("nName").focus()}catch(err){toast(err.message,true)}};
+    if(e.target.closest("[data-save]")){try{const d=cleanProduct(rowData(tr),GR);if(DB.products.some(x=>x.active&&x.id!==id&&x.name.toLowerCase()===d.name.toLowerCase()))throw new Bad(`Another product is already called ${d.name}.`);Object.assign(p,d);save();tr.querySelector("[data-save]").hidden=true;toast(`${p.name} saved · ₹${fmt(p.rate)} per ${p.unit}${GR?` · GST ${rateOf(p)}%`:""}`)}catch(err){toast(err.message,true)}}
+    const del=e.target.closest("[data-del]");if(del){if(!del.classList.contains("armed")){del.classList.add("armed");del.textContent="Sure?";setTimeout(()=>{del.classList.remove("armed");del.textContent="Delete"},2500);return}p.active=false;save();tr.remove();{const ix=ps.indexOf(p);if(ix>=0)ps.splice(ix,1)}pMatch=pMatch.filter(x=>x!==p);pShownN=Math.max(0,pShownN-1);showCount();toast("Product removed from the list")}};
+  if($("showMiss"))$("showMiss").onclick=()=>{$("pFilter").value="missing gst details";$("pFilter").dispatchEvent(new Event("input"));$("pFilter").scrollIntoView({block:"start"})};
+  /* big lists: only PROD_PAGE rows are drawn at a time (a 2,000-item list stays fast on a cheap phone) */
+  let pMatch=ps,pShownN=Math.min(PROD_PAGE,ps.length);
+  const showCount=()=>{$("pMoreRow").hidden=pShownN>=pMatch.length;$("pShown").textContent=`Showing ${pShownN} of ${pMatch.length}`;$("pCount").textContent=pMatch.length===ps.length?ps.length:`${pMatch.length} of ${ps.length}`};
+  const drawRows=()=>{$("pList").innerHTML=pMatch.slice(0,pShownN).map(pRow).join("");if($("pAll"))$("pAll").checked=false;updBulk();showCount()};
+  $("pMore").onclick=()=>{const from=pShownN;pShownN=Math.min(pMatch.length,pShownN+PROD_PAGE);$("pList").insertAdjacentHTML("beforeend",pMatch.slice(from,pShownN).map(pRow).join(""));showCount()};
+  $("pFilter").oninput=e=>{const q=e.target.value.trim().toLowerCase();
+    pMatch=!q?ps:q==="missing gst details"?ps.filter(p=>!hasTaxInfo(p)):q==="no gst"?ps.filter(p=>p.gst===undefined||p.gst===null||p.gst===""):q==="no hsn"?ps.filter(p=>!p.hsn):ps.filter(p=>(p.name+" "+p.dept+" "+(p.aliases||"")+" "+(p.hsn||"")).toLowerCase().includes(q));
+    pShownN=Math.min(PROD_PAGE,pMatch.length);drawRows()};
+  showCount();
+  $("nAdd").onclick=()=>{try{const raw={name:$("nName").value,dept:$("nDept").value,unit:$("nUnit").value,rate:$("nRate").value,aliases:$("nAlias").value,hsn:$("nHsn")?$("nHsn").value:"",gst:$("nGst")?$("nGst").value:""};let d=cleanProduct(raw);if(DB.products.some(x=>x.active&&x.name.toLowerCase()===d.name.toLowerCase()))throw new Bad(`${d.name} is already in the list.`);d=cleanProduct(raw,GR);DB.products.push({id:nextId(),...d,active:true});save();toast(`Added ${d.name}`);renderProducts();$("nName").focus()}catch(err){toast(err.message,true)}};
   $("upFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{let rows;
     if(/\.xlsx?$/i.test(f.name)){rows=await readXlsx(await f.arrayBuffer())}
     else rows=parseCSV(await f.text());const msg=importRows(rows,$("upMode").value==="replace");renderProducts();toast(msg)}catch(err){toast(err instanceof Bad?err.message:"Couldn't read that file.",true)}e.target.value=""};
@@ -1828,8 +1889,9 @@ function renderSettings(){const s=S(),O=isOwner();
     $("gType").onchange=sync;$("gGstin").oninput=sync;sync();
     $("gForm").onsubmit=e=>{e.preventDefault();const t=$("gType").value,g=$("gGstin").value.trim().toUpperCase();
       if(t!=="none"&&!gstinCheck(g)){toast("Enter a valid 15-character GSTIN for a GST-registered shop.",true);return}
-      Object.assign(DB.settings,{gst_type:t,gstin:t==="none"?(g&&gstinCheck(g)?g:""):g,gst_incl:$("gIncl").value!=="excl",gst_default:num($("gDef").value)});
+      Object.assign(DB.settings,{gst_type:t,gstin:t==="none"?(g&&gstinCheck(g)?g:""):g,gst_incl:$("gIncl").value!=="excl"});
       DB.settings.header_lines=(DB.settings.header_lines||[]).map(l=>t!=="none"&&/^\s*gstin\b/i.test(l)?"":l);save();render();
+      const miss=t==="regular"?missingTaxInfo().length:0;if(miss){toast(`GST set: Regular. ${miss} product${miss>1?"s need":" needs"} HSN code and GST rate — showing them now.`);go("products");setTimeout(()=>{if($("showMiss"))$("showMiss").click()},50);return}
       toast(t==="regular"?"GST set: Regular. New bills are tax invoices.":t==="composition"?"GST set: Composition. New bills are bills of supply.":"GST switched off for new bills.")}}
   listSnaps().then(ks=>{const el=$("snapList");if(!el||!ks.length)return;
     el.innerHTML=`<h3 style="margin-top:6px">Daily copies on this phone</h3><div class="stack">${ks.map(k=>{const d=k.slice(5);return `<div class="rcvrow"><span>Start of <b>${dmy(d)}</b></span><div class="row" style="flex-wrap:nowrap"><button class="btn sm" data-snapdl="${k}">Save file</button>${O?`<button class="btn sm danger" data-snaprs="${k}">Restore</button>`:""}</div></div>`}).join("")}</div>`;
@@ -1861,8 +1923,7 @@ function gstCard(s,O){const t=s.gst_type||"none";const nm={none:"Not registered 
     <div id="gMore"><div class="field"><label for="gGstin">Your GSTIN (15 characters)</label><input id="gGstin" maxlength="15" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase;font-family:var(--mono,monospace)" value="${esc(s.gstin||"")}" placeholder="27ABCDE1234F1Z5"><p id="gHint" class="note"></p></div>
     <div id="gRegOnly"><div class="field"><label for="gIncl">Product rates are</label><select id="gIncl"><option value="incl" ${s.gst_incl!==false?"selected":""}>Including GST (MRP / counter price)</option><option value="excl" ${s.gst_incl===false?"selected":""}>Excluding GST (GST added on top)</option></select></div>
     <p class="note">Including: a ₹118 item at 18% is ₹100 + ₹18 GST, customer pays ₹118. Excluding: a ₹100 item at 18% becomes ₹118 on the bill.</p>
-    <div class="field"><label for="gDef">GST rate for products without a rate</label><select id="gDef">${GST_RATES.map(r=>`<option value="${r}" ${num(s.gst_default)===r?"selected":""}>${r}%</option>`).join("")}</select></div>
-    <p class="note">Set the <b>HSN code</b> and <b>GST %</b> of each product on the Products page. CGST + SGST is charged inside your state; IGST is charged automatically when the buyer's GSTIN or state is of another state.</p>
+    <p class="note"><b>Every product must have its HSN code and GST rate</b> (Products page). Items at different rates — say rice at 5% and soap at 18% — can be on the same bill: GST is worked out item by item, each line shows its HSN and rate, and the bill ends with a rate-wise CGST/SGST (or IGST) summary. IGST is charged automatically when the buyer's GSTIN or state is of another state.</p>
     <p class="note">For tax invoices, choose <b>Bill numbers → Continue through the financial year</b> above (GST Rule 46 asks for one running series per year).</p></div>
     <p class="note" id="gCompNote">${t==="composition"?"Composition dealers can't collect GST. Bills print as <b>BILL OF SUPPLY</b> with the required line, and the Day end report shows turnover for your quarterly CMP-08.":""}</p></div>
     <p class="note">Changing this affects new bills only. Old bills keep the GST they were made with.</p>
