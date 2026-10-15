@@ -198,9 +198,14 @@ tr.flash-row td{animation:rowflash 1.2s ease-out}
 
 /* Receipt — always paper white, like the roll */
 .rprev{background:var(--soft);border-radius:10px;padding:14px;display:flex;justify-content:center;overflow-x:auto}
-.rcpt{background:var(--roll);color:var(--roll-ink);font-family:"Courier New",Courier,var(--f-num);line-height:1.3;flex:none;box-shadow:0 2px 10px rgba(0,0,0,.15)}
-.rcpt.w80{width:80mm;padding:3mm 4mm;font-size:12px}
-.rcpt.w58{width:58mm;padding:2mm 2.5mm;font-size:10.5px}
+/* thermal receipts are laid out at the width the printer can really print (80 mm paper → 72 mm, 58 mm paper → 48 mm)
+   so nothing is shrunk; bold sans-serif text prints darker and reads better on thermal paper */
+.rcpt{background:var(--roll);color:var(--roll-ink);font-family:Roboto,"Noto Sans","Segoe UI",Arial,sans-serif;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.28;flex:none;box-shadow:0 2px 10px rgba(0,0,0,.15);box-sizing:border-box}
+.rcpt.w80{width:72mm;padding:2mm .8mm;font-size:15px}
+.rcpt.w58{width:48mm;padding:1.5mm .5mm;font-size:12.5px}
+.rcpt.w80.tsN{font-size:13px}.rcpt.w80.tsX{font-size:17px}
+.rcpt.w58.tsN{font-size:11px}.rcpt.w58.tsX{font-size:14px}
+.rcpt .b,.rcpt .it,.rcpt .net{font-weight:800}
 /* normal printer (A4 / A5): same slips, page width, normal font */
 .rcpt.wA4,.rcpt.wA5,.rcpt.wA5L{flex:none;box-sizing:border-box;padding:7mm 8mm;font-family:var(--f-ui,system-ui),sans-serif;font-size:13px;line-height:1.45}
 .rcpt.wA4{width:194mm}.rcpt.wA5{width:132mm;font-size:12px}.rcpt.wA5L{width:196mm;font-size:12px;padding:5mm 6mm}
@@ -245,8 +250,10 @@ tr.flash-row td{animation:rowflash 1.2s ease-out}
 .inv .gt{width:auto;min-width:55%}
 .rcpt .c{text-align:center}.rcpt .b{font-weight:700}.rcpt .big{font-size:1.35em}
 .rcpt .hr{border-top:1px dashed var(--roll-ink);margin:1.6mm 0}
-.rcpt .lr{display:flex;justify-content:space-between;gap:2mm}
-.rcpt .lr span:last-child{text-align:right;white-space:nowrap}
+.rcpt .lr{display:flex;justify-content:space-between;gap:0 2mm;flex-wrap:wrap}
+.rcpt .lr span:first-child{min-width:0;overflow-wrap:anywhere}
+.rcpt .lr span:last-child{text-align:right;white-space:nowrap;margin-left:auto}   /* a long amount drops to its own line instead of running off the paper */
+.rcpt .gl{padding-left:2mm}.rcpt .lr span.wr{white-space:normal}
 .rcpt .it{font-weight:700;word-break:break-word}
 .rcpt .net{font-size:1.3em;font-weight:700}
 .rcpt .tag{border:1px solid var(--roll-ink);text-align:center;font-weight:700;padding:.5mm;margin:1mm 0}
@@ -553,7 +560,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="1.6";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="1.8";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -580,7 +587,9 @@ function modeOf(p){const used=PKEYS.filter(k=>p[k]>0.004);if(used.length===1)ret
 function payText(p){const parts=PKEYS.map(k=>[KEYNAME[k],p[k]||0]).filter(x=>x[1]>0.004);
   if(parts.length<=1)return parts.length?parts[0][0]:"Cash";return parts.map(x=>`${x[0]} ₹${fmt(x[1])}`).join(" + ")}
 /* credit (udhaar) book: a customer is known by name */
-const custKey=n=>String(n||"").trim().toLowerCase().replace(/\s+/g," ");
+/* the customer box starts with "Cash" — that (or empty) means a walk-in customer with no name */
+const normCust=n=>{n=String(n||"").trim();return /^cash$/i.test(n)?"":n};
+const custKey=n=>normCust(n).toLowerCase().replace(/\s+/g," ");
 function collectedFor(billId){let s=0;(DB.receipts||[]).forEach(r=>r.alloc.forEach(a=>{if(a.bill_id===billId)s+=a.amount}));return r2(s)}
 function dueOf(b){if(b.status!=="active")return 0;const c=payOf(b).credit;return c>0.004?r2(c-collectedFor(b.id)):0}
 function creditBook(){const map={};DB.bills.forEach(b=>{const d=dueOf(b);if(d<=0.004)return;const k=custKey(b.customer)||"(no name)";
@@ -604,7 +613,7 @@ class Bad extends Error{}
 const LS={get(k,d){try{const v=localStorage.getItem("cbx_"+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("cbx_"+k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem("cbx_"+k)}catch(e){}}};
 
 /* ============================================================ data store */
-const DEFAULT_SETTINGS={shop_name:"Shree Ganesh Stores",header:"",header_lines:["Main Road, Station Area","Ph: 98XXXXXX10","",""],footer:"Thank you, visit again!",bill_note:"",paymodes:["Cash","UPI","Card","Bank","Credit","Split"],paper:"80",voice_lang:"en-IN",staff_correct:"any",numbering:"daily",owner_lock:30,gst_type:"none",gstin:"",gst_incl:true,gst_default:0,print_mode:"thermal",page:"A4"};
+const DEFAULT_SETTINGS={shop_name:"Shree Ganesh Stores",header:"",header_lines:["Main Road, Station Area","Ph: 98XXXXXX10","",""],footer:"Thank you, visit again!",bill_note:"",paymodes:["Cash","UPI","Card","Bank","Credit","Split"],paper:"80",voice_lang:"en-IN",staff_correct:"any",numbering:"daily",owner_lock:30,gst_type:"none",gstin:"",gst_incl:true,gst_default:0,print_mode:"thermal",page:"A4",thermal_size:"L"};
 /* Everything lives in the device's own database (IndexedDB) — no internet, no size worries */
 const IDB={db:null,
   open(){return new Promise((res,rej)=>{let r;try{r=indexedDB.open("counter-bill",1)}catch(e){rej(e);return}r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>{this.db=r.result;res()};r.onerror=()=>rej(r.error)})},
@@ -636,7 +645,7 @@ function blankDB(){return{seq:0,settings:{...DEFAULT_SETTINGS,shop_name:"My Reta
 /* bring data from older versions up to date */
 function upgradeDB(){if(!DB)return;DB.receipts=DB.receipts||[];const s=DB.settings=DB.settings||{};
   if(s.owner_lock===undefined)s.owner_lock=30;
-  if(!s.print_mode)s.print_mode="thermal";if(!s.page)s.page="A4";if(!s.paper)s.paper="80";
+  if(!s.print_mode)s.print_mode="thermal";if(!s.thermal_size)s.thermal_size="L";if(!s.page)s.page="A4";if(!s.paper)s.paper="80";
   if(!s.gst_type)s.gst_type="none";if(s.gstin===undefined)s.gstin="";if(s.gst_incl===undefined)s.gst_incl=true;if(s.gst_default===undefined)s.gst_default=0;if(!Array.isArray(s.paymodes))s.paymodes=["Cash","UPI","Card","Bank","Credit","Split"];
   if(!Array.isArray(s.header_lines)){const l=String(s.header||"").split("\n").map(x=>x.trim()).filter(Boolean).slice(0,4);while(l.length<4)l.push("");s.header_lines=l}}
 const headLines=()=>(S().header_lines||[]).map(x=>String(x||"").trim()).filter(Boolean);
@@ -654,7 +663,7 @@ function seedDB(){
   const day=(off,h,m)=>{const d=new Date();d.setDate(d.getDate()-off);d.setHours(h,m,0,0);return d};
   const mkBill=(when,user,pay,cust,lines,disc,split)=>{
     const items=lines.map(([n,q,rate],i)=>{const p=P(n);const r=rate??p.rate;return{product_id:p.id,name:p.name,dept:p.dept,unit:p.unit,qty:q,rate:r,base_rate:p.rate,amount:r2(q*r),pos:i,hsn:p.hsn||"",gst:num(p.gst)}});
-    const cfg=taxCfg(cust==="Gupta Kirana"?{gstin:"27AAPFU0939F1ZV"}:null);const t=totalsOf(items,disc||0,undefined,cfg);const d=isoDate(when);const{series,fy,no}=nextNumber(d);
+    const cfg=taxCfg(cust==="Gupta Kirana"?{gstin:"27AAPFU0939F1ZV",addr:"Shop 4, Market Yard, Pune"}:null);const t=totalsOf(items,disc||0,undefined,cfg);const d=isoDate(when);const{series,fy,no}=nextNumber(d);
     const pp=buildPay(t.net,pay,split);const b={id:nextId(),fy,no,series,bill_date:d,created_at:stamp(when),created_by:U(user).id,customer:cust||"",phone:"",paymode:modeOf(pp),pay:pp,...t,tax:cfg,note:DB.settings.bill_note||"",rev:0,updated_at:null,updated_by:null,status:"active",items};
     DB.bills.push(b);return b};
   mkBill(day(1,10,12),"ravi","Cash","",[["Sugar",2],["Toor Dal",1],["Tea Powder 250g",1]]);
@@ -721,8 +730,11 @@ function checkTax(cfg,net,h){if(cfg.type==="none")return;
   if(!gstinCheck(cfg.seller_gstin))throw new Bad("Your GSTIN is missing or not valid. The owner must enter it in Settings → GST before billing.");
   if(cfg.type!=="regular")return;
   if(cfg.buyer_gstin&&!gstinCheck(cfg.buyer_gstin))throw new Bad("Buyer's GSTIN is not valid. Check the 15 characters, or leave it empty for a customer without GST.");
-  if(cfg.buyer_gstin&&!h.customer)throw new Bad("Enter the buyer's name for a bill with buyer GSTIN.");
-  if(!cfg.buyer_gstin&&net>=50000&&(!h.customer||!cfg.buyer_addr))throw new Bad("For a bill of ₹50,000 or more to a buyer without GSTIN, enter the buyer's name and address (GST Rule 46).");
+  /* GST Rule 46: a registered buyer's name, address and GSTIN must be on the tax invoice */
+  if(cfg.buyer_gstin&&!h.customer)throw new Bad(`Enter the buyer's name in place of "Cash" — needed for a bill with buyer GSTIN (GST Rule 46).`);
+  if(cfg.buyer_gstin&&!cfg.buyer_addr)throw new Bad("Enter the buyer's address — needed for a bill with buyer GSTIN (GST Rule 46).");
+  if(!cfg.buyer_gstin&&net>=50000&&!h.customer)throw new Bad(`Bill is ₹50,000 or more: enter the buyer's name in place of "Cash" (GST Rule 46).`);
+  if(!cfg.buyer_gstin&&net>=50000&&!cfg.buyer_addr)throw new Bad("Bill is ₹50,000 or more: enter the buyer's address (GST Rule 46).");
   if(cfg.pos&&!STATES[cfg.pos])throw new Bad("Choose the buyer's state.")}
 const S=()=>DB.settings;
 const userById=id=>DB.users.find(u=>u.id===id);
@@ -748,10 +760,10 @@ function buildItems(raw,oldBase,oldTax){
     const olds=ot[p.id];const o=olds&&olds.length?olds.shift():null;
     out.push({product_id:p.id,name:p.name,dept:p.dept,unit,qty,rate,base_rate:base,amount:r2(qty*rate),pos:out.length,hsn:o?o.hsn:(p.hsn||""),gst:o?o.gst:rateOf(p)})});
   if(!out.length)throw new Bad("Add at least one item with a quantity.");return out}
-function cleanHeader(d){return{customer:String(d.customer||"").trim().slice(0,80),phone:String(d.phone||"").replace(/[^0-9+ \-]/g,"").slice(0,20),paymode:PAYMODES.includes(d.paymode)||d.paymode==="Split"?d.paymode:"Cash"}}
+function cleanHeader(d){return{customer:normCust(d.customer).slice(0,80),phone:String(d.phone||"").replace(/[^0-9+ \-]/g,"").slice(0,20),paymode:PAYMODES.includes(d.paymode)||d.paymode==="Split"?d.paymode:"Cash"}}
 function canCorrect(b){if(b.status!=="active")return[false,"This bill is cancelled."];if(isOwner())return[true,""];const rule=S().staff_correct;if(rule==="any")return[true,""];if(rule==="today"&&b.bill_date===today())return[true,""];return[false,rule==="none"?"Only the owner can correct saved bills.":"Only today's bills can be corrected. Ask the owner."]}
 function createBill(d){const items=buildItems(d.items);const h=cleanHeader(d);const cfg=taxCfg(d.buyer);const t=totalsOf(items,d.discount,d.round,cfg);checkTax(cfg,t.net,h);
-  const pay=buildPay(t.net,h.paymode,d.split);checkModes(pay,h.paymode);if(pay.credit>0.004&&!h.customer)throw new Bad(`₹${fmt(pay.credit)} is on credit — enter the customer's name so the dues can be tracked.`);h.paymode=modeOf(pay);
+  const pay=buildPay(t.net,h.paymode,d.split);checkModes(pay,h.paymode);if(pay.credit>0.004&&!h.customer)throw new Bad(`₹${fmt(pay.credit)} is on credit — type the customer's name in place of "Cash" so the dues can be tracked.`);h.paymode=modeOf(pay);
   const date=today();const{series,fy,no}=nextNumber(date);
   const b={id:nextId(),fy,no,series,bill_date:date,created_at:stamp(),created_by:me.id,...h,...t,tax:cfg,pay,note:S().bill_note||"",rev:0,updated_at:null,updated_by:null,status:"active",items};DB.bills.push(b);save();return b}
 function diffBill(old,nb){const ch=[],pool={};old.items.forEach(o=>(pool[o.product_id]=pool[o.product_id]||[]).push(o));
@@ -776,7 +788,7 @@ function correctBill(id,d){const b=DB.bills.find(x=>x.id===id);if(!b)throw new B
   let cfg={...bt};if(bt.type==="regular"){const bg=String((d.buyer||{}).gstin||"").trim().toUpperCase();const pos=bg?bg.slice(0,2):((d.buyer||{}).state||bt.seller_state);
     cfg={...bt,buyer_gstin:bg,buyer_addr:String((d.buyer||{}).addr||"").trim().slice(0,160),pos,inter:!!(pos&&bt.seller_state&&pos!==bt.seller_state)}}
   const t=totalsOf(items,d.discount,d.round,cfg);checkTax(cfg,t.net,h);
-  const pay=buildPay(t.net,h.paymode,d.split);checkModes(pay,h.paymode,modesUsed(b));if(pay.credit>0.004&&!h.customer)throw new Bad(`₹${fmt(pay.credit)} is on credit — enter the customer's name so the dues can be tracked.`);
+  const pay=buildPay(t.net,h.paymode,d.split);checkModes(pay,h.paymode,modesUsed(b));if(pay.credit>0.004&&!h.customer)throw new Bad(`₹${fmt(pay.credit)} is on credit — type the customer's name in place of "Cash" so the dues can be tracked.`);
   const got=collectedFor(b.id);if(got>0.004&&pay.credit<got-0.004)throw new Bad(`₹${fmt(got)} has already been received against this bill's credit, so its credit can't be less than ₹${fmt(got)}.`);
   if(got>0.004&&custKey(h.customer)!==custKey(b.customer))throw new Bad("Payments were already received from this customer against this bill, so the customer name can't be changed.");
   h.paymode=modeOf(pay);const nb={...b,...h,...t,items,pay,tax:cfg};
@@ -832,6 +844,7 @@ function saveFile(filename,data){
 /* which printer the owner chose: thermal roll (80/58 mm) or normal printer (A4/A5) */
 const PAGES={A4:"A4",A5:"A5",A5L:"A5 landscape"};
 const isPage=p=>!!PAGES[p];
+const thermalClass=p=>isPage(p)?"":({N:" tsN",X:" tsX"}[S().thermal_size]||"");
 const printSize=()=>S().print_mode==="normal"?(PAGES[S().page]?S().page:"A4"):(S().paper==="58"?"58":"80");
 const sizeChoices=()=>S().print_mode==="normal"?[["A4","A4"],["A5","A5"],["A5L","A5 wide"]]:[["80","80 mm"],["58","58 mm"]];
 const printBill=(b,dup)=>{const p=printSize();printReceipt(receiptHTML(b,!!dup,p),p)};
@@ -840,7 +853,7 @@ function printReceipt(html,paper){
     setTimeout(()=>{try{window.print()}catch(e){toast("Printing isn't available on this device.",true)}},60);return}
   const pa=$("printArea");pa.innerHTML=html;pa.style.cssText="display:block;position:absolute;left:-9999px;top:0";
   const h=Math.ceil(pa.firstElementChild.offsetHeight*25.4/96)+6;pa.style.cssText="";
-  $("pageStyle").textContent=`@page{size:${paper}mm ${h}mm;margin:0}`;document.body.classList.add("print-rcpt");
+  $("pageStyle").textContent=`@page{size:${paper==="58"?48:paper==="80"?72:paper}mm ${h}mm;margin:0}`;document.body.classList.add("print-rcpt");
   setTimeout(()=>{try{window.print()}catch(e){toast("Printing isn't available on this device.",true)}},60)}
 function printPage(){$("pageStyle").textContent="@page{size:A4;margin:12mm}";document.body.classList.remove("print-rcpt");try{window.print()}catch(e){}}
 addEventListener("afterprint",()=>{document.body.classList.remove("print-rcpt");$("pageStyle").textContent="@page{margin:0}"});
@@ -849,7 +862,7 @@ const csv=rows=>"﻿"+rows.map(r=>r.map(v=>{v=String(v??"");return/[",\n]/.test(
 /* ============================================================ receipt */
 function receiptHTML(b,dup,paper){
   paper=paper||printSize();if(isPage(paper))return invoiceHTML(b,dup,paper);const by=uname(b.updated_by||b.created_by);const T=b.tax||{type:"none"},REG=T.type==="regular",CMP=T.type==="composition";
-  return `<div class="rcpt w${paper}">
+  return `<div class="rcpt w${paper}${thermalClass(paper)}">
   ${REG?`<div class="c b">TAX INVOICE</div>`:CMP?`<div class="c b">BILL OF SUPPLY</div>`:""}
   <div class="c b big">${esc(S().shop_name)}</div>${headLines().filter(l=>!(T.type!=="none"&&/^\s*gstin\b/i.test(l))).map(l=>`<div class="c">${esc(l)}</div>`).join("")}
   ${T.type!=="none"&&T.seller_gstin?`<div class="c b">GSTIN: ${esc(T.seller_gstin)}</div><div class="c">State: ${esc(stateName(T.seller_state))}</div>`:""}
@@ -857,12 +870,12 @@ function receiptHTML(b,dup,paper){
   ${b.status!=="active"?`<div class="void">CANCELLED</div>`:""}${b.rev&&b.status==="active"?`<div class="tag">REVISED BILL (Rev ${b.rev})</div>`:""}${dup?`<div class="c">— Duplicate copy —</div>`:""}
   <div class="lr"><span>Bill No: <b>${label(b)}</b></span><span>${dmy(b.bill_date)}</span></div>
   <div class="lr"><span>Time: ${hm(b.created_at)}</span><span>By: ${esc(by)}</span></div>
-  ${b.customer?`<div>${REG?"Buyer":"Customer"}: ${esc(b.customer)}${b.phone?" "+esc(b.phone):""}</div>`:""}
+  <div>${REG?"Buyer":"Customer"}: ${esc(b.customer||"Cash")}${b.phone?" "+esc(b.phone):""}</div>
   ${REG&&T.buyer_gstin?`<div>Buyer GSTIN: <b>${esc(T.buyer_gstin)}</b></div>`:""}${REG&&T.buyer_addr?`<div>Address: ${esc(T.buyer_addr)}</div>`:""}
   ${REG?`<div>Place of supply: ${esc(stateName(T.pos))}</div>`:""}
   <div class="hr"></div><div class="lr b"><span>Item / Qty x Rate</span><span>Amount</span></div><div class="hr"></div>
   ${b.items.map((i,k)=>`<div class="it">${k+1}. ${esc(i.name)}</div>${(REG||CMP)&&(i.hsn||REG)?`<div class="sm">&nbsp;&nbsp;${i.hsn?"HSN "+esc(i.hsn):""}${REG?`${i.hsn?" · ":""}GST ${num(i.gst)}%`:""}</div>`:""}<div class="lr"><span>&nbsp;&nbsp;${fq(i.qty)} ${esc(i.unit)} x ${fmt(i.rate)}</span><span>${fmt(i.amount)}</span></div>`).join("")}
-  <div class="hr"></div><div class="lr"><span>Items: ${b.items.length}</span><span>Subtotal ${fmt(b.subtotal)}</span></div>
+  <div class="hr"></div><div class="lr"><span>Subtotal (${b.items.length} item${b.items.length>1?"s":""})</span><span>${fmt(b.subtotal)}</span></div>
   ${b.discount?`<div class="lr"><span>Discount</span><span>-${fmt(b.discount)}</span></div>`:""}
   ${REG?`<div class="lr"><span>Taxable value</span><span>${fmt(b.taxable)}</span></div>${T.inter?`<div class="lr"><span>IGST</span><span>${fmt(b.igst)}</span></div>`:`<div class="lr"><span>CGST</span><span>${fmt(b.cgst)}</span></div><div class="lr"><span>SGST</span><span>${fmt(b.sgst)}</span></div>`}${T.incl?`<div class="sm">(Rates include GST)</div>`:""}`:""}
   ${b.round_off?`<div class="lr"><span>Round off</span><span>${fmt(b.round_off)}</span></div>`:""}
@@ -873,7 +886,7 @@ function receiptHTML(b,dup,paper){
     if(p.credit>0.004){h+=`<div class="lr b"><span>Balance on credit</span><span>${fmt(p.credit)}</span></div>`;
       if(dup){const d=dueOf(b);h+=`<div class="lr"><span>Balance due now</span><span>${fmt(d)}</span></div>`}}
     return h})()}<div class="hr"></div>
-  ${REG?`${gstRateTable(b)}<div>Reverse charge: No</div><div class="hr"></div>`:""}
+  ${REG?`${gstRateLines(b)}<div>Reverse charge: No</div><div class="hr"></div>`:""}
   ${b.note?`<div class="bnote">${esc(b.note)}</div><div class="hr"></div>`:""}${REG?`<div class="r sm" style="text-align:right;margin:2px 0 4px">For ${esc(S().shop_name)}<br><br>Authorised signatory</div><div class="hr"></div>`:""}<div class="c">${esc(S().footer)}</div></div>`}
 const sizeSeg=paper=>`<div class="seg" role="group" aria-label="Paper size">${sizeChoices().map(([v,t])=>`<button data-w="${v}" aria-pressed="${paper===v}">${t}</button>`).join("")}</div>`;
 /* full-page bill for a normal printer (A4 / A5) — plain bill, bill of supply or tax invoice */
@@ -916,6 +929,11 @@ function invoiceHTML(b,dup,size){const T=b.tax||{type:"none"},REG=T.type==="regu
   ${b.note?`<div class="note">${esc(b.note)}</div>`:""}
   <div class="sign"><div>Customer's signature</div><div class="r">For <b>${esc(S().shop_name)}</b><br><br><br>Authorised signatory</div></div>
   <div class="foot">${esc(S().footer)}</div></div>`}
+/* rate-wise tax summary for a narrow thermal roll: one short block per GST rate, so it always fits 48 mm */
+function gstRateLines(b){const T=b.tax||{};const g={};b.items.forEach(i=>{const r=num(i.gst);const x=g[r]=g[r]||{taxable:0,cgst:0,sgst:0,igst:0};x.taxable=r2(x.taxable+(i.taxable||0));x.cgst=r2(x.cgst+(i.cgst||0));x.sgst=r2(x.sgst+(i.sgst||0));x.igst=r2(x.igst+(i.igst||0))});
+  const L=(a,v,c)=>`<div class="lr${c?" "+c:""}"><span>${a}</span><span>${fmt(v)}</span></div>`;
+  return `<div class="b">GST SUMMARY</div>`+Object.keys(g).map(Number).sort((a,b)=>a-b).map(r=>{const x=g[r];
+    return L(`GST ${r}% — taxable`,x.taxable)+(T.inter?L(`IGST ${r}%`,x.igst,"gl"):L(`CGST ${r/2}%`,x.cgst,"gl")+L(`SGST ${r/2}%`,x.sgst,"gl"))}).join("")+`<div class="hr"></div>`}
 /* rate-wise tax summary printed on a tax invoice */
 function gstRateTable(b){const T=b.tax||{};const g={};b.items.forEach(i=>{const r=num(i.gst);const x=g[r]=g[r]||{taxable:0,cgst:0,sgst:0,igst:0};x.taxable=r2(x.taxable+(i.taxable||0));x.cgst=r2(x.cgst+(i.cgst||0));x.sgst=r2(x.sgst+(i.sgst||0));x.igst=r2(x.igst+(i.igst||0))});
   const rows=Object.keys(g).map(Number).sort((a,b)=>a-b);
@@ -1123,7 +1141,7 @@ function renderBilling(){
     <div class="billhead">
       <div class="field"><label>Bill no.</label><div class="billno num" id="billNo">New</div></div>
       <div class="field"><label>Date</label><div class="billno num">${dmy(today())}</div></div>
-      <div class="field grow"><label for="custName">Customer</label><input id="custName" maxlength="80" placeholder="Cash / customer name" list="custList" autocomplete="off"><datalist id="custList">${[...new Map(DB.bills.filter(b=>b.customer).slice(-300).map(b=>[custKey(b.customer),b.customer])).values()].map(n=>`<option value="${esc(n)}">`).join("")}</datalist>
+      <div class="field grow"><label for="custName">Customer</label><input id="custName" maxlength="80" placeholder="Customer name" list="custList" autocomplete="off"><datalist id="custList">${[...new Map(DB.bills.filter(b=>b.customer).slice(-300).map(b=>[custKey(b.customer),b.customer])).values()].map(n=>`<option value="${esc(n)}">`).join("")}</datalist>
         <div class="prevdue" id="prevDue" hidden></div></div>
       <div class="field grow"><label for="custPhone">Mobile</label><input id="custPhone" maxlength="20" inputmode="tel" placeholder="Optional"></div>
       <div class="field"><label>Payment</label><div class="seg" id="paymode" role="group" aria-label="Payment mode">${shownModes().map(m=>`<button type="button" data-m="${m}">${m}</button>`).join("")}</div></div>
@@ -1138,7 +1156,7 @@ function renderBilling(){
         <div class="field"><label for="bGstin">Buyer GSTIN</label><input id="bGstin" class="gstin" maxlength="15" autocapitalize="characters" spellcheck="false" placeholder="Only for B2B"></div>
         <div class="field"><label for="bState">Place of supply</label><select id="bState">${Object.keys(STATES).map(c=>`<option value="${c}">${esc(stateName(c))}</option>`).join("")}</select></div></div>
         <div class="field"><label for="bAddr">Buyer address</label><input id="bAddr" maxlength="160" placeholder="Needed for B2B and for bills of ₹50,000+"></div>
-        <div class="note" id="bHint"></div></div>`:""}
+        <div class="note" id="bHint"></div><div class="note bad" id="r46" hidden></div></div>`:""}
     </div>
     <div class="tablewrap"><table><thead><tr><th>#</th><th>Item</th><th class="r">Qty</th><th>Unit</th><th class="r">Rate ₹</th><th class="r">Total ₹</th><th></th></tr></thead><tbody id="lines"></tbody></table>
       <div class="empty" id="emptyBill"><b>No items yet</b>Tap a product, type to search, or use the mic and say the product name.</div></div>
@@ -1163,7 +1181,7 @@ function renderBilling(){
     <div class="grid" id="grid"></div><div class="catfoot" id="catInfo"></div>
   </section>
   <button class="billfab" id="billFab" type="button" hidden><span class="fabn" id="fabCount">0</span><span>View bill</span><b class="num" id="fabTotal">₹0</b></button></div>`;
-  $("custName").value=Bill.cust;$("custPhone").value=Bill.phone;$("disc").value=Bill.disc;
+  $("custName").value=normCust(Bill.cust)||"Cash";$("custPhone").value=Bill.phone;$("disc").value=Bill.disc;
   $("readBack").checked=LS.get("readBack",true);
   if(!shownModes().includes(Bill.paymode))Bill.paymode=shownModes().find(m=>PAID.includes(m))||shownModes()[0]||"Cash";setPay(Bill.paymode);setLang(LS.get("voiceLang",S().voice_lang));
   if($("bGstin")){const open=!!(Bill.buyer.gstin||Bill.buyer.addr||(Bill.buyer.state&&Bill.buyer.state!==((Bill.editing&&(Bill.editing.tax||{}).seller_state)||sellerState())));$("buyerBox").hidden=!open;$("buyerTog").hidden=open;
@@ -1189,7 +1207,7 @@ function splitStatus(){if(!$("spStat"))return;const net=calc().net;const box=$("
   if(Bill.paymode!=="Split"){box.hidden=true;return}box.hidden=false;if(net<=0){box.innerHTML="Add items, then enter how much was paid each way.";box.className="spstat";return}
   const paid=r2(num(Bill.split.cash)+num(Bill.split.upi)+num(Bill.split.card)+num(Bill.split.bank));const left=r2(net-paid);const noCredit=!shownModes().includes("Credit");
   box.className="spstat"+(left<-0.004||(left>0.004&&noCredit)?" bad":left>0.004?" credit":" ok");
-  box.innerHTML=left<-0.004?`Paid ₹${fmt(paid)} is ₹${fmt(-left)} more than the bill.`:left>0.004?(noCredit?`Paid ₹${fmt(paid)} · ₹${fmt(left)} still to be paid (credit is switched off)`:`Paid ₹${fmt(paid)} · <b>₹${fmt(left)} goes on credit</b>${$("custName").value.trim()?"":" — enter the customer's name"}`):`Fully paid ₹${fmt(paid)}`}
+  box.innerHTML=left<-0.004?`Paid ₹${fmt(paid)} is ₹${fmt(-left)} more than the bill.`:left>0.004?(noCredit?`Paid ₹${fmt(paid)} · ₹${fmt(left)} still to be paid (credit is switched off)`:`Paid ₹${fmt(paid)} · <b>₹${fmt(left)} goes on credit</b>${normCust($("custName").value)?"":" — type the customer's name in place of Cash"}`):`Fully paid ₹${fmt(paid)}`}
 function showPrevDue(){const el=$("prevDue");if(!el)return;const e=dueForName($("custName").value);
   const own=Bill.editing?dueOf(Bill.editing):0;const due=e?r2(e.due-(Bill.editing&&custKey(Bill.editing.customer)===e.key?own:0)):0;
   if(due>0.004){el.hidden=false;el.innerHTML=`Previous due <b>₹${fmt(due)}</b> · ${e.bills.length} bill${e.bills.length>1?"s":""} <button type="button" class="linkbtn" id="seeDue">View</button>`;$("seeDue").onclick=()=>{creditOpen=e.key;go("credit")}}else el.hidden=true}
@@ -1248,6 +1266,10 @@ function calc(){const items=Bill.lines.map(l=>({amount:r2(num(l.qty)*num(l.rate)
   return{sub,disc,round:T.round_off,auto,manual:man,net:T.net,cfg,taxable:T.taxable,cgst:T.cgst,sgst:T.sgst,igst:T.igst,tax:T.tax}}
 function totals(){const c=calc();splitStatus();$("tCount").textContent=Bill.lines.length;$("tSub").textContent=fmt(c.sub);if(document.activeElement!==$("roundOff"))$("roundOff").value=c.manual?String(Bill.round):(c.round>=0?"+":"")+fmt(c.round);
   $("rMode").textContent=c.manual?"manual":"auto";$("rMode").classList.toggle("man",c.manual);$("roundReset").hidden=!c.manual;$("tGrand").textContent=rs(c.net);
+  if($("r46")){const reg=c.cfg.type==="regular",b2b=!!c.cfg.buyer_gstin,big=c.net>=50000,need=reg&&(b2b||big);
+    const nm=!!normCust($("custName").value),ad=!!String(Bill.buyer.addr||"").trim();const miss=[!nm&&"name",!ad&&"address"].filter(Boolean);
+    if(need&&miss.length){$("buyerBox").hidden=false;$("buyerTog").hidden=true}
+    $("r46").hidden=!(need&&miss.length);$("r46").textContent=need&&miss.length?`${b2b?"B2B bill":"Bill of ₹50,000 or more"}: buyer's ${miss.join(" and ")} required (GST Rule 46).`:""}
   {const on=c.cfg.type==="regular";$("tTaxL").hidden=$("tTax").hidden=!on;if(on){$("tTaxL").textContent=c.cfg.inter?`IGST${c.cfg.incl?" (included)":""} · taxable ₹${fmt(c.taxable)}`:`CGST ₹${fmt(c.cgst)} + SGST ₹${fmt(c.sgst)}${c.cfg.incl?" (included)":""} · taxable ₹${fmt(c.taxable)}`;$("tTax").textContent=(c.cfg.incl?"":"+")+fmt(c.tax)}}$("tWords").textContent=c.net>0?"Rupees "+words(c.net)+" only":"";$("vBillCount").textContent=Bill.lines.length?`(${Bill.lines.length})`:"";
   if($("billFab")){$("billFab").hidden=!Bill.lines.length;$("fabCount").textContent=Bill.lines.length;const miss=Bill.lines.filter(l=>!(num(l.qty)>0)).length;$("fabTotal").textContent=miss?`${miss} qty to type`:rs(c.net)}
   Bill.lines.forEach((l,i)=>{const r=$("lines").rows[i];if(r)r.querySelector(".amt").textContent=fmt(num(l.qty)*num(l.rate))})}
@@ -1274,11 +1296,14 @@ function startCorrection(b){const[ok,why]=canCorrect(b);if(!ok){toast(why,true);
 function endCorrection(){Bill.editing=null;Bill.load();renderBilling()}
 function bindBilling(){
   const L=()=>Bill.lines;
-  $("paymode").onclick=e=>{const b=e.target.closest("button");if(b){setPay(b.dataset.m);Bill.persist()}};
-  $("custName").oninput=e=>{Bill.cust=e.target.value;Bill.persist();showPrevDue();splitStatus()};
+  $("paymode").onclick=e=>{const b=e.target.closest("button");if(b){setPay(b.dataset.m);Bill.persist();
+    if(b.dataset.m==="Credit"&&!normCust($("custName").value)){const c=$("custName");c.focus();c.select();toast("Credit bill — type the customer's name in place of Cash")}}};
+  $("custName").oninput=e=>{Bill.cust=e.target.value;Bill.persist();showPrevDue();totals()};
+  $("custName").onfocus=e=>{if(!normCust(e.target.value))setTimeout(()=>e.target.select(),0)};
+  $("custName").onblur=e=>{if(!e.target.value.trim()){e.target.value="Cash";Bill.cust="";Bill.persist();showPrevDue();totals()}};
   [["spCash","cash"],["spUpi","upi"],["spCard","card"],["spBank","bank"]].forEach(([id,k])=>$(id).oninput=e=>{Bill.split[k]=e.target.value;Bill.persist();splitStatus()});$("custPhone").oninput=e=>{Bill.phone=e.target.value;Bill.persist()};
   if($("bGstin")){$("bGstin").oninput=e=>{Bill.buyer.gstin=e.target.value.trim().toUpperCase();Bill.persist();buyerHint();totals()};$("bGstin").onblur=()=>{buyerHint()};
-    $("bState").onchange=e=>{Bill.buyer.state=e.target.value;Bill.persist();buyerHint();totals()};$("bAddr").oninput=e=>{Bill.buyer.addr=e.target.value;Bill.persist()}}
+    $("bState").onchange=e=>{Bill.buyer.state=e.target.value;Bill.persist();buyerHint();totals()};$("bAddr").oninput=e=>{Bill.buyer.addr=e.target.value;Bill.persist();totals()}}
   $("disc").oninput=e=>{Bill.disc=e.target.value;Bill.persist();totals()};
   $("roundOff").oninput=e=>{const v=e.target.value.trim();Bill.round=v===""?"":v;Bill.persist();totals()};
   $("roundOff").onfocus=e=>{if(!String(Bill.round).trim())e.target.select()};
@@ -1318,9 +1343,11 @@ function bindBilling(){
     try{
       if(Bill.editing){const b=correctBill(Bill.editing.id,body);endCorrection();showReceipt(b,false,`✓ Bill ${label(b)} corrected · ${rs(b.net)}`,true)}
       else{const b=createBill(body);Bill.reset();if(!shownModes().includes("Cash"))Bill.paymode=shownModes().find(m=>PAID.includes(m))||"Cash";renderBilling();showReceipt(b,false,`✓ Bill ${label(b)} saved · ${rs(b.net)}`,true)}
-    }catch(err){toast(err instanceof Bad?err.message:"Something went wrong. Try again.",true)}};
+    }catch(err){toast(err instanceof Bad?err.message:"Something went wrong. Try again.",true);
+      if(err instanceof Bad&&/customer's name|buyer's name/.test(err.message)){const c=$("custName");c.focus();c.select()}
+      else if(err instanceof Bad&&/buyer's address/.test(err.message)&&$("bAddr")){$("buyerBox").hidden=false;$("buyerTog").hidden=true;$("bAddr").focus()}}};
   $("copyBill").onclick=async()=>{if(!L().length){toast("Bill is empty",true);return}const c=calc();
-    let t=`*${S().shop_name}*\n${Bill.editing?"Bill No: "+label(Bill.editing)+" (revised)\n":""}Date: ${dmy(today())}\n`;if($("custName").value.trim())t+=`Customer: ${$("custName").value.trim()}\n`;
+    let t=`*${S().shop_name}*\n${Bill.editing?"Bill No: "+label(Bill.editing)+" (revised)\n":""}Date: ${dmy(today())}\n`;if(normCust($("custName").value))t+=`Customer: ${normCust($("custName").value)}\n`;
     t+="------------------------------\n";L().forEach((l,i)=>{t+=`${i+1}. ${l.name}\n   ${fq(num(l.qty))} ${l.unit} x ₹${fmt(l.rate)} = ₹${fmt(num(l.qty)*num(l.rate))}\n`});
     t+="------------------------------\n"+`Subtotal: ₹${fmt(c.sub)}\n`+(c.disc?`Discount: -₹${fmt(c.disc)}\n`:"")+(c.cfg.type==="regular"?(c.cfg.inter?`IGST: ₹${fmt(c.igst)}`:`CGST: ₹${fmt(c.cgst)}  SGST: ₹${fmt(c.sgst)}`)+(c.cfg.incl?" (included)":"")+"\n":"")+`*Net Amount: ${rs(c.net)}*\n`+(()=>{let p;try{p=buildPay(c.net,Bill.paymode,Bill.split)}catch(e){return ""}
       const parts=PAID.map(m=>[m,p[PAYKEY[m]]]).filter(x=>x[1]>0.004);let t=parts.length?"Paid: "+parts.map(x=>`${x[0]} ₹${fmt(x[1])}`).join(" + ")+"\n":"";
@@ -1454,9 +1481,9 @@ function renderReport(){
   if($("gB2c"))$("gB2c").onclick=()=>saveFile(`gst-b2cs-${tag}.csv`,csv([["Type","Place Of Supply","Rate","Taxable Value","Integrated Tax","Central Tax","State/UT Tax","Cess Amount"],...G.b2cs.map(r=>["OE",stateName(r.pos),r.rate,r.taxable,r.igst,r.cgst,r.sgst,0])]));
   $("rThermal").onclick=()=>{let paper=printSize(),withItems=LS.get("thermalItems",true);const draw=()=>{openModal(`<div class="row" style="justify-content:space-between;align-items:center"><h2>Day end summary</h2>${sizeSeg(paper)}</div>
     <label class="chk"><input type="checkbox" id="thItems" ${withItems?"checked":""}> Include product-wise sales</label>
-    <div class="rprev"><div class="rcpt w${paper}"><div class="c b big">${esc(S().shop_name)}</div><div class="c b">DAY END REPORT</div><div class="c">${dmy(R.d1)}${R.d2!==R.d1?" to "+dmy(R.d2):""}</div><div class="hr"></div>
+    <div class="rprev"><div class="rcpt w${paper}${thermalClass(paper)}"><div class="c b big">${esc(S().shop_name)}</div><div class="c b">DAY END REPORT</div><div class="c">${dmy(R.d1)}${R.d2!==R.d1?" to "+dmy(R.d2):""}</div><div class="hr"></div>
       <div class="lr b big"><span>TOTAL SALES</span><span>${fmt(s.net)}</span></div>
-      <div class="lr"><span>Bills: ${s.bills}</span><span>${s.first||"-"} to ${s.last||"-"}</span></div>
+      <div class="lr"><span>Bills: ${s.bills}</span><span class="wr">${s.first||"-"} to ${s.last||"-"}</span></div>
       <div class="hr"></div><div class="b">MONEY RECEIVED</div>
       <div class="lr b"><span>Cash received</span><span>${fmt(R.received.Cash)}</span></div>
       <div class="lr b"><span>Online received</span><span>${fmt(R.received.online)}</span></div>
@@ -1608,7 +1635,7 @@ function receiveDialog(key){const e=creditBook().find(x=>x.key===key);if(!e){toa
         <div class="rprev">${rcvSlip(r)}</div><div class="row"><button class="btn primary" id="rcPrint" style="flex:1">Print receipt</button><button class="btn" data-close>Done</button></div>`);
       $("rcPrint").onclick=()=>printReceipt(rcvSlip(r,printSize()),printSize());render()}catch(err){toast(err instanceof Bad?err.message:"Couldn't save the payment.",true)}}};
   draw()}
-function rcvSlip(r,paper){paper=paper||printSize();return `<div class="rcpt w${paper}"><div class="c b big">${esc(S().shop_name)}</div>${headLines().map(l=>`<div class="c">${esc(l)}</div>`).join("")}<div class="hr"></div>
+function rcvSlip(r,paper){paper=paper||printSize();return `<div class="rcpt w${paper}${thermalClass(paper)}"><div class="c b big">${esc(S().shop_name)}</div>${headLines().map(l=>`<div class="c">${esc(l)}</div>`).join("")}<div class="hr"></div>
   <div class="c b">PAYMENT RECEIVED</div><div class="lr"><span>${dmy(r.at)} ${hm(r.at)}</span><span>By: ${esc(uname(r.by))}</span></div><div>From: <b>${esc(r.name)}</b>${r.phone?" "+esc(r.phone):""}</div><div class="hr"></div>
   ${r.alloc.map(a=>{const b=DB.bills.find(x=>x.id===a.bill_id);return `<div class="lr"><span>Bill ${b?label(b):"?"}</span><span>${fmt(a.amount)}</span></div>`}).join("")}
   <div class="hr"></div><div class="lr net"><span>RECEIVED (${esc(r.mode)})</span><span>₹${fmt(r.amount)}</span></div><div class="lr"><span>Balance due</span><span>${fmt(r.after)}</span></div><div class="hr"></div><div class="c">${esc(S().footer)}</div></div>`}
@@ -1791,11 +1818,11 @@ function renderSettings(){const s=S(),O=isOwner();
         <div><button class="btn danger" id="resetAll">Clear everything</button></div></div>`:""}</div></div>`;
   $("sForm").onsubmit=e=>{e.preventDefault();
     if(O&&document.querySelector("[data-pm]")){const t=[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm);if(!t.some(m=>PAID.includes(m))){toast("Tick at least one of Cash, UPI, Card or Bank.",true);return}}
-    Object.assign(DB.settings,O?{shop_name:$("sShop").value.trim()||"My Retail Store",header_lines:[0,1,2,3].map(i=>$("sH"+i).value.trim().slice(0,64))}:{},{footer:$("sFooter").value.trim().slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value,owner_lock:num($("sLock").value)}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
+    Object.assign(DB.settings,O?{shop_name:$("sShop").value.trim()||"My Retail Store",header_lines:[0,1,2,3].map(i=>$("sH"+i).value.trim().slice(0,64))}:{},{footer:$("sFooter").value.trim().slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value,thermal_size:$("sTs").value}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value,owner_lock:num($("sLock").value)}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
   $("toUsers").onclick=()=>go("users");
-  if($("sPrint")){const sy=()=>{const n=$("sPrint").value==="normal";$("sPaperF").hidden=n;$("sPageF").hidden=!n};$("sPrint").onchange=sy;sy();
+  if($("sPrint")){const sy=()=>{const n=$("sPrint").value==="normal";$("sPaperF").hidden=n;$("sTsF").hidden=n;$("sPageF").hidden=!n};$("sPrint").onchange=sy;sy();
     $("sTestPrint").onclick=()=>{const b=DB.bills.filter(x=>x.status==="active").slice(-1)[0];if(!b){toast("Make one bill first, then try a test print.",true);return}
-      const n=$("sPrint").value==="normal",p=n?$("sPage").value:$("sPaper").value;printReceipt(receiptHTML(b,true,p),p)}}
+      const n=$("sPrint").value==="normal",p=n?$("sPage").value:$("sPaper").value;const keep=DB.settings.thermal_size;DB.settings.thermal_size=$("sTs").value;const h=receiptHTML(b,true,p);DB.settings.thermal_size=keep;printReceipt(h,p)}}
   if($("gForm")){const sync=()=>{const t=$("gType").value;$("gMore").hidden=t==="none";$("gRegOnly").hidden=t!=="regular";const g=$("gGstin").value.trim().toUpperCase();
       $("gHint").textContent=!g?"":gstinCheck(g)?`✓ Valid · State ${stateName(g.slice(0,2))}`:"✗ Not a valid GSTIN — check each character";$("gHint").className="note "+(g&&!gstinCheck(g)?"bad":"good")};
     $("gType").onchange=sync;$("gGstin").oninput=sync;sync();
@@ -1822,6 +1849,7 @@ function printBox(s,O){const m=s.print_mode||"thermal";const nm=m==="normal"?`No
   if(!O)return `<div class="field"><label>Printer</label><div class="notebox">${nm}</div></div><p class="note">Only the owner can change the printer type.</p>`;
   return `<div class="field"><label for="sPrint">Printer</label><select id="sPrint"><option value="thermal" ${m!=="normal"?"selected":""}>Thermal printer (roll receipt)</option><option value="normal" ${m==="normal"?"selected":""}>Normal printer (A4 / A5 page)</option></select></div>
     <div class="row"><div class="field" id="sPaperF"><label for="sPaper">Thermal roll width</label><select id="sPaper"><option value="80" ${s.paper!=="58"?"selected":""}>80 mm (3 inch)</option><option value="58" ${s.paper==="58"?"selected":""}>58 mm (2 inch)</option></select></div>
+      <div class="field" id="sTsF"><label for="sTs">Thermal text size</label><select id="sTs">${[["N","Normal"],["L","Large (recommended)"],["X","Extra large"]].map(([v,t])=>`<option value="${v}" ${(s.thermal_size||"L")===v?"selected":""}>${t}</option>`).join("")}</select></div>
       <div class="field" id="sPageF"><label for="sPage">Page size</label><select id="sPage"><option value="A4" ${s.page!=="A5"?"selected":""}>A4 (full page)</option><option value="A5" ${s.page==="A5"?"selected":""}>A5 (half page, upright)</option><option value="A5L" ${s.page==="A5L"?"selected":""}>A5 landscape (half page, wide)</option></select></div>
       <div class="field" style="flex:0 0 auto"><label>&nbsp;</label><button type="button" class="btn" id="sTestPrint">Test print</button></div></div>
     <p class="note"><b>A5 landscape</b> is printed sideways: wide columns, so item names stay on one line. Load A5 paper (or A4 cut in half) and pick <b>A5</b> + <b>Landscape</b> in the print screen.</p>
