@@ -1,6 +1,6 @@
 {
-  "name": "Counter Bill",
-  "short_name": "Counter Bill",
+  "name": "CB",
+  "short_name": "CB",
   "id": "./",
   "start_url": "./",
   "scope": "./",
@@ -8,9 +8,17 @@
   "orientation": "any",
   "background_color": "#eef1f0",
   "theme_color": "#0d6b5f",
-  "description": "Shop billing that works without internet",
+  "description": "CB \u2014 shop billing that works without internet",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
   ]
 }
