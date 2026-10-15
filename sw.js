@@ -1,6 +1,6 @@
 /* Keeps the whole app on the device so it opens without internet.
    With internet, the app page is fetched fresh first (so updates show immediately); without it, the saved copy opens. */
-const VERSION = "cb-v1.5";
+const VERSION = "cb-v1.6";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", e => e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener("activate", e => e.waitUntil(caches.keys()
