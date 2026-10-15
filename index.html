@@ -110,6 +110,9 @@ tfoot td{font-weight:700;border-top:1px solid var(--line)}
 .grow{flex:1 1 150px}
 .tablewrap{overflow:auto;flex:1;min-height:150px}
 .tablewrap th{position:sticky;top:0;z-index:1}
+.tablewrap input.needq{border-color:var(--gold);background:rgba(233,162,39,.14);box-shadow:0 0 0 1px var(--gold) inset}
+.tablewrap input.needq::placeholder{color:var(--gold-ink,#7a5200);opacity:.8;font-weight:600}
+@media (prefers-color-scheme:dark){.tablewrap input.needq::placeholder{color:#f3c56b}}
 td.sn{color:var(--muted);width:28px}
 td.item{font-weight:600;min-width:110px}
 td.item small{display:block;font-weight:500;color:var(--muted);font-size:11px}
@@ -419,6 +422,15 @@ input.gstin{text-transform:uppercase;font-family:var(--f-num,monospace)}input.gs
   .nav .me{flex:none}
   .nav .me .btn{padding:5px 9px}
   .demo .wrap{font-size:12px}
+  /* bill table grows with the page (no small scroll box hidden behind the totals band) */
+  .panel.bill{overflow:visible}
+  .tablewrap{overflow:visible;flex:none;min-height:0}
+  .tablewrap th{position:static}
+  #lines tr{scroll-margin-top:70px;scroll-margin-bottom:290px}
+  /* while typing a quantity/rate the keyboard is up: the totals band stops floating so the items get the screen */
+  body.typing .billfoot{position:static}
+  body.typing #lines tr{scroll-margin-bottom:20px}
+  body.typing .nav nav.tabs{display:none}body.typing main.page{padding-bottom:16px}
   /* bill table fits the screen */
   .tablewrap td.sn,.tablewrap th:first-child{display:none}
   .tablewrap td,.tablewrap th{padding-left:5px;padding-right:5px}
@@ -535,7 +547,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="1.3";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="1.4";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -1092,7 +1104,7 @@ function renderGrid(){const ps=activeProducts();if(!ps.length){$("grid").innerHT
   const q=$("search").value.trim().toLowerCase();let list=ps.filter(p=>Bill.dept==="All"||p.dept===Bill.dept);
   if(q){const direct=list.filter(p=>p.name.toLowerCase().includes(q)||String(p.aliases||"").toLowerCase().includes(q));list=direct.length?direct:Voice.match(q,list).filter(x=>x.score>=0.6).map(x=>x.p)}   /* loose spelling: close matches only */
   const inBill=new Set(Bill.lines.map(l=>l.product_id)),qtyOf={},groups={};Bill.lines.forEach(l=>qtyOf[l.product_id]=+(((qtyOf[l.product_id]||0)+num(l.qty)).toFixed(3)));list.forEach(p=>(groups[p.dept]=groups[p.dept]||[]).push(p));const keys=q?Object.keys(groups):Object.keys(groups).sort();
-  $("grid").innerHTML=keys.length?keys.map(k=>`<div class="group">${Bill.dept==="All"?`<h3 style="--dc:${deptColor(k)}"><i class="dot"></i>${esc(k)}</h3>`:""}<div class="tiles">${groups[k].map(p=>`<button class="tile${inBill.has(p.id)?" inbill":""}" data-id="${p.id}" style="--dc:${deptColor(p.dept)}">${inBill.has(p.id)?`<span class="qb num">×${fq(qtyOf[p.id])}</span>`:""}<span class="n">${esc(p.name)}</span><span class="p"><b>₹${fmt(p.rate)}</b>per ${esc(p.unit)}</span></button>`).join("")}</div></div>`).join(""):`<div class="empty"><b>No products found</b>Try another spelling — or add it now if it's a new item.<div style="margin-top:10px"><button class="btn primary" data-quickadd="${esc($("search").value.trim())}">+ Add “${esc($("search").value.trim())}” as new product</button></div></div>`;
+  $("grid").innerHTML=keys.length?keys.map(k=>`<div class="group">${Bill.dept==="All"?`<h3 style="--dc:${deptColor(k)}"><i class="dot"></i>${esc(k)}</h3>`:""}<div class="tiles">${groups[k].map(p=>`<button class="tile${inBill.has(p.id)?" inbill":""}" data-id="${p.id}" style="--dc:${deptColor(p.dept)}">${inBill.has(p.id)?`<span class="qb num">${qtyOf[p.id]>0?"×"+fq(qtyOf[p.id]):"✓"}</span>`:""}<span class="n">${esc(p.name)}</span><span class="p"><b>₹${fmt(p.rate)}</b>per ${esc(p.unit)}</span></button>`).join("")}</div></div>`).join(""):`<div class="empty"><b>No products found</b>Try another spelling — or add it now if it's a new item.<div style="margin-top:10px"><button class="btn primary" data-quickadd="${esc($("search").value.trim())}">+ Add “${esc($("search").value.trim())}” as new product</button></div></div>`;
   $("catInfo").innerHTML=`<span>${list.length} of ${ps.length} products</span>${quickAddLink()}`}
 const quickAddLink=()=>`<span style="float:right;margin-top:-3px;display:inline-flex;gap:6px"><button class="btn sm" data-fixgroups="">Fix groups</button><button class="btn sm" data-quickadd="">+ New product</button></span>`;
 /* Quick add: create a product from the billing screen and put it on the bill straight away */
@@ -1105,7 +1117,7 @@ function quickAdd(name){
     <div class="row"><div class="field"><label for="qaDept">Group</label><input id="qaDept" list="qaDepts" maxlength="60" placeholder="General" value="${esc(dept)}"><datalist id="qaDepts">${depts.map(d=>`<option value="${esc(d)}">`).join("")}</datalist></div>
       <div class="field"><label for="qaUnit">Unit</label><select id="qaUnit">${UNITS.map(u=>`<option>${u}</option>`).join("")}</select></div></div>
     <div class="row"><div class="field"><label for="qaRate">Rate ₹</label><input id="qaRate" inputmode="decimal" placeholder="0"></div>
-      <div class="field"><label for="qaQty">Qty on this bill</label><input id="qaQty" inputmode="decimal" value="1"></div></div>
+      <div class="field"><label for="qaQty">Qty on this bill</label><input id="qaQty" inputmode="decimal" placeholder="Type on the bill"></div></div>
     <div class="field"><label for="qaAlias">Other names (optional)</label><input id="qaAlias" maxlength="300" placeholder="e.g. what customers call it"></div>
     <div class="row"><button class="btn primary" id="qaSave" style="flex:1">Save &amp; add to bill</button><button class="btn" data-close>Cancel</button></div>`);
   $((name?"qaRate":"qaName")).focus();
@@ -1114,7 +1126,7 @@ function quickAdd(name){
       const dup=DB.products.find(x=>x.active&&x.name.toLowerCase()===d.name.toLowerCase());
       if(dup)throw new Bad(`${dup.name} is already in the list — search for it instead.`);
       if(!(num($("qaRate").value)>0))throw new Bad("Enter the rate.");
-      const qty=+num($("qaQty").value).toFixed(3);if(!(qty>0))throw new Bad("Enter the quantity.");
+      const qty=$("qaQty").value.trim()===""?"":+num($("qaQty").value).toFixed(3);if(qty!==""&&!(qty>0))throw new Bad("Quantity must be more than 0, or leave it empty.");
       const p={id:nextId(),...d,active:true,added_by:me.id,added_at:stamp()};DB.products.push(p);save();
       closeModal();$("search").value="";renderDepts();addProduct(p.id,qty);toast(`${p.name} added to products and to this bill`)
     }catch(err){toast(err instanceof Bad?err.message:"Couldn't add that product.",true)}};
@@ -1124,7 +1136,7 @@ function unitOpts(u){const all=UNITS.includes(u)?UNITS:[u,...UNITS];return all.m
 function renderLines(flash){
   const L=Bill.lines,E=Bill.editing;
   $("lines").innerHTML=L.map((l,i)=>`<tr data-k="${l.k}"${l.k===flash?' class="flash-row"':""}><td class="sn num">${i+1}</td><td class="item">${esc(l.name)}<small>${esc(l.dept)}${billTaxType()==="regular"?` · GST ${lineGst(l)}%`:""}</small></td>
-    <td class="r"><input class="num" data-f="qty" inputmode="decimal" value="${l.qty}" aria-label="Quantity for ${esc(l.name)}"></td><td><select data-f="unit" aria-label="Unit">${unitOpts(l.unit)}</select></td>
+    <td class="r"><input class="num${num(l.qty)>0?"":" needq"}" data-f="qty" inputmode="decimal" enterkeyhint="next" placeholder="Qty" value="${l.qty}" aria-label="Quantity for ${esc(l.name)}"></td><td><select data-f="unit" aria-label="Unit">${unitOpts(l.unit)}</select></td>
     <td class="r"><div class="ratecell">${l.edited?`<button class="reset" data-reset title="Back to fixed rate ₹${fmt(l.base)}" aria-label="Back to fixed rate">↺</button>`:""}<input class="num${l.edited?" edited":""}" data-f="rate" inputmode="decimal" value="${l.rate}" aria-label="Rate for ${esc(l.name)}" title="${l.edited?"Changed for this bill. Fixed rate ₹"+fmt(l.base):"Fixed rate — change it for this bill only"}"></div></td>
     <td class="r num amt">${fmt(num(l.qty)*num(l.rate))}</td><td><button class="del" data-del aria-label="Remove ${esc(l.name)}">×</button></td></tr>`).join("");
   $("emptyBill").hidden=L.length>0;$("corrBar").hidden=!E;
@@ -1141,11 +1153,23 @@ function calc(){const items=Bill.lines.map(l=>({amount:r2(num(l.qty)*num(l.rate)
 function totals(){const c=calc();splitStatus();$("tCount").textContent=Bill.lines.length;$("tSub").textContent=fmt(c.sub);if(document.activeElement!==$("roundOff"))$("roundOff").value=c.manual?String(Bill.round):(c.round>=0?"+":"")+fmt(c.round);
   $("rMode").textContent=c.manual?"manual":"auto";$("rMode").classList.toggle("man",c.manual);$("roundReset").hidden=!c.manual;$("tGrand").textContent=rs(c.net);
   {const on=c.cfg.type==="regular";$("tTaxL").hidden=$("tTax").hidden=!on;if(on){$("tTaxL").textContent=c.cfg.inter?`IGST${c.cfg.incl?" (included)":""} · taxable ₹${fmt(c.taxable)}`:`CGST ₹${fmt(c.cgst)} + SGST ₹${fmt(c.sgst)}${c.cfg.incl?" (included)":""} · taxable ₹${fmt(c.taxable)}`;$("tTax").textContent=(c.cfg.incl?"":"+")+fmt(c.tax)}}$("tWords").textContent=c.net>0?"Rupees "+words(c.net)+" only":"";$("vBillCount").textContent=Bill.lines.length?`(${Bill.lines.length})`:"";
-  if($("billFab")){$("billFab").hidden=!Bill.lines.length;$("fabCount").textContent=Bill.lines.length;$("fabTotal").textContent=rs(c.net)}
+  if($("billFab")){$("billFab").hidden=!Bill.lines.length;$("fabCount").textContent=Bill.lines.length;const miss=Bill.lines.filter(l=>!(num(l.qty)>0)).length;$("fabTotal").textContent=miss?`${miss} qty to type`:rs(c.net)}
   Bill.lines.forEach((l,i)=>{const r=$("lines").rows[i];if(r)r.querySelector(".amt").textContent=fmt(num(l.qty)*num(l.rate))})}
 function addProduct(id,qty){const p=DB.products.find(x=>x.id===id);if(!p)return null;let l=Bill.lines.find(x=>x.product_id===id&&!x.edited);
   if(l)l.qty=+(num(l.qty)+qty).toFixed(3);else{l={k:uidk(),product_id:p.id,name:p.name,dept:p.dept,unit:p.unit,qty,rate:p.rate,base:p.rate,edited:false,gst:rateOf(p)};Bill.lines.push(l)}
   Bill.persist();renderLines(l.k);renderGrid();if(innerWidth<=900&&$("billing").dataset.view==="cat")toast(`Added ${p.name}`);return l}
+/* Products screen: a tap only SELECTS the product for the bill. The quantity is typed on the bill itself.
+   Tapping a selected product again (before a quantity is typed) unselects it. */
+function selectProduct(id){const p=DB.products.find(x=>x.id===id);if(!p)return;
+  const i=Bill.lines.findIndex(x=>x.product_id===id);
+  if(i>=0){const l=Bill.lines[i];if(!(num(l.qty)>0)){Bill.lines.splice(i,1);Bill.persist();renderLines();renderGrid();return}
+    toast(`${p.name} is already on the bill — change its quantity there`);return}
+  const l={k:uidk(),product_id:p.id,name:p.name,dept:p.dept,unit:p.unit,qty:"",rate:p.rate,base:p.rate,edited:false,gst:rateOf(p)};Bill.lines.push(l);
+  Bill.persist();renderLines(innerWidth>900?l.k:undefined);renderGrid()}
+/* put the cursor in the first quantity still to be typed */
+function focusNextQty(after){const rows=[...document.querySelectorAll("#lines tr")];let start=after?rows.indexOf(after.closest("tr"))+1:0;
+  for(let n=0;n<rows.length;n++){const r=rows[(start+n)%rows.length];const q=r.querySelector("[data-f=qty]");if(q&&!(num(q.value)>0)){q.focus();q.select();r.scrollIntoView({block:"center"});return true}}
+  if(after)after.blur();return false}
 function startCorrection(b){const[ok,why]=canCorrect(b);if(!ok){toast(why,true);return}
   if(Bill.lines.length&&!Bill.editing)Bill.persist();
   Bill.editing=b;Bill.lines=b.items.map(i=>({k:uidk(),product_id:i.product_id,name:i.name,dept:i.dept,unit:i.unit,qty:i.qty,rate:i.rate,base:i.base_rate,edited:Math.abs(i.rate-i.base_rate)>.004,gst:num(i.gst)}));
@@ -1167,12 +1191,16 @@ function bindBilling(){
   $("corrCancel").onclick=()=>{endCorrection();toast("Correction cancelled. The bill was not changed.")};
   $("lines").addEventListener("input",e=>{const f=e.target.dataset.f;if(!f)return;const l=L().find(x=>x.k===e.target.closest("tr").dataset.k);l[f]=e.target.value;
     if(f==="rate"){const was=l.edited;l.edited=Math.abs(num(l.rate)-num(l.base))>.004;if(was!==l.edited){Bill.persist();renderLines();const inp=document.querySelector(`tr[data-k="${l.k}"] [data-f=rate]`);inp.focus();inp.setSelectionRange(99,99);return}}
+    if(f==="qty"){e.target.classList.toggle("needq",!(num(l.qty)>0));renderGrid()}
     Bill.persist();totals()});
   $("lines").addEventListener("change",e=>{if(e.target.dataset.f==="unit")Bill.persist()});
+  $("lines").addEventListener("focusin",e=>{if(e.target.matches("input"))document.body.classList.add("typing")});
+  $("lines").addEventListener("focusout",()=>setTimeout(()=>{if(!document.activeElement||!document.activeElement.closest("#lines"))document.body.classList.remove("typing")},50));
+  $("lines").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.dataset.f==="qty"){e.preventDefault();focusNextQty(e.target)}});
   $("lines").addEventListener("click",e=>{const tr=e.target.closest("tr");if(!tr)return;const i=L().findIndex(x=>x.k===tr.dataset.k);
     if(e.target.closest("[data-del]")){L().splice(i,1);Bill.persist();renderLines();renderGrid()}
     if(e.target.closest("[data-reset]")){L()[i].rate=L()[i].base;L()[i].edited=false;Bill.persist();renderLines()}});
-  $("grid").onclick=e=>{const qa=e.target.closest("[data-quickadd]");if(qa){quickAdd(qa.dataset.quickadd);return}const t=e.target.closest(".tile");if(t)addProduct(+t.dataset.id,1)};
+  $("grid").onclick=e=>{const qa=e.target.closest("[data-quickadd]");if(qa){quickAdd(qa.dataset.quickadd);return}const t=e.target.closest(".tile");if(t)selectProduct(+t.dataset.id)};
   $("catInfo").onclick=e=>{const qa=e.target.closest("[data-quickadd]");if(qa)quickAdd($("search").value.trim());if(e.target.closest("[data-fixgroups]"))go("products")};
   $("depts").onclick=e=>{const b=e.target.closest(".dept");if(!b)return;Bill.dept=b.dataset.d;renderDepts();renderGrid()};
   $("search").oninput=renderGrid;$("search").onkeydown=e=>{if(e.key!=="Enter")return;const q=e.target.value.trim();if(!q)return;
@@ -1180,14 +1208,16 @@ function bindBilling(){
     const pool=activeProducts().filter(p=>Bill.dept==="All"||p.dept===Bill.dept),ql=q.toLowerCase();
     const direct=pool.find(p=>p.name.toLowerCase().includes(ql)||String(p.aliases||"").toLowerCase().includes(ql));
     const m=direct?null:Voice.match(q,pool)[0];const pick=direct||(m&&m.score>=0.8?m.p:null);
-    if(pick){addProduct(pick.id,1);e.target.select()}else quickAdd(q)};
+    if(pick){if(!Bill.lines.some(l=>l.product_id===pick.id))selectProduct(pick.id);else toast(`${pick.name} is already on the bill`);e.target.select()}else quickAdd(q)};
   $("autoPrint").onchange=e=>LS.set("autoPrint",e.target.checked);$("readBack").onchange=e=>LS.set("readBack",e.target.checked);
   document.querySelectorAll("[data-lang]").forEach(b=>b.onclick=()=>setLang(b.dataset.lang));
   const setView=v=>{$("billing").dataset.view=v;$("vBill").setAttribute("aria-pressed",v==="bill");$("vCat").setAttribute("aria-pressed",v==="cat")};
-  $("vBill").onclick=()=>setView("bill");$("vCat").onclick=()=>setView("cat");$("billFab").onclick=()=>{setView("bill");scrollTo({top:0})};
+  $("vBill").onclick=()=>{setView("bill");setTimeout(()=>focusNextQty(),60)};$("vCat").onclick=()=>setView("cat");$("billFab").onclick=()=>{setView("bill");scrollTo({top:0});setTimeout(()=>focusNextQty(),60)};
   $("saveBill").onclick=()=>{
-    const items=L().filter(l=>num(l.qty)>0).map(l=>({product_id:l.product_id,qty:num(l.qty),rate:num(l.rate),unit:l.unit}));
-    if(!items.length){toast("Add at least one item",true);return}
+    if(!L().length){toast("Add at least one item",true);return}
+    const noQty=L().filter(l=>!(num(l.qty)>0));
+    if(noQty.length){setView("bill");toast(`Enter the quantity for ${noQty.map(l=>l.name).slice(0,3).join(", ")}${noQty.length>3?` and ${noQty.length-3} more`:""} — or remove with ×`,true);focusNextQty();return}
+    const items=L().map(l=>({product_id:l.product_id,qty:num(l.qty),rate:num(l.rate),unit:l.unit}));
     const body={customer:$("custName").value,phone:$("custPhone").value,paymode:Bill.paymode,split:Bill.split,discount:num($("disc").value),round:Bill.round,items,buyer:{...Bill.buyer}};
     try{
       if(Bill.editing){const b=correctBill(Bill.editing.id,body);toast(`Bill ${label(b)} corrected · ${rs(b.net)}`);const ap=$("autoPrint").checked;endCorrection();if(ap)printBill(b)}
