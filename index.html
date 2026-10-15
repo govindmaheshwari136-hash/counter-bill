@@ -221,6 +221,8 @@ tr.flash-row td{animation:rowflash 1.2s ease-out}
 .inv.A5L .mid .note{border-top:0;padding-top:0;margin-top:1mm;font-size:.9em}.inv.A5L .mid .foot{text-align:left;margin-top:1mm}
 .inv.A5L .signw{text-align:right;margin-top:1.5mm;font-size:.92em}
 /* long bills continue on the next page with the column headings repeated */
+.billbtns{flex-wrap:wrap;position:sticky;bottom:-1px;z-index:2;background:var(--paper);padding:10px 0 6px;margin-top:4px;box-shadow:0 -10px 14px -10px rgba(0,0,0,.35)}.billbtns .btn{flex:1 1 30%}.billbtns .btn.primary{flex-basis:100%;padding:12px;font-size:16px}
+.savedh{color:var(--accent)}
 .inv thead{display:table-header-group}.inv tr{break-inside:avoid}.inv .sum,.inv .sign,.inv .sum3{break-inside:avoid}
 .inv *{letter-spacing:normal}.inv th{text-transform:none;color:#111}
 .inv .ttl{text-align:center;font-weight:800;letter-spacing:.12em;font-size:1.05em;border:1.5px solid #111;padding:1.2mm;margin-bottom:3mm}
@@ -250,7 +252,7 @@ tr.flash-row td{animation:rowflash 1.2s ease-out}
 .rcpt .void{font-size:1.6em;text-align:center;font-weight:700;border:2px solid var(--roll-ink);margin:1mm 0}
 .rcpt .pre{white-space:pre-line}
 .rcpt .bnote{white-space:pre-line;font-size:.9em;line-height:1.35}
-.rcpt .sm{font-size:.88em}.rcpt .gtab{width:100%;border-collapse:collapse;font-size:.88em;margin:1mm 0}.rcpt .gtab th,.rcpt .gtab td{text-align:right;padding:0 .5mm;border:0}.rcpt .gtab th:first-child,.rcpt .gtab td:first-child{text-align:left}.rcpt .gtab th{border-bottom:1px dashed var(--roll-ink)}.rcpt .gtab tr.b td{font-weight:700;border-top:1px dashed var(--roll-ink)}
+.rcpt .sm{font-size:.88em}.rcpt .gtab{width:100%;border-collapse:collapse;font-size:.88em;margin:1mm 0}.rcpt .gtab th,.rcpt .gtab td{text-align:right;padding:0 .5mm;border:0}.rcpt .gtab th:first-child,.rcpt .gtab td:first-child{text-align:left}.rcpt .gtab th{border-bottom:1px dashed var(--roll-ink);background:none;color:var(--roll-ink);text-transform:none;letter-spacing:0;font-weight:700;position:static}.rcpt .gtab td{color:var(--roll-ink);background:none;padding-top:.4mm}.rcpt .gtab tr.b td{font-weight:700;border-top:1px dashed var(--roll-ink)}
 .rcpt .pl{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:2mm;white-space:nowrap}
 .rcpt .pl span:first-child{overflow:hidden;text-overflow:ellipsis}
 .rcpt .pl span:nth-child(2),.rcpt .pl span:nth-child(3){text-align:right}
@@ -547,7 +549,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="1.4";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="1.5";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -598,7 +600,7 @@ class Bad extends Error{}
 const LS={get(k,d){try{const v=localStorage.getItem("cbx_"+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("cbx_"+k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem("cbx_"+k)}catch(e){}}};
 
 /* ============================================================ data store */
-const DEFAULT_SETTINGS={shop_name:"Shree Ganesh Stores",header:"",header_lines:["Main Road, Station Area","Ph: 98XXXXXX10","",""],footer:"Thank you, visit again!",bill_note:"",paymodes:["Cash","UPI","Card","Bank","Credit","Split"],paper:"80",voice_lang:"en-IN",staff_correct:"any",numbering:"daily",gst_type:"none",gstin:"",gst_incl:true,gst_default:0,print_mode:"thermal",page:"A4"};
+const DEFAULT_SETTINGS={shop_name:"Shree Ganesh Stores",header:"",header_lines:["Main Road, Station Area","Ph: 98XXXXXX10","",""],footer:"Thank you, visit again!",bill_note:"",paymodes:["Cash","UPI","Card","Bank","Credit","Split"],paper:"80",voice_lang:"en-IN",staff_correct:"any",numbering:"daily",owner_lock:30,gst_type:"none",gstin:"",gst_incl:true,gst_default:0,print_mode:"thermal",page:"A4"};
 /* Everything lives in the device's own database (IndexedDB) — no internet, no size worries */
 const IDB={db:null,
   open(){return new Promise((res,rej)=>{let r;try{r=indexedDB.open("counter-bill",1)}catch(e){rej(e);return}r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>{this.db=r.result;res()};r.onerror=()=>rej(r.error)})},
@@ -629,6 +631,7 @@ const nextId=()=>++DB.seq;
 function blankDB(){return{seq:0,settings:{...DEFAULT_SETTINGS,shop_name:"My Retail Store",header:"",header_lines:["","","",""]},users:[],products:[],bills:[],corrections:[],receipts:[],demo:false,lastBackup:null}}
 /* bring data from older versions up to date */
 function upgradeDB(){if(!DB)return;DB.receipts=DB.receipts||[];const s=DB.settings=DB.settings||{};
+  if(s.owner_lock===undefined)s.owner_lock=30;
   if(!s.print_mode)s.print_mode="thermal";if(!s.page)s.page="A4";if(!s.paper)s.paper="80";
   if(!s.gst_type)s.gst_type="none";if(s.gstin===undefined)s.gstin="";if(s.gst_incl===undefined)s.gst_incl=true;if(s.gst_default===undefined)s.gst_default=0;if(!Array.isArray(s.paymodes))s.paymodes=["Cash","UPI","Card","Bank","Credit","Split"];
   if(!Array.isArray(s.header_lines)){const l=String(s.header||"").split("\n").map(x=>x.trim()).filter(Boolean).slice(0,4);while(l.length<4)l.push("");s.header_lines=l}}
@@ -819,7 +822,7 @@ function verifyPill(b){if(isVerified(b))return '<span class="pill green">Verifie
 
 /* ============================================================ downloads */
 function saveFile(filename,data){
-  try{const blob=data instanceof Blob?data:new Blob([data],{type:filename.endsWith(".csv")?"text/csv":"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);toast("Saved "+filename+" to Downloads");return true}
+  try{const blob=data instanceof Blob?data:new Blob([data],{type:filename.endsWith(".csv")?"text/csv":filename.endsWith(".pdf")?"application/pdf":"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);toast("Saved "+filename+" to Downloads");return true}
   catch(e){toast("Couldn't save the file on this device.",true);return false}}
 /* ---------- printing (thermal receipt, or the page itself for A4) */
 /* which printer the owner chose: thermal roll (80/58 mm) or normal printer (A4/A5) */
@@ -922,16 +925,69 @@ addEventListener("resize",()=>fitPreviews());
 function closeModal(){$("overlay").hidden=true;$("overlay").innerHTML=""}
 $("overlay").addEventListener("click",e=>{if(e.target===$("overlay")||e.target.closest("[data-close]"))closeModal()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("overlay").hidden)closeModal()});
-function showReceipt(b,dup,title){
+/* Shows the bill as a page. Nothing prints by itself — only the Print button prints.
+   saved=true is the screen that opens right after a bill is saved. */
+function showReceipt(b,dup,title,saved){
   let paper=printSize();
-  const draw=()=>{openModal(`<div class="row" style="justify-content:space-between;align-items:center"><h2>${esc(title||"Bill "+label(b))}</h2>
+  const draw=()=>{openModal(`<div class="row" style="justify-content:space-between;align-items:center"><h2${saved?' class="savedh"':""}>${esc(title||"Bill "+label(b))}</h2>
     ${sizeSeg(paper)}</div>
     <div class="rprev">${receiptHTML(b,dup,paper)}</div>
-    <p class="note">${isPage(paper)?`Pick your printer in the print screen and choose paper size ${paper==="A5L"?"A5 and Landscape":paper}.`:"Pick your thermal printer in the print screen. Set margins to None the first time."}</p>
-    <div class="row"><button class="btn primary" id="doPrint" style="flex:1">Print</button><button class="btn" data-close>Done</button></div>`);
+    <div class="row billbtns"><button class="btn primary" id="doPrint">Print</button><button class="btn" id="doShare">Share PDF</button><button class="btn" id="doPdf">Save PDF</button><button class="btn" data-close>${saved?"New bill":"Close"}</button></div>
+    <p class="note">${isPage(paper)?`Print: pick your printer and paper size ${paper==="A5L"?"A5 and Landscape":paper}.`:"Print: pick your thermal printer; set margins to None the first time."} <b>Share PDF</b> sends the bill on WhatsApp; <b>Save PDF</b> keeps it in Downloads.</p>`);
     $("doPrint").onclick=()=>printReceipt(receiptHTML(b,dup,paper),paper);
+    $("doShare").onclick=()=>pdfOut(b,dup,paper,true);$("doPdf").onclick=()=>pdfOut(b,dup,paper,false);
     $("overlay").querySelectorAll("[data-w]").forEach(x=>x.onclick=()=>{paper=x.dataset.w;draw()})};
   draw()}
+
+/* ---------- the bill as a real PDF file, made on the phone (no internet needed) */
+const PAGE_MM={A4:[210,297,8],A5:[148,210,8],A5L:[210,148,6]};   /* width, height, margin */
+const MMPX=96/25.4;
+let cssCache=null;const pdfCSS=()=>cssCache||(cssCache=[...document.querySelectorAll("style")].filter(x=>x.id!=="pageStyle").map(x=>x.textContent).join("\n").replace(/&/g,"&amp;").replace(/</g,"&lt;"));
+/* draw the bill's own HTML onto a picture: returns the canvas plus good places to cut pages */
+async function billCanvas(html,scale){
+  const box=document.createElement("div");box.style.cssText="position:fixed;left:-20000px;top:0;display:inline-block;background:#fff";box.innerHTML=html;document.body.appendChild(box);
+  const el=box.firstElementChild;el.style.boxShadow="none";el.style.zoom="";el.style.margin="0";
+  const w=Math.ceil(el.offsetWidth),h=Math.ceil(el.offsetHeight),top=el.getBoundingClientRect().top;
+  const cuts=[...el.querySelectorAll("tr,.sum,.sum3,.sign,.note,.foot,.party,.top,.lr,.it,.pl,.hr,.words,.tot>div")].filter(e=>!(e.parentElement&&e.parentElement.closest(".sum,.sum3,.gt,.gtab"))).map(e=>Math.round(e.getBoundingClientRect().bottom-top)).filter(y=>y>0&&y<h).sort((a,b)=>a-b);
+  const th=el.querySelector("thead"),tb=el.querySelector("tbody");const head=th&&tb?{y:Math.round(th.getBoundingClientRect().top-top),h:Math.round(th.getBoundingClientRect().height),end:Math.round(tb.getBoundingClientRect().bottom-top)}:null;
+  const xml=new XMLSerializer().serializeToString(el);box.remove();
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><foreignObject x="0" y="0" width="${w}" height="${h}"><style>${pdfCSS()}</style>${xml}</foreignObject></svg>`;
+  const img=new Image();img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);await img.decode();
+  const c=document.createElement("canvas");c.width=Math.round(w*scale);c.height=Math.round(h*scale);const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.scale(scale,scale);x.drawImage(img,0,0,w,h);
+  c.toDataURL("image/jpeg",0.5);   /* throws here if this browser can't make pictures of pages */
+  return{c,w,h,cuts,head}}
+const jpegOf=(canvas)=>{const d=atob(canvas.toDataURL("image/jpeg",0.92).split(",")[1]);const u=new Uint8Array(d.length);for(let i=0;i<d.length;i++)u[i]=d.charCodeAt(i);return u};
+/* tiny PDF writer: one JPEG picture per page */
+function makePDF(pages){const enc=new TextEncoder(),parts=[],offs=[];let len=0;const put=x=>{const u=typeof x==="string"?enc.encode(x):x;parts.push(u);len+=u.length};
+  const n=pages.length,kids=pages.map((_,i)=>`${3+i*3} 0 R`).join(" ");put("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+  const obj=(id,body)=>{offs[id]=len;put(`${id} 0 obj\n`);(Array.isArray(body)?body:[body]).forEach(put);put("\nendobj\n")};
+  obj(1,"<< /Type /Catalog /Pages 2 0 R >>");obj(2,`<< /Type /Pages /Kids [${kids}] /Count ${n} >>`);
+  pages.forEach((p,i)=>{const P=3+i*3,C=P+1,I=P+2,f=v=>v.toFixed(2);
+    const cs=`q ${f(p.dw)} 0 0 ${f(p.dh)} ${f(p.x)} ${f(p.ph-p.y-p.dh)} cm /Im0 Do Q`;
+    obj(P,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${f(p.pw)} ${f(p.ph)}] /Resources << /XObject << /Im0 ${I} 0 R >> >> /Contents ${C} 0 R >>`);
+    obj(C,[`<< /Length ${cs.length} >>\nstream\n`,cs,"\nendstream"]);
+    obj(I,[`<< /Type /XObject /Subtype /Image /Width ${p.iw} /Height ${p.ih} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpg.length} >>\nstream\n`,p.jpg,"\nendstream"])});
+  const xref=len,total=3+n*3;put(`xref\n0 ${total}\n0000000000 65535 f \n`);for(let i=1;i<total;i++)put(String(offs[i]).padStart(10,"0")+" 00000 n \n");
+  put(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);return new Blob(parts,{type:"application/pdf"})}
+async function billPDF(b,dup,size){const S2=2.5,PT=72/96;const r=await billCanvas(receiptHTML(b,dup,size),S2);
+  if(!isPage(size)){const jpg=jpegOf(r.c);return makePDF([{jpg,iw:r.c.width,ih:r.c.height,pw:r.w*PT,ph:r.h*PT,x:0,y:0,dw:r.w*PT,dh:r.h*PT}])}
+  const[pwm,phm,mm]=PAGE_MM[size];const pageH=(phm-2*mm)*MMPX,pages=[];let y0=0;
+  while(y0<r.h-1&&(pages.length===0||r.cuts.some(c=>c>y0+2))){
+    /* later pages inside the item table start with the column headings again */
+    const rep=pages.length>0&&r.head&&y0<r.head.end-2?r.head.h:0;
+    let y1=Math.min(r.h,y0+pageH-rep);if(y1<r.h){const ok=r.cuts.filter(c=>c>y0+40&&c<=y1);if(ok.length)y1=ok[ok.length-1]}
+    const hh=Math.round(rep*S2),sh=Math.max(1,Math.round((y1-y0)*S2)),pc=document.createElement("canvas");pc.width=r.c.width;pc.height=hh+sh;const px=pc.getContext("2d");px.fillStyle="#fff";px.fillRect(0,0,pc.width,pc.height);
+    if(hh)px.drawImage(r.c,0,Math.round(r.head.y*S2),r.c.width,hh,0,0,r.c.width,hh);
+    px.drawImage(r.c,0,Math.round(y0*S2),r.c.width,sh,0,hh,r.c.width,sh);
+    const dw=Math.min(r.w*PT,(pwm-2*mm)*MMPX*PT),k=dw/(r.w*PT);pages.push({jpg:jpegOf(pc),iw:pc.width,ih:pc.height,pw:pwm*MMPX*PT,ph:phm*MMPX*PT,x:mm*MMPX*PT,y:mm*MMPX*PT,dw,dh:(rep+y1-y0)*PT*k});y0=y1}
+  return makePDF(pages)}
+const pdfName=b=>`Bill-${label(b).replace(/[^0-9A-Za-z]+/g,"-")}${b.customer?"-"+b.customer.replace(/[^0-9A-Za-z]+/g,"-").slice(0,24):""}.pdf`.replace(/-+/g,"-");
+async function pdfOut(b,dup,size,share){let blob;try{toast("Making PDF…");blob=await billPDF(b,dup,size)}catch(e){toast("This phone can't make the PDF here. Use Print and choose \"Save as PDF\" as the printer.",true);return}
+  const name=pdfName(b);
+  if(share){const file=new File([blob],name,{type:"application/pdf"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:name});return}catch(e){if(e&&e.name==="AbortError")return}}
+    toast("Sharing isn't available here — saved the PDF to Downloads instead.")}
+  saveFile(name,blob)}
 
 /* ============================================================ shell & routing */
 const VIEWS={billing:"Billing",bills:"Bills",credit:"Credit",report:"Day end report",log:"Correction log",products:"Products",users:"Users",settings:"Settings"};
@@ -952,7 +1008,7 @@ const deptHue=d=>{let h=0;for(const ch of String(d))h=(h*31+ch.charCodeAt(0))%36
 const deptColor=d=>`hsl(${deptHue(d)} 62% 42%)`;
 const ADMIN_ONLY=new Set(["log"]);  /* only the Owner sees the correction log */
 let view="billing";   /* the app always opens on Billing */
-function go(v){if(ADMIN_ONLY.has(v)&&!isOwner())v="billing";if(v==="bills"&&view!=="bills"&&isOwner()&&!billsModeSet)billsMode=DB.bills.some(b=>!isVerified(b))?"verify":"date";view=v;LS.set("view",v);render();window.scrollTo(0,0)}
+function go(v){if(ADMIN_ONLY.has(v)&&!isOwner())v="billing";if(v==="bills"&&view!=="bills"&&isOwner()&&!billsModeSet)billsMode=DB.bills.some(b=>!isVerified(b))?"verify":"date";view=v;if(me)LS.set("view_"+me.id,v);render();window.scrollTo(0,0)}
 function render(){
   const app=$("app");
   if(!DB.users.length){app.innerHTML=setupHTML();bindSetup();return}
@@ -990,7 +1046,7 @@ function bindLogin(){$("lgUser").focus();$("loginForm").onsubmit=e=>{e.preventDe
   if(f.until>Date.now()){toast("Too many wrong tries. Wait a few minutes.",true);return}
   const u=DB.users.find(x=>x.username.toLowerCase()===id&&x.active);
   if(!u||u.pw!==hashPw(pw,u.salt)){f.n++;if(f.n>=5)f.until=Date.now()+300000;fails[id]=f;toast("Wrong login ID or password.",true);return}
-  delete fails[id];me=u;LS.set("session",u.id);LS.set("loggedOut",false);view="billing";Bill.load();render()}}
+  delete fails[id];me=u;LS.set("session",u.id);LS.set("loggedOut",false);LS.set("lastAct",Date.now());view="billing";Bill.load();render()}}
 function setupHTML(){return `<div class="wrap"><div class="authwrap"><form class="card authcard" id="setupForm">
   <div class="authhero">${LOGO("big")}<div><h1 class="title">Set up CB</h1><p class="note">Create the owner login for yourself. You'll create the admin login for the person who runs the shop after this. They never see this screen.</p></div></div>
   <div class="field"><label for="suShop">Shop name</label><input id="suShop" required></div>
@@ -1051,8 +1107,7 @@ function renderBilling(){
       <label class="l" for="roundOff">Round off <span class="rmode" id="rMode">auto</span> <button type="button" class="reset" id="roundReset" hidden title="Back to automatic round off" aria-label="Back to automatic round off">↺</button></label><input id="roundOff" class="num" inputmode="decimal" aria-label="Round off">
       <span class="l" id="tTaxL" hidden></span><span class="num" id="tTax" hidden></span>
       <span class="l grandl">Net amount</span><span class="num grand" id="tGrand">₹0</span><span class="words" id="tWords"></span></div>
-    <div class="billact"><button class="btn primary" id="saveBill">Save &amp; print</button>
-      <label class="chk"><input type="checkbox" id="autoPrint"> Print after saving</label>
+    <div class="billact"><button class="btn primary" id="saveBill">Save bill</button>
       <button class="btn" id="copyBill">Copy for WhatsApp</button><button class="btn danger" id="clearBill">Clear</button></div></div>
   </section>
   <section class="panel catalog" aria-label="Products by department">
@@ -1068,7 +1123,7 @@ function renderBilling(){
   </section>
   <button class="billfab" id="billFab" type="button" hidden><span class="fabn" id="fabCount">0</span><span>View bill</span><b class="num" id="fabTotal">₹0</b></button></div>`;
   $("custName").value=Bill.cust;$("custPhone").value=Bill.phone;$("disc").value=Bill.disc;
-  $("autoPrint").checked=LS.get("autoPrint",true);$("readBack").checked=LS.get("readBack",true);
+  $("readBack").checked=LS.get("readBack",true);
   if(!shownModes().includes(Bill.paymode))Bill.paymode=shownModes().find(m=>PAID.includes(m))||shownModes()[0]||"Cash";setPay(Bill.paymode);setLang(LS.get("voiceLang",S().voice_lang));
   if($("bGstin")){const open=!!(Bill.buyer.gstin||Bill.buyer.addr||(Bill.buyer.state&&Bill.buyer.state!==((Bill.editing&&(Bill.editing.tax||{}).seller_state)||sellerState())));$("buyerBox").hidden=!open;$("buyerTog").hidden=open;
     $("buyerTog").onclick=()=>{$("buyerBox").hidden=false;$("buyerTog").hidden=true;$("bGstin").focus()};$("bGstin").value=Bill.buyer.gstin||"";$("bAddr").value=Bill.buyer.addr||"";$("bState").value=Bill.buyer.state||(Bill.editing&&Bill.editing.tax&&Bill.editing.tax.seller_state)||sellerState()||"27";buyerHint()}
@@ -1141,7 +1196,7 @@ function renderLines(flash){
     <td class="r num amt">${fmt(num(l.qty)*num(l.rate))}</td><td><button class="del" data-del aria-label="Remove ${esc(l.name)}">×</button></td></tr>`).join("");
   $("emptyBill").hidden=L.length>0;$("corrBar").hidden=!E;
   if(E)$("corrTitle").innerHTML=`Correcting Bill ${esc(label(E))} <span>· by ${esc(uname(E.created_by))} at ${hm(E.created_at)} · original ${rs(E.net)}</span>`;
-  $("billNo").textContent=E?label(E):(()=>{const n=nextNumber(today());return n.series==="daily"?`${shortDate(today())}/${n.no}`:`${n.fy}/${n.no}`})();$("saveBill").innerHTML=E?"Save correction":"Save &amp; print";$("clearBill").hidden=!!E;
+  $("billNo").textContent=E?label(E):(()=>{const n=nextNumber(today());return n.series==="daily"?`${shortDate(today())}/${n.no}`:`${n.fy}/${n.no}`})();$("saveBill").innerHTML=E?"Save correction":"Save bill";$("clearBill").hidden=!!E;
   if(flash){const r=document.querySelector(`tr[data-k="${flash}"]`);if(r)r.scrollIntoView({block:"nearest"})}
   totals()}
 function lineGst(l){if(l.gst!==undefined&&l.gst!==null&&l.gst!=="")return num(l.gst);return rateOf(DB.products.find(p=>p.id===l.product_id))}
@@ -1209,7 +1264,7 @@ function bindBilling(){
     const direct=pool.find(p=>p.name.toLowerCase().includes(ql)||String(p.aliases||"").toLowerCase().includes(ql));
     const m=direct?null:Voice.match(q,pool)[0];const pick=direct||(m&&m.score>=0.8?m.p:null);
     if(pick){if(!Bill.lines.some(l=>l.product_id===pick.id))selectProduct(pick.id);else toast(`${pick.name} is already on the bill`);e.target.select()}else quickAdd(q)};
-  $("autoPrint").onchange=e=>LS.set("autoPrint",e.target.checked);$("readBack").onchange=e=>LS.set("readBack",e.target.checked);
+  $("readBack").onchange=e=>LS.set("readBack",e.target.checked);
   document.querySelectorAll("[data-lang]").forEach(b=>b.onclick=()=>setLang(b.dataset.lang));
   const setView=v=>{$("billing").dataset.view=v;$("vBill").setAttribute("aria-pressed",v==="bill");$("vCat").setAttribute("aria-pressed",v==="cat")};
   $("vBill").onclick=()=>{setView("bill");setTimeout(()=>focusNextQty(),60)};$("vCat").onclick=()=>setView("cat");$("billFab").onclick=()=>{setView("bill");scrollTo({top:0});setTimeout(()=>focusNextQty(),60)};
@@ -1220,8 +1275,8 @@ function bindBilling(){
     const items=L().map(l=>({product_id:l.product_id,qty:num(l.qty),rate:num(l.rate),unit:l.unit}));
     const body={customer:$("custName").value,phone:$("custPhone").value,paymode:Bill.paymode,split:Bill.split,discount:num($("disc").value),round:Bill.round,items,buyer:{...Bill.buyer}};
     try{
-      if(Bill.editing){const b=correctBill(Bill.editing.id,body);toast(`Bill ${label(b)} corrected · ${rs(b.net)}`);const ap=$("autoPrint").checked;endCorrection();if(ap)printBill(b)}
-      else{const b=createBill(body);Bill.reset();if(!shownModes().includes("Cash"))Bill.paymode=shownModes().find(m=>PAID.includes(m))||"Cash";renderBilling();toast(`Bill ${label(b)} saved · ${rs(b.net)}`);if(LS.get("autoPrint",true))printBill(b)}
+      if(Bill.editing){const b=correctBill(Bill.editing.id,body);endCorrection();showReceipt(b,false,`✓ Bill ${label(b)} corrected · ${rs(b.net)}`,true)}
+      else{const b=createBill(body);Bill.reset();if(!shownModes().includes("Cash"))Bill.paymode=shownModes().find(m=>PAID.includes(m))||"Cash";renderBilling();showReceipt(b,false,`✓ Bill ${label(b)} saved · ${rs(b.net)}`,true)}
     }catch(err){toast(err instanceof Bad?err.message:"Something went wrong. Try again.",true)}};
   $("copyBill").onclick=async()=>{if(!L().length){toast("Bill is empty",true);return}const c=calc();
     let t=`*${S().shop_name}*\n${Bill.editing?"Bill No: "+label(Bill.editing)+" (revised)\n":""}Date: ${dmy(today())}\n`;if($("custName").value.trim())t+=`Customer: ${$("custName").value.trim()}\n`;
@@ -1678,7 +1733,9 @@ function renderSettings(){const s=S(),O=isOwner();
       <div class="field"><label>Payment options shown when billing</label><div class="paychecks">${ALL_OPTIONS.map(m=>`<label class="chk pc"><input type="checkbox" data-pm="${m}" ${enabledModes().includes(m)?"checked":""}> ${m}</label>`).join("")}</div></div>
       <p class="note">Only ticked options appear on the bill and when receiving dues. <b>Bank</b> is for money paid straight into your bank (NEFT, IMPS, RTGS, cheque). <b>Split</b> lets one bill be paid in parts.</p>
       <div class="field"><label for="sNum">Bill numbers</label><select id="sNum"><option value="daily" ${(s.numbering||"daily")==="daily"?"selected":""}>Start from 1 every day (e.g. ${shortDate(today())}/1)</option><option value="fy" ${s.numbering==="fy"?"selected":""}>Continue through the financial year (e.g. ${fyOf(today())}/1)</option></select></div>
-      <p class="note">Changing this affects new bills only. Old bills keep their numbers.</p>`:""}
+      <p class="note">Changing this affects new bills only. Old bills keep their numbers.</p>
+      <div class="field"><label for="sLock">Owner login locks itself after</label><select id="sLock">${[[10,"10 minutes without use"],[30,"30 minutes without use"],[60,"1 hour without use"],[240,"4 hours without use"],[0,"Never (only when I log out)"]].map(([v,t])=>`<option value="${v}" ${lockMin()===v?"selected":""}>${t}</option>`).join("")}</select></div>
+      <p class="note">Refreshing or reopening the app within this time keeps you logged in. The lock stops the admin carrying on in your login. The admin's own login stays until they log out.</p>`:""}
       ${printBox(s,O)}
       <div><button class="btn primary">Save settings</button></div></form>
     <div class="stack">${gstCard(s,O)}<div class="card"><h2>Users &amp; logins</h2><p class="note">Create logins, change passwords or switch a login off.</p><div><button class="btn" type="button" id="toUsers">Open Users</button></div></div>
@@ -1693,7 +1750,7 @@ function renderSettings(){const s=S(),O=isOwner();
         <div><button class="btn danger" id="resetAll">Clear everything</button></div></div>`:""}</div></div>`;
   $("sForm").onsubmit=e=>{e.preventDefault();
     if(O&&document.querySelector("[data-pm]")){const t=[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm);if(!t.some(m=>PAID.includes(m))){toast("Tick at least one of Cash, UPI, Card or Bank.",true);return}}
-    Object.assign(DB.settings,O?{shop_name:$("sShop").value.trim()||"My Retail Store",header_lines:[0,1,2,3].map(i=>$("sH"+i).value.trim().slice(0,64))}:{},{footer:$("sFooter").value.trim().slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
+    Object.assign(DB.settings,O?{shop_name:$("sShop").value.trim()||"My Retail Store",header_lines:[0,1,2,3].map(i=>$("sH"+i).value.trim().slice(0,64))}:{},{footer:$("sFooter").value.trim().slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value,owner_lock:num($("sLock").value)}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
   $("toUsers").onclick=()=>go("users");
   if($("sPrint")){const sy=()=>{const n=$("sPrint").value==="normal";$("sPaperF").hidden=n;$("sPageF").hidden=!n};$("sPrint").onchange=sy;sy();
     $("sTestPrint").onclick=()=>{const b=DB.bills.filter(x=>x.status==="active").slice(-1)[0];if(!b){toast("Make one bill first, then try a test print.",true);return}
@@ -1749,8 +1806,17 @@ addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;docum
 addEventListener("appinstalled",()=>{installEvt=null;document.querySelectorAll(".install-app").forEach(b=>b.hidden=true);toast("Installed — open CB from the home screen")});
 document.addEventListener("click",async e=>{if(!e.target.closest(".install-app")||!installEvt)return;installEvt.prompt();await installEvt.userChoice;installEvt=null;document.querySelectorAll(".install-app").forEach(b=>b.hidden=true)});
 /* Owner login locks itself after 10 minutes without use, so the admin can't continue as owner */
-let lastAct=Date.now();["pointerdown","keydown","touchstart"].forEach(ev=>addEventListener(ev,()=>lastAct=Date.now(),{passive:true}));
-setInterval(()=>{if(me&&isOwner()&&Date.now()-lastAct>10*60*1000){me=null;LS.del("session");closeModal();render();toast("Owner login locked after 10 minutes. Log in again.")}},20000);
+/* Owner login locks itself after the time the owner chose (Settings) without use. A refresh or reopening the app
+   inside that time keeps you logged in; after it, the owner logs in again — so the admin can't carry on as owner. */
+const lockMin=()=>{const v=num(DB&&DB.settings?DB.settings.owner_lock:30);return v>=0?v:30};
+let lastAct=Date.now(),lastSaved=0;const markAct=()=>{lastAct=Date.now();if(lastAct-lastSaved>10000){lastSaved=lastAct;LS.set("lastAct",lastAct)}};
+["pointerdown","keydown","touchstart"].forEach(ev=>addEventListener(ev,markAct,{passive:true}));
+addEventListener("pagehide",()=>LS.set("lastAct",lastAct));
+setInterval(()=>{const m=lockMin();if(me&&isOwner()&&m>0&&Date.now()-lastAct>m*60*1000){me=null;LS.del("session");closeModal();render();toast(`Owner login locked after ${m} minutes without use. Log in again.`)}},20000);
+/* who is still logged in when the app opens again */
+function restoreSession(){const sid=LS.get("session",null),u=sid&&userById(sid);if(!u||!u.active)return null;
+  if(u.role==="admin"){const m=lockMin(),t=num(LS.get("lastAct",0));if(m>0&&!(t&&Date.now()-t<m*60*1000)){LS.del("session");return null}}
+  return u}
 /* Only one copy of the app may be in use at a time, so two windows can't overwrite each other's bills */
 const BC=("BroadcastChannel" in self)?new BroadcastChannel("counter-bill"):null;let otherOpen=false;
 if(BC)BC.onmessage=e=>{
@@ -1764,15 +1830,14 @@ function showBlocked(){blocked=true;closeModal();
   $("useHere").onclick=takeOver}
 async function loadDB(){DB=null;try{if(!IDB.db)await IDB.open();idbOK=true;const raw=await IDB.get("db");if(raw)DB=JSON.parse(raw)}catch(e){idbOK=false}}
 async function takeOver(){if(BC)BC.postMessage("takeover");await new Promise(r=>setTimeout(r,400));await loadDB();if(!DB)DB=blankDB();upgradeDB();blocked=false;
-  const sid=LS.get("session",null),u=sid&&userById(sid);me=u&&u.active&&u.role!=="admin"?u:null;Bill.load();view="billing";render()}
+  me=restoreSession();Bill.load();view="billing";render()}
 async function boot(){
   if(BC){BC.postMessage("hello");await new Promise(r=>setTimeout(r,350));if(otherOpen){showBlocked();return}}
   await loadDB();
   if(!DB){const old=LS.get("db",null);if(old&&old.users)DB=old}
   if(!DB)DB=blankDB();upgradeDB();
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
-  const sid=LS.get("session",null),u=sid&&userById(sid);
-  if(u&&u.active&&u.role!=="admin")me=u;   /* the owner always logs in again after the app is closed */
+  me=restoreSession();if(me){LS.set("lastAct",Date.now());const v=LS.get("view_"+me.id,"billing");view=VIEWS[v]&&!(ADMIN_ONLY.has(v)&&!isOwner())?v:"billing"}   /* a refresh keeps you on the same page */
   Bill.load();render();
   dailyBackup();setInterval(dailyBackup,60000);   /* also catches midnight if the app stays open */
   if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
