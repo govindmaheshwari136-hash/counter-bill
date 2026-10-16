@@ -561,7 +561,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="2.2";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="2.3";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -1071,7 +1071,7 @@ function render(){
 /* ---------- login / setup */
 function loginHTML(){const demoUsers=DB.demo?DB.users.filter(u=>u.active&&["owner","ravi","ravi"].includes(u.username)):[];
   return `<div class="wrap"><div class="authwrap"><form class="card authcard" id="loginForm">
-  <div class="authhero">${LOGO("big")}<div><h1 class="title">${esc(S().shop_name)}</h1><p class="note">Log in with the ID your shop owner gave you.</p></div></div>
+  <div class="authhero">${LOGO("big")}<div><h1 class="title">Log in</h1><p class="note">Use the login ID and password given to you.</p></div></div>
   <div class="field"><label for="lgUser">Login ID</label><input id="lgUser" autocomplete="username" required></div>
   <div class="field"><label for="lgPw">Password</label><input id="lgPw" type="password" autocomplete="current-password" required></div>
   <button class="btn primary" style="padding:11px">Log in</button>
