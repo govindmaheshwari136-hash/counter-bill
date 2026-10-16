@@ -82,6 +82,7 @@ h1.title{font-size:22px;margin:0;letter-spacing:-.01em;text-wrap:balance}
 .pill{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:99px;background:var(--mark-soft);color:var(--ink);vertical-align:1px}
 .pill.red{background:var(--danger-soft);color:var(--danger)}
 .pill.green{background:var(--accent-soft);color:var(--accent)}
+#custName,#bAddr,#qaName,#puSup,#puNote,#nName,#nDept,#nAlias,#renTo,#ngName,#uName,#sShop,#sH0,#sH1,#sH2,#sH3,#sNote,#sFooter,#suShop,#suName,#pList [data-f=name],#pList [data-f=dept],#pList [data-f=aliases],#npName,#npDept{text-transform:uppercase}#custName::placeholder,#bAddr::placeholder,#qaName::placeholder,#puSup::placeholder,#puNote::placeholder,#nName::placeholder,#nDept::placeholder,#nAlias::placeholder,#renTo::placeholder,#ngName::placeholder,#uName::placeholder,#sShop::placeholder,#sH0::placeholder,#sH1::placeholder,#sH2::placeholder,#sH3::placeholder,#sNote::placeholder,#sFooter::placeholder,#suShop::placeholder,#suName::placeholder,#pList [data-f=name]::placeholder,#pList [data-f=dept]::placeholder,#pList [data-f=aliases]::placeholder,#npName::placeholder,#npDept::placeholder{text-transform:none}
 .toastbtn{margin-left:10px;background:none;border:1px solid currentColor;color:inherit;border-radius:6px;padding:4px 12px;font:inherit;font-weight:800;cursor:pointer}
 .toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;font-weight:600;z-index:60;max-width:calc(100% - 40px);text-align:center}
 .toast.err{background:var(--danger)}
@@ -568,7 +569,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="3.4";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="3.5";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -604,7 +605,10 @@ function payText(p){const parts=PKEYS.map(k=>[KEYNAME[k],p[k]||0]).filter(x=>x[1
 /* the customer box starts with "Cash" — that (or empty) means a walk-in customer with no name */
 /* one-line text: tabs, line breaks and invisible control characters (often pasted from Excel / Word) become spaces */
 const clean1=t=>String(t??"").replace(/[\u0000-\u001F\u007F-\u009F\u200B\uFEFF]/g," ").replace(/\s+/g," ").trim();
-const normCust=n=>{n=clean1(n);return /^cash$/i.test(n)?"":n};
+/* names, products, addresses and shop text are kept in CAPITALS. Case is kept only where it matters:
+   login IDs, passwords, plan / reset codes, GSTIN (already capitals) and the export ledger names (must match the books). */
+const UP=t=>clean1(t).toUpperCase();
+const normCust=n=>{n=UP(n);return /^cash$/i.test(n)?"":n};
 const custKey=n=>normCust(n).toLowerCase().replace(/\s+/g," ");
 /* money received against each credit bill — indexed once, rebuilt whenever payments are added, undone or restored */
 let collIdx={arr:null,len:-1,map:null};
@@ -664,7 +668,7 @@ const save=()=>{if(blocked)return;clearTimeout(saveTimer);saveTimer=setTimeout(f
 addEventListener("pagehide",()=>{if(saveTimer)flush()});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&saveTimer)flush()});
 const nextId=()=>++DB.seq;
-function blankDB(){return{seq:0,settings:{...DEFAULT_SETTINGS,shop_name:"My Retail Store",header:"",header_lines:["","","",""]},users:[],products:[],bills:[],corrections:[],receipts:[],purchases:[],activity:[],shop_id:newShopId(),trial_start:today(),demo:false,lastBackup:null}}
+function blankDB(){return{seq:0,caps:1,settings:{...DEFAULT_SETTINGS,shop_name:"MY RETAIL STORE",header:"",header_lines:["","","",""],footer:"THANK YOU, VISIT AGAIN!"},users:[],products:[],bills:[],corrections:[],receipts:[],purchases:[],activity:[],shop_id:newShopId(),trial_start:today(),demo:false,lastBackup:null}}
 const backupName=()=>`CB-backup-${(DB.settings.shop_name||"shop").replace(/[^0-9A-Za-z]+/g,"-").replace(/^-|-$/g,"").slice(0,24)||"shop"}-${today()}`;
 /* send the backup file off this phone (WhatsApp to yourself, Google Drive, e-mail …) — the copy that survives a lost phone */
 async function sendBackup(){const data=JSON.stringify(DB),name=backupName();const done=msg=>{DB.lastSent=stamp();DB.lastBackup=stamp();save();toast(msg);render()};
@@ -683,7 +687,15 @@ async function restoreFromFile(f){let d=null;try{d=JSON.parse((await f.text()).r
   flush();me=null;LS.del("session");Bill.reset();view="billing";render();toast("Backup restored. Log in with the login IDs and passwords from the backup.")}
 function newShopId(){const a=new Uint8Array(8);crypto.getRandomValues(a);return [...a].map(x=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[x&31]).join("")}
 /* bring data from older versions up to date */
-function upgradeDB(){if(!DB)return;if(!Array.isArray(DB.activity))DB.activity=[];DB.receipts=DB.receipts||[];const s=DB.settings=DB.settings||{};
+function capsDB(){const U1=v=>typeof v==="string"?v.toUpperCase():v,ML=v=>typeof v==="string"?v.split("\n").map(l=>l.toUpperCase()).join("\n"):v;
+  DB.products.forEach(p=>{p.name=U1(p.name);p.dept=U1(p.dept);p.aliases=U1(p.aliases)});
+  DB.bills.forEach(b=>{b.customer=U1(b.customer);if(b.tax&&b.tax.buyer_addr)b.tax.buyer_addr=U1(b.tax.buyer_addr);b.note=ML(b.note);(b.items||[]).forEach(i=>{i.name=U1(i.name);i.dept=U1(i.dept)})});
+  (DB.receipts||[]).forEach(r=>r.name=U1(r.name));
+  (DB.purchases||[]).forEach(x=>{x.supplier=U1(x.supplier);x.note=U1(x.note);(x.items||[]).forEach(i=>i.name=U1(i.name))});
+  DB.users.forEach(u=>u.name=U1(u.name));
+  const S0=DB.settings;S0.shop_name=U1(S0.shop_name);S0.header=U1(S0.header);if(Array.isArray(S0.header_lines))S0.header_lines=S0.header_lines.map(U1);S0.footer=U1(S0.footer);S0.bill_note=ML(S0.bill_note);
+  DB.caps=1}
+function upgradeDB(){if(!DB)return;if(!Array.isArray(DB.activity))DB.activity=[];if(!DB.caps&&DB.settings&&Array.isArray(DB.products)&&Array.isArray(DB.bills)&&Array.isArray(DB.users)){DB.settings.header_lines=DB.settings.header_lines||[];capsDB()}DB.receipts=DB.receipts||[];const s=DB.settings=DB.settings||{};
   if(s.owner_lock===undefined)s.owner_lock=30;
   if(!DB.shop_id)DB.shop_id=newShopId();
   if(!DB.trial_start)DB.trial_start=today();if(!Array.isArray(DB.purchases))DB.purchases=[];
@@ -731,6 +743,7 @@ function seedDB(){
   DB.receipts.push({id:nextId(),at:stamp(day(1,17,0)),date:isoDate(day(1,17,0)),by:U("ravi").id,name:"Gupta Kirana",key:"gupta kirana",phone:"",amount:500,mode:"Cash",alloc:[{bill_id:gk.id,amount:500}],before:gk.net,after:r2(gk.net-500)});
   DB.bills.filter(b=>b.bill_date!==today()).forEach(b=>b.verified={by:U("owner").id,at:stamp(day(0,8,30)),rev:b.rev});
   save();
+  capsDB();
 }
 const ROUND_MAX=100;   /* a manual round-off can move the bill at most ₹100 either way; use Discount for more */
 /* ============================================================ GST */
@@ -756,7 +769,7 @@ function rateOf(p){const v=p&&p.gst;return v===undefined||v===null||v===""?num(S
 function taxCfg(buyer){const t=gstType();if(t==="none")return{type:"none"};
   const c={type:t,seller_gstin:S().gstin||"",seller_state:sellerState()};if(t!=="regular")return c;
   buyer=buyer||{};const bg=String(buyer.gstin||"").trim().toUpperCase();const pos=bg?bg.slice(0,2):(buyer.state||c.seller_state);
-  return{...c,incl:gstIncl(),buyer_gstin:bg,buyer_addr:String(buyer.addr||"").trim().slice(0,160),pos,inter:!!(pos&&c.seller_state&&pos!==c.seller_state)}}
+  return{...c,incl:gstIncl(),buyer_gstin:bg,buyer_addr:UP(buyer.addr).slice(0,160),pos,inter:!!(pos&&c.seller_state&&pos!==c.seller_state)}}
 /* totals of a bill. For regular GST the bill discount is shared across lines, then tax is worked out line by line
    (taken out of the price when rates include GST, added on top when they don't). Round off is never taxed. */
 function totalsOf(items,discount,round,cfg){cfg=cfg||{type:"none"};
@@ -837,7 +850,7 @@ function correctBill(id,d){const b=DB.bills.find(x=>x.id===id);if(!b)throw new B
   const ob={},otx={};b.items.forEach(o=>{(ob[o.product_id]=ob[o.product_id]||[]).push(o.base_rate);(otx[o.product_id]=otx[o.product_id]||[]).push({hsn:o.hsn||"",gst:num(o.gst)})});
   const bt=b.tax||{type:"none"};const items=buildItems(d.items,ob,otx,bt.type==="regular");const h=cleanHeader(d);
   let cfg={...bt};if(bt.type==="regular"){const bg=String((d.buyer||{}).gstin||"").trim().toUpperCase();const pos=bg?bg.slice(0,2):((d.buyer||{}).state||bt.seller_state);
-    cfg={...bt,buyer_gstin:bg,buyer_addr:String((d.buyer||{}).addr||"").trim().slice(0,160),pos,inter:!!(pos&&bt.seller_state&&pos!==bt.seller_state)}}
+    cfg={...bt,buyer_gstin:bg,buyer_addr:UP((d.buyer||{}).addr).slice(0,160),pos,inter:!!(pos&&bt.seller_state&&pos!==bt.seller_state)}}
   const t=totalsOf(items,d.discount,d.round,cfg);checkTax(cfg,t.net,h);
   const pay=buildPay(t.net,h.paymode,d.split);checkModes(pay,h.paymode,modesUsed(b));if(pay.credit>0.004&&!h.customer)throw new Bad(`₹${fmt(pay.credit)} is on credit — type the customer's name in place of "Cash" so the dues can be tracked.`);
   const got=collectedFor(b.id);if(got>0.004&&pay.credit<got-0.004)throw new Bad(`₹${fmt(got)} has already been received against this bill's credit, so its credit can't be less than ₹${fmt(got)}.`);
@@ -927,7 +940,7 @@ function purTotals(items,kind,inter,round){let sub=0,tx=0,cg=0,sg=0,ig=0;
   const rv=r2(num(round));if(Math.abs(rv)>100)throw new Bad("Round off can be at most ₹100 either way.");
   const tax=r2(cg+sg+ig),total=r2((kind==="itc"?tx+tax:sub)+rv);if(total<0)throw new Bad("Total can't be less than zero.");
   return{subtotal:sub,taxable:kind==="itc"?tx:0,cgst:cg,sgst:sg,igst:ig,tax_amt:tax,round_off:rv,total}}
-function cleanPurchase(d,was){const supplier=clean1(d.supplier).slice(0,80);if(!supplier)throw new Bad("Enter the supplier's name.");
+function cleanPurchase(d,was){const supplier=UP(d.supplier).slice(0,80);if(!supplier)throw new Bad("Enter the supplier's name.");
   const gstin=String(d.gstin||"").trim().toUpperCase();if(gstin&&!gstinCheck(gstin))throw new Bad("Supplier's GSTIN is not valid. Check it, or leave it empty for a supplier without GST.");
   const date=String(d.date||"");if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Bad("Enter the bill date.");if(date>today())throw new Bad("The bill date can't be in the future.");
   const kind=purKind(gstin);const inv_no=String(d.inv_no||"").trim().slice(0,30);if(kind==="itc"&&!inv_no)throw new Bad("Enter the supplier's invoice number — needed to claim GST credit.");
@@ -941,7 +954,7 @@ function cleanPurchase(d,was){const supplier=clean1(d.supplier).slice(0,80);if(!
     let gst=r.gst===undefined||r.gst===""?rateOf(p):num(r.gst);if(kind==="itc"&&!GST_RATES.includes(gst))throw new Bad(`Choose the GST rate for ${p.name}.`);
     return{product_id:p.id,name:p.name,hsn:p.hsn||"",unit:normUnit(r.unit||p.unit),qty,rate,gst}});
   const t=purTotals(items,kind,inter,d.round);
-  return{supplier,gstin,state,inv_no,date,kind,inter,paymode,items,...t,note:String(d.note||"").trim().slice(0,200)}}
+  return{supplier,gstin,state,inv_no,date,kind,inter,paymode,items,...t,note:UP(d.note).slice(0,200)}}
 function savePurchase(d,id){const c=cleanPurchase(d,id?DB.purchases.find(x=>x.id===id):null);
   if(id){const p=DB.purchases.find(x=>x.id===id);if(!p||p.status!=="active")throw new Bad("This purchase can't be changed.");
     const ch=purDiff(p,c);act("purchase",`Changed purchase ${p.inv_no||"(no invoice no.)"} from ${p.supplier}`,{ref:p.id,changes:ch.length?ch:[["(nothing changed)","",""]]});
@@ -1434,9 +1447,9 @@ function setupHTML(){return `<div class="wrap"><div class="authwrap"><form class
   <p class="note ios-hint" ${isIOS()&&!standalone()?"":"hidden"}>To add an app icon: tap <b>Share</b> → <b>Add to Home Screen</b>.</p>
   <p class="note">Works without internet. All data stays on this device.</p></form></div></div>`}
 function validUser(name,username,pw,needPw=true){if(!name)return"Enter the person's name.";if(!/^[A-Za-z0-9_.\-]{3,30}$/.test(username))return"Login ID must be 3–30 letters or numbers (no spaces).";if(needPw&&(pw||"").length<6)return"Password must be at least 6 characters.";return null}
-function addUser(name,username,pw,role){const salt=Math.random().toString(36).slice(2,8);const u={id:nextId(),username,name,salt,pw:hashPw(pw,salt),role,active:true,created_at:stamp()};DB.users.push(u);act("user",`Login created: ${name} (${username}) as ${roleName(role)}`,{ref:u.id},me?null:name);save();return u}
+function addUser(name,username,pw,role){name=UP(name);const salt=Math.random().toString(36).slice(2,8);const u={id:nextId(),username,name,salt,pw:hashPw(pw,salt),role,active:true,created_at:stamp()};DB.users.push(u);act("user",`Login created: ${name} (${username}) as ${roleName(role)}`,{ref:u.id},me?null:name);save();return u}
 function bindSetup(){$("suFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{await restoreFromFile(f)}catch(err){toast(err instanceof Bad?err.message:"That isn't a CB backup file.",true)}e.target.value=""};$("trySample").onclick=()=>{seedDB();me=DB.users.find(u=>u.username==="owner");Bill.load();view="billing";render();toast("Sample data loaded. Owner ID: owner / owner123, Admin: ravi / ravi123")};$("setupForm").onsubmit=e=>{e.preventDefault();const err=validUser($("suName").value.trim(),$("suUser").value.trim(),$("suPw").value);if(err){toast(err,true);return}
-  DB.settings.shop_name=$("suShop").value.trim()||"My Retail Store";const u=addUser($("suName").value.trim(),$("suUser").value.trim(),$("suPw").value,"admin");me=u;LS.set("session",u.id);view="products";render();toast("Owner login created. Add your products next.")}}
+  DB.settings.shop_name=UP($("suShop").value)||"MY RETAIL STORE";const u=addUser($("suName").value.trim(),$("suUser").value.trim(),$("suPw").value,"admin");me=u;LS.set("session",u.id);view="products";render();toast("Owner login created. Add your products next.")}}
 
 /* ============================================================ billing */
 const Bill={lines:[],editing:null,round:"",paymode:"Cash",split:{cash:"",upi:"",card:"",bank:""},dept:"All",cust:"",phone:"",disc:"0",reason:"",buyer:{gstin:"",addr:"",state:""},
@@ -2141,11 +2154,11 @@ function renderActivity(tabs){const L=(DB.activity||[]).filter(a=>a.at.slice(0,1
   bindLogHead();if($("toDel"))$("toDel").onclick=()=>{go("products");setTimeout(()=>{const d=$("pDel");if(d){d.open=true;d.scrollIntoView({behavior:"smooth"})}},50)}}
 
 /* ============================================================ products */
-function cleanProduct(d,strict){const name=clean1(d.name);if(!name)throw new Bad("Enter the item name.");const rate=num(d.rate);if(rate<0)throw new Bad("Rate can't be negative.");
+function cleanProduct(d,strict){const name=UP(d.name);if(!name)throw new Bad("Enter the item name.");const rate=num(d.rate);if(rate<0)throw new Bad("Rate can't be negative.");
   const hsn=normHsn(d.hsn);if(hsn&&!/^\d{4,8}$/.test(hsn))throw new Bad(`HSN code of ${name} should be 4 to 8 digits.`);
   let gst="";const gs=String(d.gst??"").replace("%","").trim();if(gs!==""){gst=num(gs);if(!GST_RATES.includes(gst))throw new Bad(`GST rate of ${name} should be one of ${GST_RATES.join(", ")}%.`)}
   if(strict&&!hsn)throw new Bad(`Enter the HSN code of ${name} — needed for GST bills.`);if(strict&&gst==="")throw new Bad(`Choose the GST rate of ${name} — needed for GST bills.`);
-  return{name:name.slice(0,120),dept:(clean1(d.dept)||"General").slice(0,60),unit:normUnit(d.unit),rate:r2(rate),aliases:clean1(d.aliases).split(",").map(a=>a.trim()).filter(Boolean).join(", ").slice(0,300),hsn,gst}}
+  return{name:name.slice(0,120),dept:(UP(d.dept)||"GENERAL").slice(0,60),unit:normUnit(d.unit),rate:r2(rate),aliases:UP(d.aliases).split(",").map(a=>a.trim()).filter(Boolean).join(", ").slice(0,300),hsn,gst}}
 function parseCSV(t){const rows=[];let row=[],cur="",q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){cur+='"';i++}else q=false}else cur+=c}else if(c=='"')q=true;else if(c==","||c=="\t"){row.push(cur);cur=""}else if(c=="\n"||c=="\r"){if(c=="\r"&&t[i+1]=="\n")i++;row.push(cur);rows.push(row);row=[];cur=""}else cur+=c}
   if(cur||row.length){row.push(cur);rows.push(row)}return rows.filter(r=>r.some(x=>String(x).trim()))}
 /* Minimal .xlsx reader: first sheet → rows of cell text. Uses the browser's built-in unzip. */
@@ -2171,7 +2184,7 @@ async function readXlsx(buf){
 function importRows(rows,replace){if(!rows.length)throw new Bad("The file is empty.");const h=rows[0].map(x=>String(x).trim().toLowerCase());const find=re=>h.findIndex(x=>re.test(x));
   let ni=find(/item|name|product|particular|description/),di=find(/dep|categ|section|group/),ui=find(/unit|uom|measure/),ri=h.findIndex(x=>/rate|price|mrp|amount/.test(x)&&!/gst|tax|hsn|igst|cgst/.test(x)),ai=find(/alias|other name|hindi|local/),hi=find(/hsn|sac/),gi=h.findIndex(x=>/gst|tax/.test(x)&&!/hsn|gstin|incl|excl/.test(x));let body=rows.slice(1);
   if(ni<0&&ri<0){const w=rows[0].length;if(w<2||!/^\s*[\d.,₹]+\s*$/.test(String(rows[0][w-1])))throw new Bad("Couldn't find the Item Name and Rate columns. The first row should be: Item Name, Department, Unit, Rate.");ni=0;ri=w-1;di=w>3?1:-1;ui=w>3?2:w>2?1:-1;body=rows}if(ni<0)throw new Bad("Couldn't find an Item Name column. Check the header row.");
-  const cell=(r,i)=>i>=0&&i<r.length&&r[i]!=null?String(r[i]).trim():"";const items=body.map(r=>({name:clean1(cell(r,ni)).slice(0,120),dept:(clean1(cell(r,di))||"General").slice(0,60),unit:normUnit(cell(r,ui)),rate:r2(Math.max(num(cell(r,ri)),0)),aliases:cell(r,ai).slice(0,300),hsn:normHsn(cell(r,hi)),gst:cell(r,gi).replace("%","")})).filter(x=>x.name);
+  const cell=(r,i)=>i>=0&&i<r.length&&r[i]!=null?String(r[i]).trim():"";const items=body.map(r=>({name:UP(cell(r,ni)).slice(0,120),dept:(UP(cell(r,di))||"GENERAL").slice(0,60),unit:normUnit(cell(r,ui)),rate:r2(Math.max(num(cell(r,ri)),0)),aliases:UP(cell(r,ai)).slice(0,300),hsn:normHsn(cell(r,hi)),gst:cell(r,gi).replace("%","")})).filter(x=>x.name);
   if(!items.length)throw new Bad("No product rows found under the header.");
   items.forEach((n,k)=>{if(n.hsn&&!/^\d{4,8}$/.test(n.hsn))throw new Bad(`Row ${k+2}: HSN code "${n.hsn}" of ${n.name} should be 4 to 8 digits.`);
     if(n.gst!==""){let g=num(n.gst);if(g>0&&g<1&&GST_RATES.includes(r2(g*100)))g=r2(g*100);if(!GST_RATES.includes(g))throw new Bad(`Row ${k+2}: GST rate "${n.gst}" of ${n.name} should be one of ${GST_RATES.join(", ")}%.`);n.gst=g}});
@@ -2226,7 +2239,7 @@ function renderProducts(){
       </tbody></table></div><div class="row" style="padding:10px 16px" id="pMoreRow" ${ps.length>PROD_PAGE?"":"hidden"}><button class="btn" id="pMore" type="button" style="flex:1">Show more</button><span class="note" id="pShown"></span></div>${ps.length?"":`<div class="empty"><b>No products yet</b>Upload your list or add products above.</div>`}</div></div>
     <datalist id="deptList">${depts.map(d=>`<option value="${esc(d)}">`).join("")}</datalist>`;
   const rowData=tr=>{const pp=DB.products.find(x=>x.id===+tr.dataset.id)||{};const o={dept:pp.dept,hsn:pp.hsn||"",gst:pp.gst??""};tr.querySelectorAll("[data-f]").forEach(i=>o[i.dataset.f]=i.value);return o};
-  const moveTo=(ids,dept)=>{dept=String(dept||"").trim().slice(0,60);if(!dept){toast("Enter a group name.",true);return false}
+  const moveTo=(ids,dept)=>{dept=UP(dept).slice(0,60);if(!dept){toast("Enter a group name.",true);return false}
     const ps2=DB.products.filter(x=>ids.includes(x.id));act("product",ps2.length===1?`Moved ${ps2[0].name} to group ${dept}`:`Moved ${ps2.length} products to group ${dept}`,{changes:ps2.slice(0,500).map(x=>[x.name,x.dept,dept])});ps2.forEach(x=>x.dept=dept);save();toast(ps2.length===1?`${ps2[0].name} moved to ${dept}`:`${ps2.length} products moved to ${dept}`);renderProducts();return true};
   const askNewGroup=(ids)=>{openModal(`<h2>New group</h2><div class="field"><label for="ngName">Group name</label><input id="ngName" maxlength="60" placeholder="e.g. Snacks"></div>
       <div class="row"><button class="btn primary" id="ngOk" style="flex:1">Move ${ids.length>1?ids.length+" products":"product"} here</button><button class="btn" data-close>Cancel</button></div>`);$("ngName").focus();
@@ -2238,7 +2251,7 @@ function renderProducts(){
     if(e.target.closest("[data-pick]"))updBulk()});
   if($("pAll"))$("pAll").onchange=e=>{[...$("pList").rows].forEach(tr=>{if(!tr.hidden)tr.querySelector("[data-pick]").checked=e.target.checked});updBulk()};
   if($("bulkMove"))$("bulkMove").onclick=()=>{const ids=picked();if(!ids.length)return;if($("bulkDept").value==="__new")askNewGroup(ids);else moveTo(ids,$("bulkDept").value)};
-  if($("renGo"))$("renGo").onclick=()=>{const from=$("renFrom").value,to=$("renTo").value.trim().slice(0,60);if(!to){toast("Enter the new group name.",true);return}
+  if($("renGo"))$("renGo").onclick=()=>{const from=$("renFrom").value,to=UP($("renTo").value).slice(0,60);if(!to){toast("Enter the new group name.",true);return}
     const ids=DB.products.filter(x=>x.active&&x.dept===from).map(x=>x.id);DB.products.filter(x=>x.dept===from).forEach(x=>x.dept=to);act("product",`Group ${from} renamed to ${to} (${ids.length} products)`,{changes:[["Group",from,to]]});save();toast(`Group ${from} renamed to ${to} (${ids.length} products)`);renderProducts()};
   const dirty=e=>{if(e.target.closest("[data-pick],[data-g]"))return;const tr=e.target.closest("tr");if(tr)tr.querySelector("[data-save]").hidden=false};$("pList").oninput=dirty;$("pList").onchange=dirty;
   $("pList").onkeydown=e=>{if(e.key==="Enter"){const s=e.target.closest("tr").querySelector("[data-save]");if(!s.hidden)s.click()}};
@@ -2345,7 +2358,7 @@ function renderSettings(){const s=S(),O=isOwner();
         <div><button class="btn danger" id="resetAll">Clear everything</button></div></div>`:""}</div></div>`;
   $("sForm").onsubmit=e=>{e.preventDefault();
     if(O&&document.querySelector("[data-pm]")){const t=[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm);if(!t.some(m=>PAID.includes(m))){toast("Tick at least one of Cash, UPI, Card or Bank.",true);return}}
-    Object.assign(DB.settings,O?{shop_name:$("sShop").value.trim()||"My Retail Store",header_lines:[0,1,2,3].map(i=>$("sH"+i).value.trim().slice(0,64))}:{},{footer:$("sFooter").value.trim().slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value,thermal_size:$("sTs").value}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value,owner_lock:num($("sLock").value)}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
+    Object.assign(DB.settings,O?{shop_name:UP($("sShop").value)||"MY RETAIL STORE",header_lines:[0,1,2,3].map(i=>UP($("sH"+i).value).slice(0,64))}:{},{footer:UP($("sFooter").value).slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value,thermal_size:$("sTs").value}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value,owner_lock:num($("sLock").value)}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").split("\n").map(l=>UP(l)).join("\n").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
   $("toUsers").onclick=()=>go("users");bindPlanCard();
   if($("sPrint")){const sy=()=>{const n=$("sPrint").value==="normal";$("sPaperF").hidden=n;$("sTsF").hidden=n;$("sPageF").hidden=!n};$("sPrint").onchange=sy;sy();
     $("sTestPrint").onclick=()=>{const b=DB.bills.filter(x=>x.status==="active").slice(-1)[0];if(!b){toast("Make one bill first, then try a test print.",true);return}
