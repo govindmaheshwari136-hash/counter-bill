@@ -82,6 +82,7 @@ h1.title{font-size:22px;margin:0;letter-spacing:-.01em;text-wrap:balance}
 .pill{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:99px;background:var(--mark-soft);color:var(--ink);vertical-align:1px}
 .pill.red{background:var(--danger-soft);color:var(--danger)}
 .pill.green{background:var(--accent-soft);color:var(--accent)}
+.toastbtn{margin-left:10px;background:none;border:1px solid currentColor;color:inherit;border-radius:6px;padding:4px 12px;font:inherit;font-weight:800;cursor:pointer}
 .toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;font-weight:600;z-index:60;max-width:calc(100% - 40px);text-align:center}
 .toast.err{background:var(--danger)}
 .tw{overflow-x:auto}
@@ -228,6 +229,11 @@ tr.flash-row td{animation:rowflash 1.2s ease-out}
 .inv.A5L .signw{text-align:right;margin-top:1.5mm;font-size:.92em}
 /* long bills continue on the next page with the column headings repeated */
 .reqcode{font-family:var(--f-num,monospace);font-size:22px;font-weight:700;letter-spacing:.06em;text-align:center;padding:12px;border:2px dashed var(--accent);border-radius:10px;user-select:all;word-break:break-all}
+.featlist{display:grid;grid-template-columns:1fr;gap:2px;font-size:13.5px;margin:4px 0 10px}.featlist .off{color:var(--muted);opacity:.75}.featlist .on{font-weight:600}
+@media (min-width:700px){.featlist{grid-template-columns:1fr 1fr}}
+.pline{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:6px 10px;align-items:end;padding:10px 0;border-bottom:1px solid var(--line)}
+.pline .pn{grid-column:1/-1}.pline label{font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;gap:2px;font-weight:600}
+.pline input,.pline select{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:15px}.pline .pa{display:flex;flex-direction:column;align-items:flex-end}.pline .del{justify-self:end}
 .billbtns{flex-wrap:wrap;position:sticky;bottom:-1px;z-index:2;background:var(--paper);padding:10px 0 6px;margin-top:4px;box-shadow:0 -10px 14px -10px rgba(0,0,0,.35)}.billbtns .btn{flex:1 1 30%}.billbtns .btn.primary{flex-basis:100%;padding:12px;font-size:16px}
 .savedh{color:var(--accent)}
 .inv thead{display:table-header-group}.inv tr{break-inside:avoid}.inv .sum,.inv .sign,.inv .sum3{break-inside:avoid}
@@ -287,6 +293,7 @@ tr.flash-row td{animation:rowflash 1.2s ease-out}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 .pill.blue{background:var(--accent-soft);color:var(--accent)}
 .badge{display:inline-block;min-width:18px;padding:0 5px;border-radius:99px;background:var(--danger);color:#fff;font-size:11px;font-weight:700;text-align:center;margin-left:4px}
+.acttbl{font-size:13px}.acttbl td,.acttbl th{padding:4px 8px}.warnbox{border-left:4px solid var(--danger);background:var(--danger-soft)}
 .warnbar{background:var(--danger-soft);border-bottom:1px solid var(--danger);font-size:12.5px}
 .warnbar .wrap{max-width:1440px;margin:0 auto;padding-block:7px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 /* ===== CB look: teal counter, marigold accents, department colours ===== */
@@ -561,7 +568,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="2.3";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="3.2";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -569,7 +576,7 @@ const PKEYS=["cash","upi","card","bank","credit"];
 const KEYNAME={cash:"Cash",upi:"UPI",card:"Card",bank:"Bank",credit:"Credit"};
 const ALL_OPTIONS=[...PAYMODES,"Split"];
 /* payment options the owner has switched on (Settings) */
-const enabledModes=()=>{const e=(S().paymodes||ALL_OPTIONS).filter(m=>ALL_OPTIONS.includes(m));return ALL_OPTIONS.filter(m=>e.includes(m))};
+const enabledModes=()=>{const e=(S().paymodes||ALL_OPTIONS).filter(m=>ALL_OPTIONS.includes(m)&&(m!=="Credit"||has("credit"))&&(m!=="Split"||has("split")));return ALL_OPTIONS.filter(m=>e.includes(m))};
 /* How a bill was paid: amounts in cash, upi, card and credit (unpaid). Older bills only have a single mode. */
 function payOf(b){const p={cash:0,upi:0,card:0,bank:0,credit:0};if(b.pay){PKEYS.forEach(k=>p[k]=+b.pay[k]||0);return p}p[PAYKEY[b.paymode]||"cash"]=b.net;return p}
 function buildPay(net,mode,split){const p={cash:0,upi:0,card:0,bank:0,credit:0};
@@ -580,6 +587,8 @@ function buildPay(net,mode,split){const p={cash:0,upi:0,card:0,bank:0,credit:0};
   Object.assign(p,v);p.credit=r2(net-paid);return p}
 /* refuse payment options the owner has switched off (a correction may keep what the bill already used) */
 function checkModes(pay,mode,keep){const on=new Set([...enabledModes(),...(keep||[])]);
+  if(mode==="Split"&&!has("split")&&!(keep||[]).includes("Split"))throw new Bad("Split payment is not part of this shop's plan.");
+  if(pay.credit>0.004&&!has("credit")&&!(keep||[]).includes("Credit"))throw new Bad("Credit sales are not part of this shop's plan.");
   if(mode==="Split"&&!on.has("Split"))throw new Bad("Split payment is switched off. Ask the owner to switch it on in Settings.");
   PKEYS.forEach(k=>{if(pay[k]>0.004&&!on.has(KEYNAME[k]))throw new Bad(k==="credit"?`Credit is switched off, so the full ₹${fmt(pay.credit+PKEYS.filter(x=>x!=="credit").reduce((a,x)=>a+pay[x],0))} must be paid now.`:`${KEYNAME[k]} payment is switched off. Ask the owner to switch it on in Settings.`)})}
 const modesUsed=b=>{const p=payOf(b);const u=PKEYS.filter(k=>p[k]>0.004).map(k=>KEYNAME[k]);if(modeOf(p)==="Split")u.push("Split");return u};
@@ -606,13 +615,16 @@ function receivePayment(key,amount,mode){const e=creditBook().find(x=>x.key===ke
   if(!PAID.includes(mode))throw new Bad("Choose how the payment was received.");
   let left=amount;const alloc=[];e.bills.forEach(b=>{if(left<=0.004)return;const d=dueOf(b);const a=r2(Math.min(d,left));if(a>0){alloc.push({bill_id:b.id,amount:a});left=r2(left-a)}});
   const r={id:nextId(),at:stamp(),date:today(),by:me.id,name:e.name,key:e.key,phone:e.phone,amount,mode,alloc,before:e.due,after:r2(e.due-amount)};
-  DB.receipts=DB.receipts||[];DB.receipts.push(r);save();return r}
-function undoReceipt(id){if(!isOwner())throw new Bad("Only the owner can undo a payment.");DB.receipts=(DB.receipts||[]).filter(r=>r.id!==id);save()}
+  DB.receipts=DB.receipts||[];DB.receipts.push(r);act("payment",`Received ₹${fmt(amount)} from ${e.name} (${mode})`,{ref:r.id});save();return r}
+function undoReceipt(id){if(!isOwner())throw new Bad("Only the owner can undo a payment.");
+  {const r=(DB.receipts||[]).find(x=>x.id===id);if(r)act("payment",`Undid payment ₹${fmt(r.amount)} from ${r.name}`,{del:true,snap:{Customer:r.name,"Amount ₹":fmt(r.amount),"Received by":r.mode,Date:dmy(r.date),"Entered by":uname(r.by),"Against bills":r.alloc.map(a=>{const b=DB.bills.find(x=>x.id===a.bill_id);return(b?label(b):"?")+" ₹"+fmt(a.amount)}).join(", ")}})}
+  DB.receipts=(DB.receipts||[]).filter(r=>r.id!==id);save()}
 function words(n){n=Math.round(n);const a=["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"],b=["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
   const two=x=>x<20?a[x]:b[Math.floor(x/10)]+(x%10?" "+a[x%10]:"");const three=x=>(x>=100?a[Math.floor(x/100)]+" Hundred"+(x%100?" ":""):"")+(x%100?two(x%100):"");
   const out=[],cr=Math.floor(n/1e7);n%=1e7;const l=Math.floor(n/1e5);n%=1e5;const t=Math.floor(n/1e3);n%=1e3;if(cr)out.push(three(cr)+" Crore");if(l)out.push(two(l)+" Lakh");if(t)out.push(two(t)+" Thousand");if(n)out.push(three(n));return out.join(" ")||"Zero"}
 function hashPw(pw,salt){let h1=0xdeadbeef^salt.length,h2=0x41c6ce57;const s=salt+":"+pw;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}
   h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return(h2>>>0).toString(16)+(h1>>>0).toString(16)}
+function toastUndo(t,btn,fn){const e=$("toast");toast(t);const b=document.createElement("button");b.type="button";b.className="toastbtn";b.textContent=btn;b.onclick=()=>{e.hidden=true;fn()};e.append(" ",b);clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,7000)}
 function toast(t,err){const e=$("toast");e.textContent=t;e.className="toast"+(err?" err":"");e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,err?4200:2400)}
 class Bad extends Error{}
 const LS={get(k,d){try{const v=localStorage.getItem("cbx_"+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("cbx_"+k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem("cbx_"+k)}catch(e){}}};
@@ -639,17 +651,36 @@ document.addEventListener("pointerdown",()=>{if(!pendingDailyFile||blocked)retur
   setTimeout(()=>{if(saveFile(f.name,f.data)){DB.lastBackup=stamp();save();toast("Daily backup saved to Downloads")}},50)},true);
 let DB=null,idbOK=false,saveTimer=null,saveFailed=false;
 let blocked=false;   /* true when this copy of the app has handed over to another open copy */
-function flush(){clearTimeout(saveTimer);saveTimer=null;if(blocked||!DB)return;const snap=JSON.stringify(DB);
+function flush(){clearTimeout(saveTimer);saveTimer=null;if(blocked||!DB)return;auditSettings();clearTimeout(saveTimer);saveTimer=null;const snap=JSON.stringify(DB);
   if(idbOK)IDB.set("db",snap).then(()=>{if(saveFailed){saveFailed=false;toast("Saved")}}).catch(()=>{saveFailed=true;toast("Couldn't save on this device. Free some storage, then take a backup.",true)});
   else{try{localStorage.setItem("cbx_db",snap)}catch(e){toast("Couldn't save on this device. Take a backup now.",true)}}}
 const save=()=>{if(blocked)return;clearTimeout(saveTimer);saveTimer=setTimeout(flush,150)};
 addEventListener("pagehide",()=>{if(saveTimer)flush()});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&saveTimer)flush()});
 const nextId=()=>++DB.seq;
-function blankDB(){return{seq:0,settings:{...DEFAULT_SETTINGS,shop_name:"My Retail Store",header:"",header_lines:["","","",""]},users:[],products:[],bills:[],corrections:[],receipts:[],demo:false,lastBackup:null}}
+function blankDB(){return{seq:0,settings:{...DEFAULT_SETTINGS,shop_name:"My Retail Store",header:"",header_lines:["","","",""]},users:[],products:[],bills:[],corrections:[],receipts:[],purchases:[],activity:[],shop_id:newShopId(),trial_start:today(),demo:false,lastBackup:null}}
+const backupName=()=>`CB-backup-${(DB.settings.shop_name||"shop").replace(/[^0-9A-Za-z]+/g,"-").replace(/^-|-$/g,"").slice(0,24)||"shop"}-${today()}`;
+/* send the backup file off this phone (WhatsApp to yourself, Google Drive, e-mail …) — the copy that survives a lost phone */
+async function sendBackup(){const data=JSON.stringify(DB),name=backupName();const done=msg=>{DB.lastSent=stamp();DB.lastBackup=stamp();save();toast(msg);render()};
+  if(navigator.canShare&&navigator.share){for(const f of[new File([data],name+".json",{type:"application/json"}),new File([data],name+".txt",{type:"text/plain"})]){let can=false;try{can=navigator.canShare({files:[f]})}catch(e){}if(!can)continue;
+    try{await navigator.share({files:[f],title:"CB backup",text:`CB backup · ${DB.settings.shop_name} · ${dmy(today())}`});done("Backup sent. Keep it — it brings everything back on a new phone.");return true}
+    catch(e){if(e&&e.name==="AbortError")return false;break}}}
+  if(saveFile(name+".json",data)){done("Backup saved to Downloads. Now copy it off this device — Google Drive, pen drive or WhatsApp.");return true}return false}
+async function restoreFromFile(f){let d=null;try{d=JSON.parse((await f.text()).replace(/^\uFEFF/,""))}catch(e){}
+  if(!d||!Array.isArray(d.users)||!Array.isArray(d.bills)||!Array.isArray(d.products)||!d.users.length||!d.settings)throw new Bad("That isn't a CB backup file.");
+  const old=DB,had=old&&old.users&&old.users.length?old:null,who=me?me.name:"New phone set-up";
+  if(had&&idbOK){try{await IDB.set("prerestore",JSON.stringify(had))}catch(e){}}
+  const act_=d.bills.filter(b=>b.status==="active"),last=act_.length?act_[act_.length-1]:null;
+  DB=d;upgradeDB();
+  act("data",`Backup restored from file ${String(f.name).slice(0,80)}`,{info:{"Backup has":`${d.bills.length} bills, ${d.products.filter(p=>p.active).length} products, ${d.users.length} logins`,"Last bill in backup":last?`${label(last)} on ${dmy(last.bill_date)}`:"none",
+    ...(had?{"Replaced on this phone":`${had.bills.length} bills, ${had.products.filter(p=>p.active).length} products (a copy is kept on this phone)`}:{})}},who);
+  flush();me=null;LS.del("session");Bill.reset();view="billing";render();toast("Backup restored. Log in with the login IDs and passwords from the backup.")}
+function newShopId(){const a=new Uint8Array(8);crypto.getRandomValues(a);return [...a].map(x=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[x&31]).join("")}
 /* bring data from older versions up to date */
-function upgradeDB(){if(!DB)return;DB.receipts=DB.receipts||[];const s=DB.settings=DB.settings||{};
+function upgradeDB(){if(!DB)return;if(!Array.isArray(DB.activity))DB.activity=[];DB.receipts=DB.receipts||[];const s=DB.settings=DB.settings||{};
   if(s.owner_lock===undefined)s.owner_lock=30;
+  if(!DB.shop_id)DB.shop_id=newShopId();
+  if(!DB.trial_start)DB.trial_start=today();if(!Array.isArray(DB.purchases))DB.purchases=[];
   (DB.bills||[]).forEach(b=>{if(b.tax!==undefined&&(typeof b.tax!=="object"||b.tax===null)){
     b.tax=(b.taxable>0||b.cgst>0||b.igst>0)?{type:"regular",incl:true,seller_gstin:s.gstin||"",seller_state:String(s.gstin||"").slice(0,2),buyer_gstin:"",buyer_addr:"",pos:String(s.gstin||"").slice(0,2),inter:b.igst>0}:{type:"none"}}});
   if(!s.print_mode)s.print_mode="thermal";if(!s.thermal_size)s.thermal_size="L";if(!s.page)s.page="A4";if(!s.paper)s.paper="80";
@@ -755,10 +786,10 @@ const uname=id=>(userById(id)||{}).name||"—";
 /* Bill numbers: "daily" restarts at 1 every day and carries the date (15-10-26/1); "fy" runs through the financial year (26-27/1).
    Each bill remembers its own series, so changing the setting never renumbers old bills. */
 const shortDate=d=>`${d.slice(8,10)}-${d.slice(5,7)}-${d.slice(2,4)}`;
-const label=b=>b.series==="daily"?`${shortDate(b.bill_date)}/${b.no}`:`${b.fy}/${b.no}`;
-function nextNumber(date){const series=(DB.settings.numbering||"daily")==="fy"?"fy":"daily",fy=fyOf(date);
+const label=b=>b.series==="daily"?`${shortDate(b.bill_date)}/${b.no}`:b.nf==="n"?`${b.no}/${b.fy}`:`${b.fy}/${b.no}`;
+function nextNumber(date){const nm=DB.settings.numbering||"daily",series=nm==="daily"?"daily":"fy",fy=fyOf(date);
   const same=series==="daily"?DB.bills.filter(b=>b.series==="daily"&&b.bill_date===date):DB.bills.filter(b=>b.series!=="daily"&&b.fy===fy);
-  return{series,fy,no:Math.max(0,...same.map(b=>b.no))+1}}
+  const r={series,fy,no:Math.max(0,...same.map(b=>b.no))+1};if(nm==="fyn")r.nf="n";return r}
 let me=null;
 const isOwner=()=>!!(me&&me.role==="admin");
 
@@ -778,8 +809,8 @@ function cleanHeader(d){return{customer:normCust(d.customer).slice(0,80),phone:S
 function canCorrect(b){if(b.status!=="active")return[false,"This bill is cancelled."];if(isOwner())return[true,""];const rule=S().staff_correct;if(rule==="any")return[true,""];if(rule==="today"&&b.bill_date===today())return[true,""];return[false,rule==="none"?"Only the owner can correct saved bills.":"Only today's bills can be corrected. Ask the owner."]}
 function createBill(d){const cfg=taxCfg(d.buyer);const items=buildItems(d.items,undefined,undefined,cfg.type==="regular");const h=cleanHeader(d);const t=totalsOf(items,d.discount,d.round,cfg);checkTax(cfg,t.net,h);
   const pay=buildPay(t.net,h.paymode,d.split);checkModes(pay,h.paymode);if(pay.credit>0.004&&!h.customer)throw new Bad(`₹${fmt(pay.credit)} is on credit — type the customer's name in place of "Cash" so the dues can be tracked.`);h.paymode=modeOf(pay);
-  const date=today();const{series,fy,no}=nextNumber(date);
-  const b={id:nextId(),fy,no,series,bill_date:date,created_at:stamp(),created_by:me.id,...h,...t,tax:cfg,pay,note:S().bill_note||"",rev:0,updated_at:null,updated_by:null,status:"active",items};DB.bills.push(b);save();return b}
+  const date=today();const{series,fy,no,nf}=nextNumber(date);
+  const b={id:nextId(),fy,no,series,...(nf?{nf}:{}),bill_date:date,created_at:stamp(),created_by:me.id,...h,...t,tax:cfg,pay,note:S().bill_note||"",rev:0,updated_at:null,updated_by:null,status:"active",items};DB.bills.push(b);save();return b}
 function diffBill(old,nb){const ch=[],pool={};old.items.forEach(o=>(pool[o.product_id]=pool[o.product_id]||[]).push(o));
   nb.items.forEach(n=>{const arr=pool[n.product_id];const o=arr&&arr.length?arr.shift():null;
     if(!o){ch.push({t:"add",s:`Added ${n.name} — ${fq(n.qty)} ${n.unit} @ ₹${fmt(n.rate)} = ₹${fmt(n.amount)}`});return}
@@ -813,6 +844,40 @@ function cancelBill(id){
   const b=DB.bills.find(x=>x.id===id);if(b.status!=="active")throw new Bad("This bill is already cancelled.");
   const got=collectedFor(b.id);if(got>0.004)throw new Bad(`₹${fmt(got)} was already received against this bill's credit. ${isOwner()?"Undo those payments on the Credit page first.":"Ask the owner to undo those payments first."}`);b.status="cancelled";b.rev++;b.updated_at=stamp();b.updated_by=me.id;
   DB.corrections.push({id:nextId(),bill_id:b.id,at:stamp(),user_id:me.id,kind:"cancel",changes:[{t:"del",s:`Bill cancelled (was ₹${Math.round(b.net).toLocaleString("en-IN")})`}],before_net:b.net,after_net:0,rev:b.rev});save();return b}
+/* ---------- activity log: everything added, changed or deleted apart from bills (bills keep their own correction log).
+   CB has no way to edit or remove an entry. Each entry is chained to the one before it, so an entry changed or removed
+   from outside CB shows up in the log check. */
+const ACT_KINDS={product:"Products",purchase:"Purchases",payment:"Credit payments",user:"Logins",settings:"Settings",data:"Backup & data",plan:"Plan"};
+const b64uEnc=u=>{let x="";u.forEach(c=>x+=String.fromCharCode(c));return btoa(x).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
+function actHash(prev,e){const{h,...x}=e;return b64uEnc(nacl.hash(new TextEncoder().encode(prev+"|"+JSON.stringify(x)))).slice(0,22)}
+function act(kind,what,info,who){try{const L=DB.activity=Array.isArray(DB.activity)?DB.activity:[];
+    const e={id:nextId(),at:stamp(),by:who?null:me?me.id:null,who:who||(me?me.name:"—"),kind,what:String(what).slice(0,200),...(info||{})};
+    e.h=actHash(L.length?L[L.length-1].h:"CB",e);L.push(e);save();return e}catch(err){return null}}
+function actCheck(){const L=DB.activity||[];let prev="CB";for(let i=0;i<L.length;i++){if(!L[i]||L[i].h!==actHash(prev,L[i]))return i;prev=L[i].h}return -1}
+const PFIELDS={name:"Name",dept:"Group",unit:"Unit",rate:"Rate ₹",aliases:"Other names",hsn:"HSN",gst:"GST %"};
+const showV=v=>v===undefined||v===null?"":Array.isArray(v)?v.filter(x=>x!==""&&x!=null).join(", "):typeof v==="object"?Object.entries(v).map(([a,b])=>a+": "+b).join(", "):typeof v==="boolean"?(v?"Yes":"No"):String(v);
+const diffs=(a,b,F)=>Object.keys(F).filter(k=>showV(a[k])!==showV(b[k])).map(k=>[F[k],showV(a[k]),showV(b[k])]);
+const prodSnap=p=>({Name:p.name,Group:p.dept,Unit:p.unit,"Rate ₹":fmt(p.rate),...(p.hsn?{HSN:p.hsn}:{}),...(p.gst!==undefined&&p.gst!==null&&p.gst!==""?{"GST %":p.gst}:{})});
+const purSnap=p=>({Supplier:p.supplier,...(p.gstin?{GSTIN:p.gstin}:{}),"Invoice no.":p.inv_no||"—",Date:dmy(p.date),"Paid by":p.paymode,"Total ₹":fmt(p.total)});
+const purItems=p=>p.items.map(i=>[i.name,`${+i.qty} ${i.unit}`,fmt(i.rate)]);
+function purDiff(a,b){const ch=diffs(purSnap(a),purSnap(b),Object.fromEntries(Object.keys({...purSnap(a),...purSnap(b)}).map(k=>[k,k])));
+  const A=new Map(a.items.map(i=>[i.product_id,i])),B=new Map(b.items.map(i=>[i.product_id,i]));
+  A.forEach((i,k)=>{const n=B.get(k);if(!n)ch.push(["Item removed",`${i.name} ${+i.qty} ${i.unit} @ ${fmt(i.rate)}`,""]);else if(+n.qty!==+i.qty||+n.rate!==+i.rate||n.unit!==i.unit)ch.push([i.name,`${+i.qty} ${i.unit} @ ${fmt(i.rate)}`,`${+n.qty} ${n.unit} @ ${fmt(n.rate)}`])});
+  B.forEach((n,k)=>{if(!A.has(k))ch.push(["Item added","",`${n.name} ${+n.qty} ${n.unit} @ ${fmt(n.rate)}`])});return ch}
+/* settings: every change made anywhere is written to the log when CB saves */
+const SET_LABEL={shop_name:"Shop name",header_lines:"Heading lines",footer:"Bill footer",bill_note:"Bill note",paymodes:"Payment options",paper:"Thermal roll width",voice_lang:"Voice language",
+  staff_correct:"Who can correct bills",numbering:"Bill numbers",owner_lock:"Owner lock (minutes)",gst_type:"GST type",gstin:"GSTIN",gst_incl:"Rates include GST",gst_default:"Default GST rate",
+  print_mode:"Printer",page:"Page size",thermal_size:"Thermal text size",acc:"Export ledger names"};
+const NUM_NAME={daily:"From 1 every day",fy:"Financial year (26-27/1)",fyn:"Financial year, number first (1/26-27)"};
+let setShadow={db:null,s:null};
+function auditSettings(){if(!DB||!DB.settings)return;const cur=JSON.parse(JSON.stringify(DB.settings));
+  if(setShadow.db!==DB){setShadow={db:DB,s:cur};return}const old=setShadow.s;setShadow.s=cur;
+  const keys=[...new Set([...Object.keys(old),...Object.keys(cur)])].filter(k=>JSON.stringify(old[k])!==JSON.stringify(cur[k]));if(!keys.length)return;
+  const v=(k,x)=>k==="numbering"?(NUM_NAME[x]||showV(x)):showV(x);
+  act("settings",("Settings changed: "+keys.map(k=>SET_LABEL[k]||k).join(", ")),{changes:keys.map(k=>[SET_LABEL[k]||k,v(k,old[k]),v(k,cur[k])])})}
+function restoreProduct(id){const p=DB.products.find(x=>x.id===id);if(!p||p.active)throw new Bad("Already in the list.");
+  if(DB.products.some(x=>x.active&&x.name.toLowerCase()===p.name.toLowerCase()))throw new Bad(`A product called ${p.name} is already in the list.`);
+  p.active=true;act("product",`Restored ${p.name}`,{ref:p.id,snap:prodSnap(p)});save();return p}
 function corrView(c){const b=DB.bills.find(x=>x.id===c.bill_id);return{...c,label:b?label(b):"?",by:uname(c.user_id)}}
 function dayReport(d1,d2){
   const bills=DB.bills.filter(b=>b.bill_date>=d1&&b.bill_date<=d2).sort((a,b)=>a.id-b.id);
@@ -844,6 +909,167 @@ function gstReport(act){const reg=act.filter(b=>(b.tax||{}).type==="regular"),cm
   return{regular:reg.length,composition:cmp.length,none:non.length,regNet:r2(reg.reduce((a,b)=>a+b.net,0)),regRound:r2(reg.reduce((a,b)=>a+b.round_off,0)),cmpNet:r2(cmp.reduce((a,b)=>a+b.net,0)),cmpRound:r2(cmp.reduce((a,b)=>a+b.round_off,0)),nonNet:r2(non.reduce((a,b)=>a+b.net,0)),
     tot,rates:Object.values(rates).sort((a,b)=>a.rate-b.rate),hsn:Object.values(hsn).sort((a,b)=>a.hsn.localeCompare(b.hsn)||a.rate-b.rate),b2b,b2cs:Object.values(b2cs).sort((a,b)=>a.pos.localeCompare(b.pos)||a.rate-b.rate)}}
 
+/* ============================================================ purchases
+   Regular GST shop + supplier with GSTIN → GST shown separately (input tax credit): rates are before GST.
+   Anyone else (unregistered or composition shop, or a supplier without GSTIN) → amounts include GST (no split). */
+const PUR_PAY=["Credit","Cash","Bank"];
+function purKind(gstin){return gstType()==="regular"&&gstinCheck(gstin)?"itc":"total"}
+function purTotals(items,kind,inter,round){let sub=0,tx=0,cg=0,sg=0,ig=0;
+  items.forEach(i=>{i.amount=r2(i.qty*i.rate);sub=r2(sub+i.amount);
+    if(kind==="itc"){i.taxable=i.amount;const g=num(i.gst);if(inter){i.igst=r2(i.taxable*g/100);i.cgst=i.sgst=0}else{i.cgst=r2(i.taxable*g/200);i.sgst=i.cgst;i.igst=0}
+      tx=r2(tx+i.taxable);cg=r2(cg+i.cgst);sg=r2(sg+i.sgst);ig=r2(ig+i.igst)}else{delete i.taxable;delete i.cgst;delete i.sgst;delete i.igst}});
+  const rv=r2(num(round));if(Math.abs(rv)>100)throw new Bad("Round off can be at most ₹100 either way.");
+  const tax=r2(cg+sg+ig),total=r2((kind==="itc"?tx+tax:sub)+rv);if(total<0)throw new Bad("Total can't be less than zero.");
+  return{subtotal:sub,taxable:kind==="itc"?tx:0,cgst:cg,sgst:sg,igst:ig,tax_amt:tax,round_off:rv,total}}
+function cleanPurchase(d){const supplier=String(d.supplier||"").trim().slice(0,80);if(!supplier)throw new Bad("Enter the supplier's name.");
+  const gstin=String(d.gstin||"").trim().toUpperCase();if(gstin&&!gstinCheck(gstin))throw new Bad("Supplier's GSTIN is not valid. Check it, or leave it empty for a supplier without GST.");
+  const date=String(d.date||"");if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Bad("Enter the bill date.");if(date>today())throw new Bad("The bill date can't be in the future.");
+  const kind=purKind(gstin);const inv_no=String(d.inv_no||"").trim().slice(0,30);if(kind==="itc"&&!inv_no)throw new Bad("Enter the supplier's invoice number — needed to claim GST credit.");
+  const paymode=PUR_PAY.includes(d.paymode)?d.paymode:"Credit";
+  const state=gstin?gstin.slice(0,2):(STATES[d.state]?d.state:sellerState()||"");const inter=!!(kind==="itc"&&state&&sellerState()&&state!==sellerState());
+  if(!d.items||!d.items.length)throw new Bad("Add at least one item.");
+  const items=d.items.map(r=>{const p=DB.products.find(x=>x.id===r.product_id);if(!p)throw new Bad("An item on this bill is not in the product list.");
+    const qty=+num(r.qty).toFixed(3),rate=r2(num(r.rate));if(!(qty>0))throw Object.assign(new Bad(`Enter the quantity for ${p.name}.`),{pid:p.id,field:"qty"});
+    if(qty>100000)throw Object.assign(new Bad(`Check the quantity for ${p.name}.`),{pid:p.id,field:"qty"});if(rate<0)throw Object.assign(new Bad(`Rate for ${p.name} can't be negative.`),{pid:p.id,field:"rate"});
+    let gst=r.gst===undefined||r.gst===""?rateOf(p):num(r.gst);if(kind==="itc"&&!GST_RATES.includes(gst))throw new Bad(`Choose the GST rate for ${p.name}.`);
+    return{product_id:p.id,name:p.name,hsn:p.hsn||"",unit:normUnit(r.unit||p.unit),qty,rate,gst}});
+  const t=purTotals(items,kind,inter,d.round);
+  return{supplier,gstin,state,inv_no,date,kind,inter,paymode,items,...t,note:String(d.note||"").trim().slice(0,200)}}
+function savePurchase(d,id){const c=cleanPurchase(d);
+  if(id){const p=DB.purchases.find(x=>x.id===id);if(!p||p.status!=="active")throw new Bad("This purchase can't be changed.");
+    const ch=purDiff(p,c);act("purchase",`Changed purchase ${p.inv_no||"(no invoice no.)"} from ${p.supplier}`,{ref:p.id,changes:ch.length?ch:[["(nothing changed)","",""]]});
+    Object.assign(p,c,{rev:(p.rev||0)+1,updated_by:me.id,updated_at:stamp()});(p.log=p.log||[]).push({at:stamp(),by:me.id,what:`Changed · total ₹${fmt(c.total)}`});save();return p}
+  const dup=DB.purchases.find(x=>x.status==="active"&&c.inv_no&&x.inv_no.toLowerCase()===c.inv_no.toLowerCase()&&x.supplier.toLowerCase()===c.supplier.toLowerCase());
+  if(dup&&!d.allowDup)throw Object.assign(new Bad(`Invoice ${c.inv_no} from ${c.supplier} is already entered (${dmy(dup.date)}).`),{dup:true});
+  const p={id:nextId(),...c,status:"active",rev:0,created_by:me.id,created_at:stamp(),log:[{at:stamp(),by:me.id,what:`Entered · total ₹${fmt(c.total)}`}]};DB.purchases.push(p);act("purchase",`Entered purchase ${p.inv_no||"(no invoice no.)"} from ${p.supplier} · ₹${fmt(p.total)}`,{ref:p.id});save();return p}
+function cancelPurchase(id){const p=DB.purchases.find(x=>x.id===id);if(!p||p.status!=="active")throw new Bad("Already cancelled.");
+  act("purchase",`Cancelled purchase ${p.inv_no||"(no invoice no.)"} from ${p.supplier} · ₹${fmt(p.total)}`,{ref:p.id,del:true,snap:purSnap(p),items:purItems(p)});
+  p.status="cancelled";p.updated_by=me.id;p.updated_at=stamp();(p.log=p.log||[]).push({at:stamp(),by:me.id,what:"Cancelled"});save();return p}
+function purchaseReport(d1,d2){const L=(DB.purchases||[]).filter(p=>p.status==="active"&&p.date>=d1&&p.date<=d2);const sum=k=>r2(L.reduce((a,p)=>a+(p[k]||0),0));
+  const itc=L.filter(p=>p.kind==="itc");const rates={};itc.forEach(p=>p.items.forEach(i=>{const r=num(i.gst);const x=rates[r]=rates[r]||{rate:r,taxable:0,cgst:0,sgst:0,igst:0};["taxable","cgst","sgst","igst"].forEach(k=>x[k]=r2(x[k]+(i[k]||0)))}));
+  return{count:L.length,total:sum("total"),itcCount:itc.length,taxable:r2(itc.reduce((a,p)=>a+p.taxable,0)),cgst:sum("cgst"),sgst:sum("sgst"),igst:sum("igst"),tax:sum("tax_amt"),
+    other:r2(L.filter(p=>p.kind!=="itc").reduce((a,p)=>a+p.total,0)),rates:Object.values(rates).sort((a,b)=>a.rate-b.rate),list:L}}
+
+/* ============================================================ monthly accounting export (Tally XML, item-wise Excel, JSON)
+   Sales are booked by payment mode: cash bill → Cash ledger; UPI / Card / Bank → Bank ledger; credit or split →
+   the customer's ledger (walk-in: "Cash Sales") plus Receipt vouchers for the part paid. Purchases go to the supplier
+   (credit) or Cash / Bank. Credit payments received later become Receipt vouchers. Every voucher balances exactly. */
+const ACC_DEF={sales:"Sales",purchase:"Purchase",cash:"Cash",bank:"Bank",cashSales:"Cash Sales",outC:"Output CGST",outS:"Output SGST",outI:"Output IGST",
+  inC:"Input CGST",inS:"Input SGST",inI:"Input IGST",round:"Round Off",disc:"Discount Allowed"};
+const ACC_LABEL={sales:"Sales ledger",purchase:"Purchase ledger",cash:"Cash ledger",bank:"Bank ledger (UPI, card, bank)",cashSales:"Walk-in customer ledger",outC:"Output CGST",outS:"Output SGST",outI:"Output IGST",
+  inC:"Input CGST",inS:"Input SGST",inI:"Input IGST",round:"Round off ledger",disc:"Discount ledger"};
+const accNames=()=>({...ACC_DEF,...(S().acc||{})});
+/* the month's entries in one neutral shape; every export format is made from this */
+function accountingData(month){const A=accNames(),d1=month+"-01",d2=monthEnd(month),T=S();
+  const sales=[],receipts=[],purchases=[],skipped=[];
+  const modeLedger=k=>k==="cash"?A.cash:A.bank;
+  DB.bills.filter(b=>b.bill_date>=d1&&b.bill_date<=d2).sort((a,b)=>a.bill_date.localeCompare(b.bill_date)||a.id-b.id).forEach(b=>{
+    if(b.status!=="active"){skipped.push({no:label(b),date:b.bill_date,net:b.net});return}
+    const tx=b.tax||{type:"none"},REG=tx.type==="regular",p=payOf(b),paid=["cash","upi","card","bank"].filter(k=>p[k]>0.004),cust=normCust(b.customer);
+    let party;if(p.credit<=0.004&&paid.length===1)party=modeLedger(paid[0]);else party=cust||A.cashSales;
+    const items=b.items.map(i=>({name:i.name,hsn:i.hsn||"",unit:i.unit,qty:i.qty,gst:REG?num(i.gst):"",value:REG?r2(i.taxable||0):i.amount,cgst:REG?r2(i.cgst||0):0,sgst:REG?r2(i.sgst||0):0,igst:REG?r2(i.igst||0):0,mrp_rate:i.rate}));
+    items.forEach(i=>i.rate=i.qty?r2(i.value/i.qty):0);
+    const v={type:"Sales",no:label(b),date:b.bill_date,party,customer:cust||"Cash",gstin:REG?(tx.buyer_gstin||""):"",pos:REG?stateName(tx.pos):"",gst_type:tx.type,
+      items,discount:REG?0:b.discount,cgst:REG?b.cgst:0,sgst:REG?b.sgst:0,igst:REG?b.igst:0,round_off:b.round_off,total:b.net,payment:payText(p),
+      narration:`CB bill ${label(b)} · ${payText(p)}${b.rev?` · corrected ${b.rev}×`:""}`};
+    sales.push(v);
+    if(party!==A.cash&&party!==A.bank){const cashAmt=p.cash,bankAmt=r2(p.upi+p.card+p.bank);
+      if(cashAmt>0.004)receipts.push({type:"Receipt",no:`R-${label(b)}-C`,date:b.bill_date,party,dr:A.cash,amount:cashAmt,refs:[{name:label(b),amount:cashAmt}],narration:`Paid with bill ${label(b)} (cash)`});
+      if(bankAmt>0.004)receipts.push({type:"Receipt",no:`R-${label(b)}-B`,date:b.bill_date,party,dr:A.bank,amount:bankAmt,refs:[{name:label(b),amount:bankAmt}],narration:`Paid with bill ${label(b)} (UPI/card/bank)`})}});
+  (DB.receipts||[]).filter(r=>r.date>=d1&&r.date<=d2).forEach(r=>receipts.push({type:"Receipt",no:`R${r.id}`,date:r.date,party:r.name,dr:r.mode==="Cash"?A.cash:A.bank,amount:r.amount,refs:(r.alloc||[]).map(a=>{const b=DB.bills.find(x=>x.id===a.bill_id);return{name:b?label(b):"",amount:a.amount}}).filter(x=>x.name),
+    narration:`Credit payment (${r.mode}) against ${r.alloc.map(a=>{const b=DB.bills.find(x=>x.id===a.bill_id);return b?label(b):"?"}).join(", ")}`}));
+  (DB.purchases||[]).filter(p=>p.status==="active"&&p.date>=d1&&p.date<=d2).sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id).forEach(p=>{const ITC=p.kind==="itc";
+    purchases.push({type:"Purchase",no:p.inv_no||`P${p.id}`,ref:p.inv_no||"",date:p.date,party:p.paymode==="Credit"?p.supplier:p.paymode==="Cash"?A.cash:A.bank,supplier:p.supplier,gstin:p.gstin||"",pos:p.state?stateName(p.state):"",itc:ITC,
+      items:p.items.map(i=>({name:i.name,hsn:i.hsn||"",unit:i.unit,qty:i.qty,gst:ITC?num(i.gst):"",value:ITC?r2(i.taxable):i.amount,rate:i.rate,cgst:ITC?i.cgst:0,sgst:ITC?i.sgst:0,igst:ITC?i.igst:0})),
+      cgst:ITC?p.cgst:0,sgst:ITC?p.sgst:0,igst:ITC?p.igst:0,round_off:p.round_off,total:p.total,payment:p.paymode,narration:`Supplier bill ${p.inv_no||"-"} from ${p.supplier}${p.note?" · "+p.note:""}`})});
+  return{shop:T.shop_name,gstin:T.gstin||"",gst_type:T.gst_type||"none",month,from:d1,to:d2,generated:stamp(),version:APP_VERSION,ledgers:A,sales,receipts,purchases,cancelled:skipped}}
+/* ---------- Tally XML */
+const xe=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const tDate=d=>d.replace(/-/g,"");const amt=v=>(Math.round(v*100)/100).toFixed(2);
+const tq=(q,u)=>`${+(+q).toFixed(3)} ${xe(u)}`;
+function tallyEnvelope(id,body){return `<?xml version="1.0" encoding="UTF-8"?>\n<ENVELOPE>\n <HEADER>\n  <VERSION>1</VERSION>\n  <TALLYREQUEST>Import</TALLYREQUEST>\n  <TYPE>Data</TYPE>\n  <ID>${id}</ID>\n </HEADER>\n <BODY>\n  <DESC></DESC>\n  <DATA>\n${body}  </DATA>\n </BODY>\n</ENVELOPE>\n`}
+const led=(name,dr,amount,extra="")=>`    <LEDGERENTRIES.LIST>\n     <LEDGERNAME>${xe(name)}</LEDGERNAME>\n     <ISDEEMEDPOSITIVE>${dr?"Yes":"No"}</ISDEEMEDPOSITIVE>\n${extra}     <AMOUNT>${amt(dr?-Math.abs(amount):Math.abs(amount))}</AMOUNT>\n    </LEDGERENTRIES.LIST>\n`;
+function tallyVouchers(D){const A=D.ledgers;let out="";
+  const inv=(i,dr,ledger)=>`    <ALLINVENTORYENTRIES.LIST>\n     <STOCKITEMNAME>${xe(i.name)}</STOCKITEMNAME>\n     <ISDEEMEDPOSITIVE>${dr?"Yes":"No"}</ISDEEMEDPOSITIVE>\n     <RATE>${amt(i.rate)}/${xe(i.unit)}</RATE>\n     <AMOUNT>${amt(dr?-i.value:i.value)}</AMOUNT>\n     <ACTUALQTY>${tq(i.qty,i.unit)}</ACTUALQTY>\n     <BILLEDQTY>${tq(i.qty,i.unit)}</BILLEDQTY>\n     <BATCHALLOCATIONS.LIST>\n      <GODOWNNAME>Main Location</GODOWNNAME>\n      <BATCHNAME>Primary Batch</BATCHNAME>\n      <AMOUNT>${amt(dr?-i.value:i.value)}</AMOUNT>\n      <ACTUALQTY>${tq(i.qty,i.unit)}</ACTUALQTY>\n      <BILLEDQTY>${tq(i.qty,i.unit)}</BILLEDQTY>\n     </BATCHALLOCATIONS.LIST>\n     <ACCOUNTINGALLOCATIONS.LIST>\n      <LEDGERNAME>${xe(ledger)}</LEDGERNAME>\n      <ISDEEMEDPOSITIVE>${dr?"Yes":"No"}</ISDEEMEDPOSITIVE>\n      <AMOUNT>${amt(dr?-i.value:i.value)}</AMOUNT>\n     </ACCOUNTINGALLOCATIONS.LIST>\n    </ALLINVENTORYENTRIES.LIST>\n`;
+  const head=(v,type,view)=>`   <TALLYMESSAGE xmlns:UDF="TallyUDF">\n   <VOUCHER VCHTYPE="${type}" ACTION="Create" OBJVIEW="${view}">\n    <DATE>${tDate(v.date)}</DATE>\n    <VOUCHERTYPENAME>${type}</VOUCHERTYPENAME>\n    <VOUCHERNUMBER>${xe(v.no)}</VOUCHERNUMBER>\n${v.ref?`    <REFERENCE>${xe(v.ref)}</REFERENCE>\n    <REFERENCEDATE>${tDate(v.date)}</REFERENCEDATE>\n`:""}    <PARTYLEDGERNAME>${xe(v.party)}</PARTYLEDGERNAME>\n${v.gstin?`    <PARTYGSTIN>${xe(v.gstin)}</PARTYGSTIN>\n`:""}${v.pos?`    <PLACEOFSUPPLY>${xe(v.pos.replace(/^\d+-/,""))}</PLACEOFSUPPLY>\n`:""}    <PERSISTEDVIEW>${view}</PERSISTEDVIEW>\n${view==="Invoice Voucher View"?`    <ISINVOICE>Yes</ISINVOICE>\n    <VCHENTRYMODE>Item Invoice</VCHENTRYMODE>\n`:""}    <NARRATION>${xe(v.narration)}</NARRATION>\n`;
+  const tail="   </VOUCHER>\n   </TALLYMESSAGE>\n";
+  const bill=(no,a)=>`     <BILLALLOCATIONS.LIST>\n      <NAME>${xe(no)}</NAME>\n      <BILLTYPE>New Ref</BILLTYPE>\n      <AMOUNT>${amt(a)}</AMOUNT>\n     </BILLALLOCATIONS.LIST>\n`;
+  D.sales.forEach(v=>{const isParty=v.party!==A.cash&&v.party!==A.bank;
+    out+=head(v,"Sales","Invoice Voucher View")+led(v.party,true,v.total,`     <ISPARTYLEDGER>Yes</ISPARTYLEDGER>\n${isParty?bill(v.no,-v.total):""}`)+v.items.map(i=>inv(i,false,A.sales)).join("");
+    if(v.discount>0.004)out+=led(A.disc,true,v.discount);
+    if(v.cgst)out+=led(A.outC,false,v.cgst);if(v.sgst)out+=led(A.outS,false,v.sgst);if(v.igst)out+=led(A.outI,false,v.igst);
+    if(Math.abs(v.round_off)>0.004)out+=led(A.round,v.round_off<0,v.round_off);out+=tail});
+  D.receipts.forEach(v=>{out+=head(v,"Receipt","Accounting Voucher View")+led(v.party,false,v.amount,(v.refs||[]).map(r=>bill(r.name,r.amount).replace("New Ref","Agst Ref")).join(""))+led(v.dr,true,v.amount)+tail});
+  D.purchases.forEach(v=>{const isParty=v.party!==A.cash&&v.party!==A.bank;
+    out+=head(v,"Purchase","Invoice Voucher View")+led(v.party,false,v.total,`     <ISPARTYLEDGER>Yes</ISPARTYLEDGER>\n${isParty?bill(v.ref||v.no,v.total):""}`)+v.items.map(i=>inv(i,true,A.purchase)).join("");
+    if(v.cgst)out+=led(A.inC,true,v.cgst);if(v.sgst)out+=led(A.inS,true,v.sgst);if(v.igst)out+=led(A.inI,true,v.igst);
+    if(Math.abs(v.round_off)>0.004)out+=led(A.round,v.round_off>0,v.round_off);out+=tail});
+  return tallyEnvelope("Vouchers",out)}
+function tallyMasters(D){const A=D.ledgers,L=[];const seen=new Set();
+  const ledger=(name,parent,extra="")=>{if(!name||seen.has("L|"+name))return;seen.add("L|"+name);
+    L.push(`   <TALLYMESSAGE xmlns:UDF="TallyUDF">\n   <LEDGER NAME="${xe(name)}">\n    <NAME.LIST>\n     <NAME>${xe(name)}</NAME>\n    </NAME.LIST>\n    <PARENT>${xe(parent)}</PARENT>\n${extra}   </LEDGER>\n   </TALLYMESSAGE>\n`)};
+  const duty=(name,head)=>ledger(name,"Duties & Taxes",`    <TAXTYPE>GST</TAXTYPE>\n    <GSTDUTYHEAD>${head}</GSTDUTYHEAD>\n`);
+  ledger(A.sales,"Sales Accounts");ledger(A.purchase,"Purchase Accounts");ledger(A.cash,"Cash-in-Hand");ledger(A.bank,"Bank Accounts");ledger(A.cashSales,"Sundry Debtors");
+  ledger(A.round,"Indirect Expenses");ledger(A.disc,"Indirect Expenses");
+  duty(A.outC,"Central Tax");duty(A.outS,"State Tax");duty(A.outI,"Integrated Tax");duty(A.inC,"Central Tax");duty(A.inS,"State Tax");duty(A.inI,"Integrated Tax");
+  const gstinOf={};D.sales.forEach(v=>{if(v.gstin)gstinOf[v.party]=v.gstin});D.purchases.forEach(v=>{if(v.gstin)gstinOf[v.supplier]=v.gstin});
+  D.sales.concat(D.receipts).forEach(v=>{if(v.party!==A.cash&&v.party!==A.bank)ledger(v.party,"Sundry Debtors",gstinOf[v.party]?`    <PARTYGSTIN>${xe(gstinOf[v.party])}</PARTYGSTIN>\n`:"")});
+  D.purchases.forEach(v=>ledger(v.supplier,"Sundry Creditors",v.gstin?`    <PARTYGSTIN>${xe(v.gstin)}</PARTYGSTIN>\n`:""));
+  const units=new Set(),items=new Map();D.sales.concat(D.purchases).forEach(v=>v.items.forEach(i=>{units.add(i.unit);if(!items.has(i.name))items.set(i.name,i)}));
+  const U=[...units].map(u=>`   <TALLYMESSAGE xmlns:UDF="TallyUDF">\n   <UNIT NAME="${xe(u)}">\n    <NAME>${xe(u)}</NAME>\n    <ISSIMPLEUNIT>Yes</ISSIMPLEUNIT>\n    <DECIMALPLACES>${["Kgs","Ltr","Mtr","Gms"].includes(u)?3:0}</DECIMALPLACES>\n   </UNIT>\n   </TALLYMESSAGE>\n`);
+  const I=[...items.values()].map(i=>`   <TALLYMESSAGE xmlns:UDF="TallyUDF">\n   <STOCKITEM NAME="${xe(i.name)}">\n    <NAME.LIST>\n     <NAME>${xe(i.name)}</NAME>\n    </NAME.LIST>\n    <PARENT></PARENT>\n    <BASEUNITS>${xe(i.unit)}</BASEUNITS>\n${i.hsn?`    <DESCRIPTION>HSN ${xe(i.hsn)}${i.gst!==""?` · GST ${i.gst}%`:""}</DESCRIPTION>\n`:""}   </STOCKITEM>\n   </TALLYMESSAGE>\n`);
+  return tallyEnvelope("All Masters",U.join("")+L.join("")+I.join(""))}
+/* ---------- item-wise Excel (.xlsx) — one row per item; Busy / Vyapar / Marg map the columns once */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=u=>{let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0};
+function zipStore(files){const enc=new TextEncoder(),parts=[],cd=[];let off=0;
+  const u16=v=>[v&255,(v>>>8)&255],u32=v=>[v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];
+  files.forEach(([name,text])=>{const nb=enc.encode(name),data=enc.encode(text),c=crc32(data);
+    const h=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(data.length),...u32(data.length),...u16(nb.length),...u16(0)]);
+    parts.push(h,nb,data);cd.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(data.length),...u32(data.length),...u16(nb.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),nb);
+    off+=h.length+nb.length+data.length});
+  const cdLen=cd.reduce((a,x)=>a+x.length,0);
+  const end=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(cdLen),...u32(off),...u16(0)]);
+  return new Blob([...parts,...cd,end],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}
+function makeXlsx(sheets){const col=n=>{let s="";n++;while(n){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26)}return s};
+  const cell=(v,r,c)=>{const ref=col(c)+(r+1);if(typeof v==="number"&&isFinite(v))return `<c r="${ref}"><v>${v}</v></c>`;if(v===""||v===null||v===undefined)return "";
+    return `<c r="${ref}" t="inlineStr"${r===0?' s="1"':""}><is><t xml:space="preserve">${xe(v)}</t></is></c>`};
+  const sheetXml=rows=>`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetData>${rows.map((row,r)=>`<row r="${r+1}">${row.map((v,c)=>cell(v,r,c)).join("")}</row>`).join("")}</sheetData></worksheet>`;
+  const files=[["[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`],
+    ["_rels/.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ["xl/workbook.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s,i)=>`<sheet name="${xe(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets></workbook>`],
+    ["xl/_rels/workbook.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+    ["xl/styles.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf/><xf fontId="1" applyFont="1"/></cellXfs></styleSheet>`],
+    ...sheets.map((s,i)=>[`xl/worksheets/sheet${i+1}.xml`,sheetXml(s.rows)])];
+  return zipStore(files)}
+function accountingXlsx(D){const dmyS=d=>d.split("-").reverse().join("-");
+  const SH=["Date","Voucher Type","Voucher No","Party Ledger","Customer","Party GSTIN","Place of Supply","Payment","Item","HSN","Qty","Unit","Rate","Taxable / Amount","GST %","CGST","SGST","IGST","Item Total","Bill Discount","Bill Round Off","Bill Total","Narration"];
+  const sales=[SH];D.sales.forEach(v=>v.items.forEach((i,k)=>sales.push([dmyS(v.date),"Sales",v.no,v.party,v.customer,v.gstin,v.pos,v.payment,i.name,i.hsn,i.qty,i.unit,i.rate,i.value,i.gst,i.cgst,i.sgst,i.igst,r2(i.value+i.cgst+i.sgst+i.igst),k?"":v.discount,k?"":v.round_off,k?"":v.total,k?"":v.narration])));
+  const PH=["Date","Voucher Type","Supplier Invoice No","Party Ledger","Supplier","Supplier GSTIN","Supplier State","Paid By","Item","HSN","Qty","Unit","Rate","Taxable / Amount","GST %","CGST","SGST","IGST","Item Total","Bill Round Off","Bill Total","GST Credit","Narration"];
+  const pur=[PH];D.purchases.forEach(v=>v.items.forEach((i,k)=>pur.push([dmyS(v.date),"Purchase",v.no,v.party,v.supplier,v.gstin,v.pos,v.payment,i.name,i.hsn,i.qty,i.unit,i.rate,i.value,i.gst,i.cgst,i.sgst,i.igst,r2(i.value+i.cgst+i.sgst+i.igst),k?"":v.round_off,k?"":v.total,k?"":(v.itc?"Yes":"No"),k?"":v.narration])));
+  const rec=[["Date","Voucher Type","Voucher No","Received From (Cr)","Received In (Dr)","Amount","Narration"]];D.receipts.forEach(v=>rec.push([dmyS(v.date),"Receipt",v.no,v.party,v.dr,v.amount,v.narration]));
+  const sum=[["Item","Value"],["Shop",D.shop],["GSTIN",D.gstin],["Month",D.month],["Made on",D.generated],["Sales bills",D.sales.length],["Sales total",r2(D.sales.reduce((a,v)=>a+v.total,0))],
+    ["Receipts",D.receipts.length],["Receipts total",r2(D.receipts.reduce((a,v)=>a+v.amount,0))],["Purchase bills",D.purchases.length],["Purchases total",r2(D.purchases.reduce((a,v)=>a+v.total,0))],
+    ["Cancelled bills (not exported)",D.cancelled.map(c=>c.no).join(", ")||"none"],...Object.entries(D.ledgers).map(([k,v])=>["Ledger: "+ACC_LABEL[k],v])];
+  return makeXlsx([{name:"Sales items",rows:sales},{name:"Purchase items",rows:pur},{name:"Receipts",rows:rec},{name:"Summary",rows:sum}])}
+function exportCardHTML(){const m=LS.get("expMonth",null)||(()=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);return isoDate(d).slice(0,7)})();const A=accNames();
+  return `<div class="card noprint" id="expCard"><h3>Accounting export — Tally / Busy / Vyapar</h3>
+    <p class="note">Sales, receipts and purchases of a month with every item, ready to import into your accounting software.</p>
+    <div class="row"><div class="field"><label for="expM">Month</label><input type="month" id="expM" value="${m}" max="${today().slice(0,7)}"></div></div>
+    <div class="row"><button class="btn" id="expTM" type="button">Tally: masters (XML)</button><button class="btn primary" id="expTV" type="button">Tally: vouchers (XML)</button>
+      <button class="btn" id="expX" type="button">Excel item-wise (Busy, Vyapar, others)</button><button class="btn" id="expJ" type="button">JSON</button></div>
+    <p class="note"><b>Tally:</b> Gateway of Tally → Import → Masters (choose the masters file, "Ignore duplicates"), then Import → Transactions (the vouchers file). Try it first on a copy of the company.
+      <b>Busy / Vyapar:</b> use their Excel import and match the columns once; the same file layout comes every month.</p>
+    <details${isOwner()?"":" hidden"}><summary>Ledger names used in the export</summary><div class="row" style="margin-top:8px">${Object.keys(ACC_DEF).map(k=>`<div class="field"><label for="acc_${k}">${ACC_LABEL[k]}</label><input id="acc_${k}" data-acc="${k}" maxlength="60" value="${esc(A[k])}"></div>`).join("")}</div>
+      <p class="note">Use the exact ledger names of your books. Customers and suppliers use their names as entered in CB.</p></details></div>`}
+function bindExportCard(){if(!$("expCard"))return;const M=()=>$("expM").value||today().slice(0,7);$("expM").onchange=()=>LS.set("expMonth",M());
+  const D=()=>accountingData(M()),tag=()=>`${S().shop_name.replace(/[^0-9A-Za-z]+/g,"-").slice(0,30)}-${M()}`;
+  $("expTM").onclick=()=>saveFile(`Tally-masters-${tag()}.xml`,new Blob([tallyMasters(D())],{type:"application/xml"}));
+  $("expTV").onclick=()=>{const d=D();if(!d.sales.length&&!d.purchases.length&&!d.receipts.length){toast("Nothing to export for this month.",true);return}saveFile(`Tally-vouchers-${tag()}.xml`,new Blob([tallyVouchers(d)],{type:"application/xml"}))};
+  $("expX").onclick=()=>saveFile(`Accounts-${tag()}.xlsx`,accountingXlsx(D()));
+  $("expJ").onclick=()=>saveFile(`Accounts-${tag()}.json`,new Blob([JSON.stringify(D(),null,1)],{type:"application/json"}));
+  document.querySelectorAll("[data-acc]").forEach(i=>i.onchange=()=>{if(!isOwner())return;const v=i.value.trim();DB.settings.acc={...(DB.settings.acc||{}),[i.dataset.acc]:v||ACC_DEF[i.dataset.acc]};save();toast("Ledger name saved")})}
+
 /* ============================================================ owner verification */
 const isVerified=b=>!!(b.verified&&b.verified.rev===b.rev);
 const changedAfterVerify=b=>!!(b.verified&&b.verified.rev!==b.rev);
@@ -859,8 +1085,8 @@ function saveFile(filename,data){
 const PAGES={A4:"A4",A5:"A5",A5L:"A5 landscape"};
 const isPage=p=>!!PAGES[p];
 const thermalClass=p=>isPage(p)?"":({N:" tsN",X:" tsX"}[S().thermal_size]||"");
-const printSize=()=>S().print_mode==="normal"?(PAGES[S().page]?S().page:"A4"):(S().paper==="58"?"58":"80");
-const sizeChoices=()=>S().print_mode==="normal"?[["A4","A4"],["A5","A5"],["A5L","A5 wide"]]:[["80","80 mm"],["58","58 mm"]];
+const printSize=()=>S().print_mode==="normal"&&has("pages")?(PAGES[S().page]?S().page:"A4"):(S().paper==="58"?"58":"80");
+const sizeChoices=()=>S().print_mode==="normal"&&has("pages")?[["A4","A4"],["A5","A5"],["A5L","A5 wide"]]:[["80","80 mm"],["58","58 mm"]];
 const printBill=(b,dup)=>{const p=printSize();printReceipt(receiptHTML(b,!!dup,p),p)};
 function printReceipt(html,paper){
   if(isPage(paper)){const pa=$("printArea");pa.innerHTML=html;$("pageStyle").textContent=`@page{size:${PAGES[paper]};margin:${paper==="A5L"?"6mm 7mm":"8mm"}}`;document.body.classList.add("print-rcpt");
@@ -970,10 +1196,10 @@ function showReceipt(b,dup,title,saved){
   const draw=()=>{openModal(`<div class="row" style="justify-content:space-between;align-items:center"><h2${saved?' class="savedh"':""}>${esc(title||"Bill "+label(b))}</h2>
     ${sizeSeg(paper)}</div>
     <div class="rprev">${receiptHTML(b,dup,paper)}</div>
-    <div class="row billbtns"><button class="btn primary" id="doPrint">Print</button><button class="btn" id="doShare">Share PDF</button><button class="btn" id="doPdf">Save PDF</button><button class="btn" data-close>${saved?"New bill":"Close"}</button></div>
-    <p class="note">${isPage(paper)?`Print: pick your printer and paper size ${paper==="A5L"?"A5 and Landscape":paper}.`:"Print: pick your thermal printer; set margins to None the first time."} <b>Share PDF</b> sends the bill on WhatsApp; <b>Save PDF</b> keeps it in Downloads.</p>`);
+    <div class="row billbtns"><button class="btn primary" id="doPrint">Print</button>${has("pdf")?`<button class="btn" id="doShare">Share PDF</button><button class="btn" id="doPdf">Save PDF</button>`:""}<button class="btn" data-close>${saved?"New bill":"Close"}</button></div>
+    <p class="note">${isPage(paper)?`Print: pick your printer and paper size ${paper==="A5L"?"A5 and Landscape":paper}.`:"Print: pick your thermal printer; set margins to None the first time."} ${has("pdf")?"<b>Share PDF</b> sends the bill on WhatsApp; <b>Save PDF</b> keeps it in Downloads.":""}</p>`);
     $("doPrint").onclick=()=>printReceipt(receiptHTML(b,dup,paper),paper);
-    $("doShare").onclick=()=>pdfOut(b,dup,paper,true);$("doPdf").onclick=()=>pdfOut(b,dup,paper,false);
+    if($("doShare")){$("doShare").onclick=()=>pdfOut(b,dup,paper,true);$("doPdf").onclick=()=>pdfOut(b,dup,paper,false)}
     $("overlay").querySelectorAll("[data-w]").forEach(x=>x.onclick=()=>{paper=x.dataset.w;draw()})};
   draw()}
 
@@ -1028,8 +1254,8 @@ async function pdfOut(b,dup,size,share){let blob;try{toast("Making PDF…");blob
   saveFile(name,blob)}
 
 /* ============================================================ shell & routing */
-const VIEWS={billing:"Billing",bills:"Bills",credit:"Credit",report:"Day end report",log:"Correction log",products:"Products",users:"Users",settings:"Settings"};
-const VIEW_SHORT={billing:"Bill",bills:"Bills",credit:"Credit",report:"Report",log:"Log",products:"Items",users:"Users",settings:"Settings"};
+const VIEWS={billing:"Billing",bills:"Bills",credit:"Credit",purchases:"Purchases",report:"Day end report",log:"Change log",products:"Products",users:"Users",settings:"Settings"};
+const VIEW_SHORT={billing:"Bill",bills:"Bills",credit:"Credit",purchases:"Buy",report:"Report",log:"Log",products:"Items",users:"Users",settings:"Settings"};
 const ICO=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const VIEW_ICON={
   billing:ICO('<path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6"/>'),
@@ -1037,6 +1263,7 @@ const VIEW_ICON={
   report:ICO('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   log:ICO('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>'),
   credit:ICO('<rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10h19M16 14.5h2"/><path d="M6 6V4.5h12V6"/>'),
+  purchases:ICO('<path d="M3 4h2.5l2.2 10.5h10.6L20.5 7H7"/><circle cx="9.5" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/><path d="M12 8.5v4M10 10.5h4"/>'),
   products:ICO('<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>'),
   users:ICO('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>'),
   settings:ICO('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>')};
@@ -1046,26 +1273,37 @@ const deptHue=d=>{let h=0;for(const ch of String(d))h=(h*31+ch.charCodeAt(0))%36
 const deptColor=d=>`hsl(${deptHue(d)} 62% 42%)`;
 const ADMIN_ONLY=new Set(["log"]);  /* only the Owner sees the correction log */
 let view="billing";   /* the app always opens on Billing */
-function go(v){if(ADMIN_ONLY.has(v)&&!isOwner())v="billing";if(v==="bills"&&view!=="bills"&&isOwner()&&!billsModeSet)billsMode=DB.bills.some(b=>!isVerified(b))?"verify":"date";view=v;if(me)LS.set("view_"+me.id,v);render();window.scrollTo(0,0)}
-function render(){
+function viewOK(v){if(ADMIN_ONLY.has(v)&&!isOwner())return false;
+  if(v==="log")return has("audit");
+  if(v==="credit")return has("credit")||creditBook().length>0;
+  if(v==="purchases")return has("purchases")||(DB.purchases||[]).length>0;
+  return true}
+function go(v){if(!viewOK(v))v="billing";if(v==="bills"&&view!=="bills"&&isOwner()&&!billsModeSet)billsMode=DB.bills.some(b=>!isVerified(b))?"verify":"date";view=v;if(me)LS.set("view_"+me.id,v);render();window.scrollTo(0,0)}
+function render(){try{auditSettings()}catch(e){}
   const app=$("app");
   if(!DB.users.length){app.innerHTML=setupHTML();bindSetup();return}
   if(!me){app.innerHTML=loginHTML();bindLogin();return}
-  if(ADMIN_ONLY.has(view)&&!isOwner())view="billing";
-  const toVerify=isOwner()?DB.bills.filter(b=>!isVerified(b)).length:0;const dueN=creditBook().length;
+  if(!viewOK(view))view="billing";
+  const toVerify=isOwner()&&has("audit")?DB.bills.filter(b=>!isVerified(b)).length:0;const dueN=creditBook().length;
   const bkAge=DB.lastBackup?Math.floor((Date.now()-new Date(DB.lastBackup.replace(" ","T")))/864e5):null;
-  const needBackup=!DB.demo&&DB.bills.length>0&&(bkAge===null||bkAge>=3);
+  const sentAge=DB.lastSent?Math.floor((Date.now()-new Date(DB.lastSent.replace(" ","T")))/864e5):null;
+  const firstAge=DB.bills.length?Math.floor((Date.now()-new Date(String(DB.bills[0].created_at||DB.bills[0].bill_date).replace(" ","T")))/864e5):0;
+  const needBackup=!DB.demo&&DB.bills.length>0&&(sentAge===null?(firstAge>=3||bkAge===null||bkAge>=3):sentAge>=7);
   app.innerHTML=`${DB.demo?`<div class="demo"><div class="wrap">Sample data for trying out. ${isOwner()?`When you're ready to use it for real: <button class="btn sm" id="toEmpty" style="margin-left:4px">Start with my own data</button>`:""}</div></div>`:""}
-  ${needBackup?`<div class="warnbar"><div class="wrap"><span><b>Backup:</b> ${bkAge===null?"never taken":"last taken "+bkAge+" days ago"}. All bills are only on this device — if it's lost or reset, they're gone.</span><button class="btn sm" id="bkNow">Back up now</button></div></div>`:""}
+  ${(()=>{const P=planInfo();if(!isOwner()||DB.demo)return "";if(P.state==="trial"&&P.left<=7)return `<div class="warnbar"><div class="wrap"><span><b>Free trial:</b> ${P.left} day${P.left>1?"s":""} left. Ask your support person for a plan code (Settings → Plan &amp; support).</span></div></div>`;
+    if(P.state==="basic")return `<div class="warnbar"><div class="wrap"><span><b>Trial over:</b> CB is on the Basic plan. Billing works; ask your support person for a plan code to switch other features back on.</span></div></div>`;
+    if(P.till){const d=Math.floor((new Date(P.till)-new Date(today()))/864e5);if(d<0)return `<div class="warnbar"><div class="wrap"><span><b>Support ended</b> on ${dmy(P.till)}. CB keeps working — renew to get updates and help.</span></div></div>`;
+      if(d<=15)return `<div class="warnbar"><div class="wrap"><span><b>Support &amp; updates</b> end on ${dmy(P.till)} (${d} day${d===1?"":"s"}). Renew with your support person.</span></div></div>`}return ""})()}
+  ${needBackup?`<div class="warnbar"><div class="wrap"><span><b>Backup:</b> ${sentAge===null?"never sent off this phone":"last sent off this phone "+sentAge+" days ago"}. If the phone is lost or broken, bills since then can't be recovered.</span><button class="btn sm" id="bkNow">Send backup now</button></div></div>`:""}
   <header class="nav"><div class="wrap"><span class="brand">${LOGO()}<span class="shopname">${esc(S().shop_name)}</span></span>
-    <nav class="tabs">${Object.entries(VIEWS).filter(([k])=>isOwner()||!ADMIN_ONLY.has(k)).map(([k,v])=>`<button data-go="${k}" ${k===view?'aria-current="page"':""}>${VIEW_ICON[k]}<span class="tl">${v}</span><span class="ts">${VIEW_SHORT[k]}</span>${k==="bills"&&toVerify?`<span class="badge" title="Bills to verify">${toVerify}</span>`:""}${k==="credit"&&dueN?`<span class="badge due" title="Customers with dues">${dueN}</span>`:""}</button>`).join("")}</nav>
+    <nav class="tabs">${Object.entries(VIEWS).filter(([k])=>viewOK(k)).map(([k,v])=>`<button data-go="${k}" ${k===view?'aria-current="page"':""}>${VIEW_ICON[k]}<span class="tl">${v}</span><span class="ts">${VIEW_SHORT[k]}</span>${k==="bills"&&toVerify?`<span class="badge" title="Bills to verify">${toVerify}</span>`:""}${k==="credit"&&dueN?`<span class="badge due" title="Customers with dues">${dueN}</span>`:""}</button>`).join("")}</nav>
     <div class="me"><button class="btn sm install-app" type="button" ${installEvt?"":"hidden"}>Install app</button><span class="who">${esc(me.name)}</span><span class="role ${isOwner()?"admin":""}">${isOwner()?"Owner":"Admin"}</span><button class="btn sm" id="logout">Log out</button></div></div></header>
   <main class="page wrap" id="view"></main>`;
   app.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
   $("logout").onclick=()=>{if(Bill.lines.length&&!Bill.editing)Bill.persist();me=null;LS.del("session");LS.set("loggedOut",true);render()};
-  if($("bkNow"))$("bkNow").onclick=()=>{if(saveFile(`CB-backup-${today()}.json`,JSON.stringify(DB))){DB.lastBackup=stamp();save();render()}};
+  if($("bkNow"))$("bkNow").onclick=()=>sendBackup();
   if($("toEmpty"))$("toEmpty").onclick=()=>{go("settings");setTimeout(()=>{const el=$("resetCard");if(el)el.scrollIntoView({behavior:"smooth"})},50)};
-  ({billing:renderBilling,bills:renderBills,credit:renderCredit,report:renderReport,log:renderLog,products:renderProducts,users:renderUsers,settings:renderSettings})[view]();
+  ({billing:renderBilling,bills:renderBills,credit:renderCredit,purchases:renderPurchases,report:renderReport,log:renderLog,products:renderProducts,users:renderUsers,settings:renderSettings})[view]();
 }
 
 /* ---------- login / setup */
@@ -1087,6 +1325,36 @@ let fails={};
 const RESET_PUB="_G0i0ESgWxHifjQB6WCQoV46NCIIirWl08pwMaCkST0";
 const RESET_ABC="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   /* no 0/O, 1/I — easy to read out on the phone */
 const b64uDec=t=>{t=t.replace(/-/g,"+").replace(/_/g,"/");t+="===".slice((t.length+3)%4);const d=atob(t),u=new Uint8Array(d.length);for(let i=0;i<d.length;i++)u[i]=d.charCodeAt(i);return u};
+/* ============================================================ plans: which features this shop has paid for
+   A plan code is made by the support person's private tool (same signing key as reset codes) for one shop ID.
+   No code: everything works for a 30-day trial, then the Basic plan. Switching a feature off never deletes data. */
+const FEATURES={credit:"Credit sales & dues",split:"Split payment",voice:"Voice billing",pages:"A4 / A5 printing",pdf:"PDF bills (share / save)",
+  audit:"Owner verification & correction log",multiuser:"More than one Admin login",upload:"Excel product upload / download",
+  gst_comp:"GST – Composition (bill of supply)",gst_reg:"GST – Regular (tax invoice, HSN, GSTR-1)",purchases:"Purchases",export:"Accounting export (Tally / Busy / Vyapar)"};
+const BASIC_FEATURES=["audit"];const TRIAL_DAYS=30;
+const shopIdLabel=c=>String(c||"").match(/.{4}/g).join("-");
+let planCache={key:null,val:null};
+function readPlanCode(code){try{const m=String(code||"").trim().match(/CBP1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{86})/);if(!m)return null;
+    if(!nacl.sign.detached.verify(new TextEncoder().encode("CBPLAN1|"+m[1]),b64uDec(m[2]),b64uDec(RESET_PUB)))return null;
+    const pl=JSON.parse(new TextDecoder().decode(b64uDec(m[1])));return pl&&Array.isArray(pl.f)?{...pl,raw:m[0]}:null}catch(e){return null}}
+function planInfo(){const key=(DB.plan_code||"")+"|"+DB.shop_id+"|"+DB.trial_start+"|"+today()+"|"+!!DB.demo;if(planCache.key===key)return planCache.val;
+  let v;const pl=readPlanCode(DB.plan_code);
+  if(DB.demo)v={state:"demo",name:"Sample data — all features",features:new Set(Object.keys(FEATURES))};
+  else if(pl&&pl.s===DB.shop_id)v={state:"active",name:pl.n||"Custom",features:new Set(pl.f.filter(f=>FEATURES[f]).concat(BASIC_FEATURES)),till:pl.t||"",issued:pl.i||"",client:pl.c||""};
+  else{const used=Math.floor((new Date(today())-new Date(DB.trial_start||today()))/864e5),left=TRIAL_DAYS-used;
+    v=left>0?{state:"trial",name:`Free trial — ${left} day${left>1?"s":""} left`,left,features:new Set(Object.keys(FEATURES))}:{state:"basic",name:"Basic",features:new Set(BASIC_FEATURES)}}
+  planCache={key,val:v};return v}
+const has=f=>planInfo().features.has(f);
+/* Usage check-in: the support person's Google Sheet address. Set once here (CHECKIN_URL) or carried inside the plan code. */
+const CHECKIN_URL="";
+const checkinURL=()=>{const pl=readPlanCode(DB&&DB.plan_code);return (pl&&pl.u)||CHECKIN_URL};
+function checkin(force){try{const url=checkinURL();if(!url||!/^https:\/\//.test(url)||DB.demo||!navigator.onLine)return;
+    if(!force&&LS.get("checkin_day","")===today())return;
+    const P=planInfo(),act=DB.bills.filter(b=>b.status==="active");
+    const data={shop_id:shopIdLabel(DB.shop_id),shop:S().shop_name,version:APP_VERSION,plan:P.name,plan_state:P.state,support_till:P.till||"",gst:S().gst_type||"none",
+      bills_today:act.filter(b=>b.bill_date===today()).length,bills_total:act.length,last_bill:act.length?act[act.length-1].bill_date:"",products:DB.products.filter(p=>p.active).length,
+      purchases:(DB.purchases||[]).length,users:DB.users.filter(u=>u.active).length,sent:stamp()};
+    fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)}).then(()=>LS.set("checkin_day",today())).catch(()=>{})}catch(e){}}
 function resetRequest(){let r=DB.reset_req;
   if(!r||Date.now()-new Date(r.at).getTime()>7*864e5){const a=new Uint8Array(16);crypto.getRandomValues(a);r=DB.reset_req={code:[...a].map(x=>RESET_ABC[x&31]).join(""),at:stamp()};flush()}
   return r}
@@ -1115,7 +1383,7 @@ function ownerReset(){const owners=DB.users.filter(u=>u.role==="admin");if(!owne
       if(pw.length<6){toast("Password must be at least 6 characters.",true);return}if(pw!==$("rsPw2").value){toast("The two passwords are not the same.",true);return}
       if(DB.reset_req!==r){toast("This reset code was already used. Ask for a new one.",true);closeModal();return}
       u.salt=Math.random().toString(36).slice(2,8);u.pw=hashPw(pw,u.salt);u.active=true;delete fails[u.username.toLowerCase()];
-      (DB.reset_log=DB.reset_log||[]).push({at:stamp(),user:u.username,req:r.code});delete DB.reset_req;flush();closeModal();
+      (DB.reset_log=DB.reset_log||[]).push({at:stamp(),user:u.username,req:r.code});act("user",`Owner password reset with a support reset code: ${u.name} (${u.username})`,{ref:u.id},"Reset code");delete DB.reset_req;flush();closeModal();
       if($("lgUser")){$("lgUser").value=u.username;$("lgPw").value="";$("lgPw").focus()}toast(`New password set for ${u.name}. Log in now.`)}}}
 function bindLogin(){$("lgUser").focus();if($("ownerForgot"))$("ownerForgot").onclick=ownerReset;$("loginForm").onsubmit=e=>{e.preventDefault();const id=$("lgUser").value.trim().toLowerCase(),pw=$("lgPw").value;const f=fails[id]||{n:0,until:0};
   if(f.until>Date.now()){toast("Too many wrong tries. Wait a few minutes.",true);return}
@@ -1130,12 +1398,13 @@ function setupHTML(){return `<div class="wrap"><div class="authwrap"><form class
   <div class="field"><label for="suPw">Password (6+ characters)</label><input id="suPw" type="password" autocomplete="new-password" required></div>
   <button class="btn primary" style="padding:11px">Create owner login</button>
   <button class="btn" type="button" id="trySample">Try it first with sample data</button>
+  <label class="btn" for="suFile" style="cursor:pointer;text-align:center">New phone? Restore from backup</label><input type="file" id="suFile" accept=".json,.txt,application/json,text/plain" hidden>
   <button class="btn install-app" type="button" ${installEvt?"":"hidden"}>Install as app on this device</button>
   <p class="note ios-hint" ${isIOS()&&!standalone()?"":"hidden"}>To add an app icon: tap <b>Share</b> → <b>Add to Home Screen</b>.</p>
   <p class="note">Works without internet. All data stays on this device.</p></form></div></div>`}
 function validUser(name,username,pw,needPw=true){if(!name)return"Enter the person's name.";if(!/^[A-Za-z0-9_.\-]{3,30}$/.test(username))return"Login ID must be 3–30 letters or numbers (no spaces).";if(needPw&&(pw||"").length<6)return"Password must be at least 6 characters.";return null}
-function addUser(name,username,pw,role){const salt=Math.random().toString(36).slice(2,8);const u={id:nextId(),username,name,salt,pw:hashPw(pw,salt),role,active:true,created_at:stamp()};DB.users.push(u);save();return u}
-function bindSetup(){$("trySample").onclick=()=>{seedDB();me=DB.users.find(u=>u.username==="owner");Bill.load();view="billing";render();toast("Sample data loaded. Owner ID: owner / owner123, Admin: ravi / ravi123")};$("setupForm").onsubmit=e=>{e.preventDefault();const err=validUser($("suName").value.trim(),$("suUser").value.trim(),$("suPw").value);if(err){toast(err,true);return}
+function addUser(name,username,pw,role){const salt=Math.random().toString(36).slice(2,8);const u={id:nextId(),username,name,salt,pw:hashPw(pw,salt),role,active:true,created_at:stamp()};DB.users.push(u);act("user",`Login created: ${name} (${username}) as ${roleName(role)}`,{ref:u.id},me?null:name);save();return u}
+function bindSetup(){$("suFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{await restoreFromFile(f)}catch(err){toast(err instanceof Bad?err.message:"That isn't a CB backup file.",true)}e.target.value=""};$("trySample").onclick=()=>{seedDB();me=DB.users.find(u=>u.username==="owner");Bill.load();view="billing";render();toast("Sample data loaded. Owner ID: owner / owner123, Admin: ravi / ravi123")};$("setupForm").onsubmit=e=>{e.preventDefault();const err=validUser($("suName").value.trim(),$("suUser").value.trim(),$("suPw").value);if(err){toast(err,true);return}
   DB.settings.shop_name=$("suShop").value.trim()||"My Retail Store";const u=addUser($("suName").value.trim(),$("suUser").value.trim(),$("suPw").value,"admin");me=u;LS.set("session",u.id);view="products";render();toast("Owner login created. Add your products next.")}}
 
 /* ============================================================ billing */
@@ -1188,10 +1457,10 @@ function renderBilling(){
   <section class="panel catalog" aria-label="Products by department">
     <div class="cathead">
       <div class="searchrow"><input class="search" id="search" type="search" placeholder="Search product… (Enter adds the first match)" aria-label="Search product" autocomplete="off">
-        <button class="mic" id="mic" type="button" title="Say a product name (F2)" aria-label="Say a product name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></svg></button></div>
-      <div class="voiceopts"><span>Voice:</span><div class="seg" role="group" aria-label="Voice language"><button type="button" data-lang="en-IN">English</button><button type="button" data-lang="hi-IN">हिंदी</button></div>
+        <button class="mic" id="mic" type="button" ${has("voice")?"":"hidden"} title="Say a product name (F2)" aria-label="Say a product name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></svg></button></div>
+      <div class="voiceopts" ${has("voice")?"":"hidden"}><span>Voice:</span><div class="seg" role="group" aria-label="Voice language"><button type="button" data-lang="en-IN">English</button><button type="button" data-lang="hi-IN">हिंदी</button></div>
         <label class="chk"><input type="checkbox" id="readBack"> Speak back</label></div>
-      <form class="say" id="sayForm"><input id="sayText" placeholder='Type what you would say, e.g. "do kilo cheeni" or "चीनी दो किलो"' aria-label="Type a spoken phrase"><button class="btn sm">Try</button></form>
+      <form class="say" id="sayForm" ${has("voice")?"":"hidden"}><input id="sayText" placeholder='Type what you would say, e.g. "do kilo cheeni" or "चीनी दो किलो"' aria-label="Type a spoken phrase"><button class="btn sm">Try</button></form>
       <div class="voicebox" id="voiceBox" hidden><div class="heard" id="heard"></div><div class="choices" id="choices"></div></div>
       <div class="depts" id="depts" role="group" aria-label="Departments"></div></div>
     <div class="grid" id="grid"></div><div class="catfoot" id="catInfo"></div>
@@ -1266,7 +1535,7 @@ function quickAdd(name){
       if(!(num($("qaRate").value)>0))throw new Bad("Enter the rate.");
       d=cleanProduct(raw,needTaxInfo());   /* … then HSN code and GST rate for a regular GST shop */
       const qty=$("qaQty").value.trim()===""?"":+num($("qaQty").value).toFixed(3);if(qty!==""&&!(qty>0))throw new Bad("Quantity must be more than 0, or leave it empty.");
-      const p={id:nextId(),...d,active:true,added_by:me.id,added_at:stamp()};DB.products.push(p);save();
+      const p={id:nextId(),...d,active:true,added_by:me.id,added_at:stamp()};DB.products.push(p);act("product",`Added ${p.name} (from the bill screen)`,{ref:p.id,snap:prodSnap(p)});save();
       closeModal();$("search").value="";renderDepts();addProduct(p.id,qty);toast(`${p.name} added to products and to this bill`)
     }catch(err){toast(err instanceof Bad?err.message:"Couldn't add that product.",true)}};
   $("qaSave").onclick=go;["qaRate","qaQty","qaName"].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter")go()}));
@@ -1280,7 +1549,7 @@ function renderLines(flash){
     <td class="r num amt">${fmt(num(l.qty)*num(l.rate))}</td><td><button class="del" data-del aria-label="Remove ${esc(l.name)}">×</button></td></tr>`).join("");
   $("emptyBill").hidden=L.length>0;$("corrBar").hidden=!E;
   if(E)$("corrTitle").innerHTML=`Correcting Bill ${esc(label(E))} <span>· by ${esc(uname(E.created_by))} at ${hm(E.created_at)} · original ${rs(E.net)}</span>`;
-  $("billNo").textContent=E?label(E):(()=>{const n=nextNumber(today());return n.series==="daily"?`${shortDate(today())}/${n.no}`:`${n.fy}/${n.no}`})();$("saveBill").innerHTML=E?"Save correction":"Save bill";$("clearBill").hidden=!!E;
+  $("billNo").textContent=E?label(E):label({...nextNumber(today()),bill_date:today()});$("saveBill").innerHTML=E?"Save correction":"Save bill";$("clearBill").hidden=!!E;
   if(flash){const r=document.querySelector(`tr[data-k="${flash}"]`);if(r)r.scrollIntoView({block:"nearest"})}
   totals()}
 function lineGst(l){if(l.gst!==undefined&&l.gst!==null&&l.gst!=="")return num(l.gst);return rateOf(DB.products.find(p=>p.id===l.product_id))}
@@ -1410,7 +1679,7 @@ function bindBilling(){
   const listen=()=>Voice.start(LS.get("voiceLang","en-IN"),{state:on=>$("mic").classList.toggle("live",on),interim:t=>{$("voiceBox").hidden=false;$("heard").innerHTML=`Listening… <b>${esc(t)}</b>`},final:onVoice,error:m=>{toast(m,true);$("sayText").focus()}});
   $("mic").onclick=listen;
   $("sayForm").onsubmit=e=>{e.preventDefault();const t=$("sayText").value.trim();if(!t)return;onVoice([t]);$("sayText").select()};
-  document.onkeydown=e=>{if(view!=="billing"||!$("overlay").hidden)return;if(e.key==="F2"){e.preventDefault();listen()}if(e.key==="F9"){e.preventDefault();$("saveBill").click()}};
+  document.onkeydown=e=>{if(view!=="billing"||!$("overlay").hidden)return;if(e.key==="F2"&&has("voice")){e.preventDefault();listen()}if(e.key==="F9"){e.preventDefault();$("saveBill").click()}};
 }
 
 /* ============================================================ bills */
@@ -1422,7 +1691,7 @@ function logEntryHTML(c){const d=c.after_net-c.before_net;
 let billsMode="date",billsModeSet=false;
 const BILL_PAGE=150;
 function renderBills(){
-  const A=isOwner(),mode=A?billsMode:"date",d=billsDate;
+  const A=isOwner()&&has("audit"),mode=A?billsMode:"date",d=billsDate;
   const pending=A?DB.bills.filter(b=>!isVerified(b)).length:0;
   $("view").innerHTML=`<div class="head"><h1 class="title">Bills</h1><div class="row">
     ${A?`<div class="seg" role="group" aria-label="Show"><button data-mode="verify" aria-pressed="${mode==="verify"}">To verify${pending?` (${pending})`:""}</button><button data-mode="date" aria-pressed="${mode==="date"}">By date</button></div>`:""}
@@ -1466,7 +1735,7 @@ function renderBills(){
   draw();
   if(billSel&&all().some(b=>b.id===billSel))show(billSel);else if(mode==="verify"&&all().length&&innerWidth>900)show(all()[0].id);
 }
-function updateBadge(){const btn=document.querySelector('[data-go="bills"]');if(!btn||!isOwner())return;const n=DB.bills.filter(b=>!isVerified(b)).length;const old=btn.querySelector(".badge");if(old)old.remove();if(n)btn.insertAdjacentHTML("beforeend",`<span class="badge" title="Bills to verify">${n}</span>`);
+function updateBadge(){const btn=document.querySelector('[data-go="bills"]');if(!btn||!isOwner()||!has("audit"))return;const n=DB.bills.filter(b=>!isVerified(b)).length;const old=btn.querySelector(".badge");if(old)old.remove();if(n)btn.insertAdjacentHTML("beforeend",`<span class="badge" title="Bills to verify">${n}</span>`);
   const seg=document.querySelector('[data-mode="verify"]');if(seg)seg.textContent=`To verify${n?` (${n})`:""}`}
 
 /* ============================================================ day end report */
@@ -1501,6 +1770,13 @@ function renderReport(){
     <div class="card"><h3>Department-wise sales <span class="note">(before bill discount)</span></h3><div class="tw"><table><thead><tr><th>Department</th><th class="r">Items</th><th class="r">Lines</th><th class="r">Amount ₹</th><th class="barcell"></th></tr></thead>
       <tbody>${R.depts.map(d=>`<tr><td>${esc(d.dept)}</td><td class="r num">${d.items.size}</td><td class="r num">${d.lines}</td><td class="r num">${fmt(d.amount)}</td><td class="barcell"><div class="bar" style="width:${(d.amount/top*100).toFixed(1)}%"></div></td></tr>`).join("")||`<tr><td colspan="5" class="note">No sales</td></tr>`}</tbody></table></div></div>
     ${gstCardHTML(R)}
+    ${(()=>{const PR=purchaseReport(R.d1,R.d2);if(!PR.count&&!has("purchases"))return "";
+      return `<div class="card"><h3>Purchases</h3><p class="note">${PR.count} purchase bill${PR.count===1?"":"s"} · total ₹${fmt(PR.total)}${PR.itcCount?` · GST credit on ${PR.itcCount}`:""}</p>
+      ${PR.itcCount?`<div class="tw"><table><thead><tr><th>GST rate</th><th class="r">Taxable ₹</th><th class="r">CGST ₹</th><th class="r">SGST ₹</th><th class="r">IGST ₹</th></tr></thead>
+        <tbody>${PR.rates.map(r=>`<tr><td>${r.rate}%</td><td class="r num">${fmt(r.taxable)}</td><td class="r num">${fmt(r.cgst)}</td><td class="r num">${fmt(r.sgst)}</td><td class="r num">${fmt(r.igst)}</td></tr>`).join("")}</tbody>
+        <tfoot><tr><td>Input tax credit</td><td class="r num">${fmt(PR.taxable)}</td><td class="r num">${fmt(PR.cgst)}</td><td class="r num">${fmt(PR.sgst)}</td><td class="r num">${fmt(PR.igst)}</td></tr></tfoot></table></div>`:""}
+      ${PR.other?`<p class="note">Purchases without GST credit (supplier without GSTIN, or this shop not under regular GST): ₹${fmt(PR.other)}</p>`:""}</div>`})()}
+    ${has("export")?exportCardHTML():""}
     <div class="card"><h3>Product-wise sales</h3><div class="tw"><table><thead><tr><th>Item</th><th>Department</th><th class="r">Qty sold</th><th>Unit</th><th class="r">Bills</th><th class="r">Amount ₹</th></tr></thead>
       <tbody>${R.items.map(i=>`<tr><td>${esc(i.name)}</td><td>${esc(i.dept)}</td><td class="r num">${fq(i.qty)}</td><td>${i.unit}</td><td class="r num">${i.bills.size}</td><td class="r num">${fmt(i.amount)}</td></tr>`).join("")||`<tr><td colspan="6" class="note">No sales</td></tr>`}</tbody>
       ${R.items.length?`<tfoot><tr><td colspan="5">Total of products</td><td class="r num">${fmt(s.gross)}</td></tr><tr><td colspan="5">Less discount</td><td class="r num">-${fmt(s.discount)}</td></tr><tr><td colspan="5">Round off</td><td class="r num">${fmt(s.round_off)}</td></tr><tr><td colspan="5">Total sales</td><td class="r num">${fmt(s.net)}</td></tr></tfoot>`:""}</table></div></div>
@@ -1516,7 +1792,7 @@ function renderReport(){
   </div>`;
   $("rFrom").onchange=e=>{repFrom=e.target.value||today();if(repTo<repFrom)repTo=repFrom;renderReport()};$("rTo").onchange=e=>{repTo=e.target.value||today();if(repTo<repFrom)repFrom=repTo;renderReport()};
   document.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{const n=+b.dataset.q,d=new Date();if(n===1){d.setDate(d.getDate()-1);repFrom=repTo=isoDate(d)}else if(n===7){repTo=isoDate(d);d.setDate(d.getDate()-6);repFrom=isoDate(d)}else repFrom=repTo=today();renderReport()});
-  $("rPrint").onclick=printPage;$("rPhoto").onclick=()=>summaryPhoto(R);
+  $("rPrint").onclick=printPage;$("rPhoto").onclick=()=>summaryPhoto(R);bindExportCard();
   if($("rVerifyAll"))$("rVerifyAll").onclick=e=>{const b=e.currentTarget;if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Tap again to confirm";setTimeout(()=>{if(b.isConnected){b.classList.remove("armed");b.textContent=`Mark all ${R.toVerify} verified`}},3000);return}
     const n=verifyBills(R.bills.filter(x=>!isVerified(x)));toast(`${n} bills marked verified`);render()};
   if($("rReview"))$("rReview").onclick=()=>{billsMode="verify";billsModeSet=true;go("bills")};
@@ -1641,9 +1917,119 @@ function summaryPhoto(R){const cv=summaryCanvas(R);const url=cv.toDataURL("image
     else{saveFile(name,blob);toast("Sharing isn't available here — the photo was saved instead.")}}}
 
 /* ============================================================ correction log */
-let logFrom=null,logTo=null,logWho="";
+let logFrom=null,logTo=null,logWho="",logTab="bills",logKind="";
 /* ============================================================ credit (udhaar) — visible to every user */
 let creditOpen=null,creditQ="";
+/* ============================================================ purchases page */
+let purMonth=today().slice(0,7),purEdit=null,purDraft=null;
+const monthEnd=m=>{const[y,mm]=m.split("-").map(Number);return `${m}-${String(new Date(y,mm,0).getDate()).padStart(2,"0")}`};
+const blankPur=()=>({supplier:"",gstin:"",state:"",inv_no:"",date:today(),paymode:"Credit",round:"",note:"",items:[]});
+function renderPurchases(){if(purEdit!==null)return renderPurEditor();
+  const d1=purMonth+"-01",d2=monthEnd(purMonth),R=purchaseReport(d1,d2),REG=gstType()==="regular",can=has("purchases");
+  const all=(DB.purchases||[]).filter(p=>p.date>=d1&&p.date<=d2).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+  $("view").innerHTML=`<div class="head"><h1 class="title">Purchases</h1><div class="row">
+      <div class="field"><label for="purM">Month</label><input type="month" id="purM" value="${purMonth}" max="${today().slice(0,7)}"></div>
+      ${can?`<button class="btn primary" id="purNew" type="button">+ New purchase</button>`:""}</div></div>
+    ${can?"":`<p class="note">Purchases are not part of this shop's plan. Old purchases can still be seen here.</p>`}
+    <div class="stats"><div class="stat hero"><b>₹${fmt(R.total)}</b><span>Purchases (${R.count} bill${R.count===1?"":"s"})</span></div>
+      ${REG||R.itcCount?`<div class="stat"><b>₹${fmt(R.taxable)}</b><span>Taxable value with GST credit (${R.itcCount})</span></div><div class="stat"><b>₹${fmt(R.tax)}</b><span>Input GST (ITC): CGST ${fmt(R.cgst)} · SGST ${fmt(R.sgst)} · IGST ${fmt(R.igst)}</span></div>
+      <div class="stat"><b>₹${fmt(R.other)}</b><span>Other purchases (no GST credit)</span></div>`:""}</div>
+    <div class="card" style="padding:0"><div class="tw"><table><thead><tr><th>Date</th><th>Supplier</th><th>Invoice</th><th class="r">Items</th><th>Paid</th><th class="r">Total ₹</th></tr></thead>
+      <tbody id="purList">${all.map(p=>`<tr class="click${p.status!=="active"?" cx":""}" data-id="${p.id}"><td class="num">${dmy(p.date)}</td><td>${esc(p.supplier)}${p.gstin?`<div class="note">${esc(p.gstin)}</div>`:""}</td><td class="num">${esc(p.inv_no||"—")}${p.status!=="active"?' <span class="pill red">Cancelled</span>':""}</td><td class="r num">${p.items.length}</td><td>${esc(p.paymode)}</td><td class="r num">${fmt(p.total)}</td></tr>`).join("")}</tbody></table></div>
+      ${all.length?"":`<div class="empty"><b>No purchases in ${new Date(d1+"T00:00").toLocaleDateString("en-IN",{month:"long",year:"numeric"})}</b>${can?"Tap + New purchase to enter a supplier's bill.":""}</div>`}</div>`;
+  $("purM").onchange=e=>{purMonth=e.target.value||today().slice(0,7);renderPurchases()};
+  if($("purNew"))$("purNew").onclick=()=>{purEdit="new";purDraft=LS.get("purdraft",null)||blankPur();renderPurchases()};
+  $("purList").onclick=e=>{const tr=e.target.closest("tr");if(!tr)return;const p=DB.purchases.find(x=>x.id===+tr.dataset.id);if(!p)return;
+    purEdit=p.id;purDraft={supplier:p.supplier,gstin:p.gstin,state:p.state,inv_no:p.inv_no,date:p.date,paymode:p.paymode,round:p.round_off?String(p.round_off):"",note:p.note||"",items:p.items.map(i=>({product_id:i.product_id,qty:String(i.qty),rate:String(i.rate),gst:i.gst,unit:i.unit}))};renderPurchases()}}
+function renderPurEditor(){const P=purEdit==="new"?null:DB.purchases.find(x=>x.id===purEdit),D=purDraft,ro=!!(P&&(P.status!=="active"||!has("purchases")));
+  const suppliers=[...new Map((DB.purchases||[]).map(p=>[p.supplier.toLowerCase(),p])).values()];
+  const kindNow=()=>purKind(D.gstin);
+  $("view").innerHTML=`<div class="head"><button class="btn" id="purBack" type="button">← Purchases</button><h1 class="title">${P?`Purchase · ${esc(P.supplier)}`:"New purchase"}</h1></div>
+   <div class="stack">${P&&P.status!=="active"?`<div class="card"><b class="down">This purchase was cancelled.</b></div>`:""}
+    <div class="card"><div class="row">
+      <div class="field grow"><label for="puSup">Supplier</label><input id="puSup" maxlength="80" list="puSups" value="${esc(D.supplier)}" placeholder="Supplier's name" ${ro?"disabled":""}><datalist id="puSups">${suppliers.map(p=>`<option value="${esc(p.supplier)}">`).join("")}</datalist></div>
+      <div class="field grow"><label for="puGst">Supplier GSTIN</label><input id="puGst" class="gstin" maxlength="15" value="${esc(D.gstin)}" placeholder="Leave empty if not registered" ${ro?"disabled":""}></div></div>
+      <div class="row"><div class="field"><label for="puInv">Supplier's invoice no.</label><input id="puInv" maxlength="30" value="${esc(D.inv_no)}" ${ro?"disabled":""}></div>
+      <div class="field"><label for="puDate">Bill date</label><input id="puDate" type="date" value="${D.date}" max="${today()}" ${ro?"disabled":""}></div>
+      <div class="field" id="puStateF"><label for="puState">Supplier's state</label><select id="puState" ${ro?"disabled":""}>${Object.keys(STATES).map(c=>`<option value="${c}" ${(D.state||sellerState()||"27")===c?"selected":""}>${esc(stateName(c))}</option>`).join("")}</select></div></div>
+      <div class="field"><label>Paid by</label><div class="seg" id="puPay" role="group">${PUR_PAY.map(m=>`<button type="button" data-pm="${m}" aria-pressed="${D.paymode===m}" ${ro?"disabled":""}>${m==="Credit"?"Credit (pay later)":m}</button>`).join("")}</div></div>
+      <p class="note" id="puKind"></p></div>
+    <div class="card"><h2>Items</h2>
+      ${ro?"":`<div class="row"><div class="field grow"><label for="puAdd">Add item</label><input id="puAdd" list="puProds" placeholder="Type product name" autocomplete="off"><datalist id="puProds">${activeProducts().map(p=>`<option value="${esc(p.name)}">`).join("")}</datalist></div>
+        <button class="btn" id="puAddBtn" type="button" style="align-self:flex-end">Add</button></div>`}
+      <div id="puLines"></div>
+      <div class="totals" id="puTot"></div>
+      <div class="field"><label for="puNote">Note (optional)</label><input id="puNote" maxlength="200" value="${esc(D.note)}" ${ro?"disabled":""}></div>
+      ${ro?"":`<div class="row"><button class="btn primary" id="puSave" type="button" style="flex:1">${P?"Save changes":"Save purchase"}</button>${P?`<button class="btn danger" id="puCancel" type="button">Cancel purchase</button>`:`<button class="btn" id="puClear" type="button">Clear</button>`}</div>`}</div>
+    ${P&&isOwner()?`<div class="card"><h3>History</h3>${(P.log||[]).map(l=>`<div class="note">${dmy(l.at)} ${hm(l.at)} · ${esc(uname(l.by))} · ${esc(l.what)}</div>`).join("")}</div>`:""}</div>`;
+  const keep=()=>{if(purEdit==="new")LS.set("purdraft",D)};
+  const lineHTML=(l,k)=>{const p=DB.products.find(x=>x.id===l.product_id)||{name:"?"};const itc=kindNow()==="itc";
+    return `<div class="pline" data-k="${k}"><div class="pn"><b>${esc(p.name)}</b>${p.hsn?` <span class="note">HSN ${esc(p.hsn)}</span>`:""}</div>
+      <label>Qty<input class="num${num(l.qty)>0?"":" needq"}" data-f="qty" inputmode="decimal" value="${esc(l.qty)}" placeholder="Qty" ${ro?"disabled":""}></label>
+      <label>Unit<select data-f="unit" ${ro?"disabled":""}>${unitOpts(l.unit||p.unit)}</select></label>
+      <label>Rate ${itc?"(before GST)":"(incl. GST)"}<input class="num" data-f="rate" inputmode="decimal" value="${esc(l.rate)}" placeholder="0" ${ro?"disabled":""}></label>
+      ${itc?`<label>GST<select data-f="gst" ${ro?"disabled":""}>${GST_RATES.map(r=>`<option value="${r}" ${num(l.gst)===r?"selected":""}>${r}%</option>`).join("")}</select></label>`:""}
+      <div class="pa"><span class="note">Amount</span><b class="num" data-amt>${fmt(r2(num(l.qty)*num(l.rate)))}</b></div>${ro?"":`<button class="del" data-del type="button" aria-label="Remove ${esc(p.name)}">×</button>`}</div>`};
+  const drawLines=()=>{$("puLines").innerHTML=D.items.length?D.items.map(lineHTML).join(""):`<p class="note">No items yet. Type a product name above.</p>`;tot()};
+  const tot=()=>{const kind=kindNow();$("puStateF").hidden=!!D.gstin||kind!=="itc"&&gstType()!=="regular";
+    $("puKind").innerHTML=kind==="itc"?"<b>GST shown separately</b> — rates before GST; CGST + SGST (or IGST for another state) is added and counted as input tax credit.":
+      gstType()==="regular"?"<b>No GST credit</b> — supplier has no GSTIN, so enter rates including GST.":"<b>Amounts include GST</b> — enter rates as on the supplier's bill.";
+    let t;try{const its=D.items.map(l=>({...l,qty:num(l.qty),rate:num(l.rate),gst:num(l.gst)}));
+      const st=D.gstin?D.gstin.slice(0,2):(D.state||sellerState());t=purTotals(its,kind,!!(kind==="itc"&&st&&sellerState()&&st!==sellerState()),D.round)}catch(e){t=null}
+    document.querySelectorAll("#puLines .pline").forEach(r=>{const l=D.items[+r.dataset.k];r.querySelector("[data-amt]").textContent=fmt(r2(num(l.qty)*num(l.rate)))});
+    $("puTot").innerHTML=t?`<span class="l">${kind==="itc"?"Taxable value":"Items total"}</span><span class="num">${fmt(kind==="itc"?t.taxable:t.subtotal)}</span>
+      ${kind==="itc"?(t.igst?`<span class="l">IGST</span><span class="num">${fmt(t.igst)}</span>`:`<span class="l">CGST</span><span class="num">${fmt(t.cgst)}</span><span class="l">SGST</span><span class="num">${fmt(t.sgst)}</span>`):""}
+      <label class="l" for="puRound">Round off (to match the bill)</label><input id="puRound" class="num" inputmode="decimal" value="${esc(D.round)}" placeholder="0" ${ro?"disabled":""}>
+      <span class="l grandl">Bill total</span><span class="num grand">₹${fmt(t.total)}</span>`:`<span class="l">Check the round off (at most ₹100)</span>`;
+    if($("puRound"))$("puRound").oninput=e=>{D.round=e.target.value;keep();const pos=e.target.selectionStart;tot();const r=$("puRound");if(r){r.focus();r.setSelectionRange(pos,pos)}}};
+  drawLines();
+  $("purBack").onclick=()=>{purEdit=null;purDraft=null;renderPurchases()};
+  if(ro)return;
+  const fld=(id,k)=>$(id).addEventListener("input",e=>{D[k]=e.target.value;keep();tot()});
+  fld("puInv","inv_no");fld("puNote","note");
+  $("puSup").addEventListener("input",e=>{D.supplier=e.target.value;const m=suppliers.find(p=>p.supplier.toLowerCase()===D.supplier.trim().toLowerCase());
+    if(m&&!D.gstin&&m.gstin){D.gstin=m.gstin;$("puGst").value=m.gstin;drawLines()}keep()});
+  $("puGst").addEventListener("input",e=>{const was=kindNow();D.gstin=e.target.value.trim().toUpperCase();keep();if(was!==kindNow())drawLines();else tot()});
+  $("puDate").onchange=e=>{D.date=e.target.value;keep()};$("puState").onchange=e=>{D.state=e.target.value;keep();tot()};
+  $("puPay").onclick=e=>{const b=e.target.closest("[data-pm]");if(!b)return;D.paymode=b.dataset.pm;document.querySelectorAll("#puPay [data-pm]").forEach(x=>x.setAttribute("aria-pressed",x===b));keep()};
+  const addByName=()=>{const q=$("puAdd").value.trim();if(!q)return;const p=activeProducts().find(x=>x.name.toLowerCase()===q.toLowerCase());
+    const put=p=>{const last=[...(DB.purchases||[])].reverse().find(x=>x.status==="active"&&x.items.some(i=>i.product_id===p.id));const li=last&&last.items.find(i=>i.product_id===p.id);
+      D.items.push({product_id:p.id,qty:"",rate:li?String(li.rate):"",gst:p.gst===undefined||p.gst===""?"":num(p.gst),unit:p.unit});keep();$("puAdd").value="";drawLines();
+      const q2=document.querySelector(`#puLines .pline[data-k="${D.items.length-1}"] [data-f=qty]`);if(q2)q2.focus()};
+    if(p){if(kindNow()==="itc"&&!hasTaxInfo(p)){taxFix(p,()=>{renderPurEditor();put(p)});return}put(p);return}
+    purNewProduct(q,np=>{renderPurEditor();put(np)})};
+  $("puAddBtn").onclick=addByName;$("puAdd").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addByName()}});
+  $("puAdd").addEventListener("change",()=>{if(activeProducts().some(x=>x.name.toLowerCase()===$("puAdd").value.trim().toLowerCase()))addByName()});
+  $("puLines").addEventListener("input",e=>{const f=e.target.dataset.f;if(!f)return;const l=D.items[+e.target.closest(".pline").dataset.k];l[f]=e.target.value;if(f==="qty")e.target.classList.toggle("needq",!(num(l.qty)>0));keep();tot()});
+  $("puLines").addEventListener("change",e=>{const f=e.target.dataset.f;if(f==="unit"||f==="gst"){D.items[+e.target.closest(".pline").dataset.k][f]=e.target.value;keep();tot()}});
+  $("puLines").addEventListener("click",e=>{if(!e.target.closest("[data-del]"))return;D.items.splice(+e.target.closest(".pline").dataset.k,1);keep();drawLines()});
+  if($("puClear"))$("puClear").onclick=e=>{const b=e.currentTarget;if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Tap again to clear";setTimeout(()=>{if(b.isConnected){b.classList.remove("armed");b.textContent="Clear"}},2500);return}
+    purDraft=blankPur();LS.del("purdraft");renderPurEditor()};
+  if($("puCancel"))$("puCancel").onclick=e=>{const b=e.currentTarget;if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Tap again to cancel it";setTimeout(()=>{if(b.isConnected){b.classList.remove("armed");b.textContent="Cancel purchase"}},3000);return}
+    try{cancelPurchase(P.id);toast("Purchase cancelled");purEdit=null;purDraft=null;renderPurchases()}catch(err){toast(err.message,true)}};
+  const doSave=allowDup=>{try{const body={...D,allowDup,items:D.items.map(l=>({...l}))};const p=savePurchase(body,P?P.id:null);
+      if(!P)LS.del("purdraft");purEdit=null;purDraft=null;purMonth=p.date.slice(0,7);renderPurchases();toast(`Purchase saved · ${p.supplier} · ₹${fmt(p.total)}`)}
+    catch(err){if(err&&err.dup){const b=$("puSave");if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Already entered? Tap again to save anyway";toast(err.message,true);return}return doSave(true)}
+      toast(err instanceof Bad?err.message:"Couldn't save.",true);
+      if(err&&err.pid){const k=D.items.findIndex(l=>l.product_id===err.pid);const inp=document.querySelector(`#puLines .pline[data-k="${k}"] [data-f=${err.field}]`);if(inp){inp.focus();inp.select()}}
+      else if(err&&/supplier's name/.test(err.message))$("puSup").focus();else if(err&&/GSTIN/.test(err.message))$("puGst").focus();else if(err&&/invoice number/.test(err.message))$("puInv").focus()}};
+  $("puSave").onclick=()=>doSave(false)}
+/* a product that isn't in the list yet, typed on a purchase bill */
+function purNewProduct(name,then){const strict=needTaxInfo();
+  openModal(`<h2>New product</h2><p class="note">It's added to your product list (so you can sell it) and to this purchase.</p>
+    <div class="field"><label for="npName">Item name</label><input id="npName" maxlength="120" value="${esc(name)}"></div>
+    <div class="row"><div class="field"><label for="npDept">Group</label><input id="npDept" maxlength="60" placeholder="General" list="npDepts"><datalist id="npDepts">${[...new Set(activeProducts().map(p=>p.dept))].map(d=>`<option value="${esc(d)}">`).join("")}</datalist></div>
+      <div class="field"><label for="npUnit">Unit</label><select id="npUnit">${UNITS.map(u=>`<option>${u}</option>`).join("")}</select></div></div>
+    <div class="row"><div class="field"><label for="npRate">Selling rate ₹</label><input id="npRate" inputmode="decimal" placeholder="For billing"></div>
+      ${gstType()!=="none"?`<div class="field"><label for="npHsn">HSN code${strict?"":" (optional)"}</label><input id="npHsn" inputmode="numeric" maxlength="8"></div>`:""}
+      ${strict?`<div class="field"><label for="npGst">GST rate</label><select id="npGst"><option value="">Choose GST %</option>${GST_RATES.map(r=>`<option value="${r}">${r}%</option>`).join("")}</select></div>`:""}</div>
+    <div class="row"><button class="btn primary" id="npSave" style="flex:1">Add product</button><button class="btn" data-close>Cancel</button></div>`);
+  $("npRate").focus();
+  $("npSave").onclick=()=>{try{const raw={name:$("npName").value,dept:$("npDept").value,unit:$("npUnit").value,rate:$("npRate").value,hsn:$("npHsn")?$("npHsn").value:"",gst:$("npGst")?$("npGst").value:""};
+      let d=cleanProduct(raw);if(DB.products.some(x=>x.active&&x.name.toLowerCase()===d.name.toLowerCase()))throw new Bad(`${d.name} is already in the list.`);
+      if(!(num(raw.rate)>0))throw new Bad("Enter the selling rate.");d=cleanProduct(raw,strict);
+      const p={id:nextId(),...d,active:true,added_by:me.id,added_at:stamp()};DB.products.push(p);act("product",`Added ${p.name} (from a purchase)`,{ref:p.id,snap:prodSnap(p)});save();closeModal();toast(`${p.name} added to products`);then(p)}
+    catch(err){toast(err instanceof Bad?err.message:"Couldn't add.",true)}}}
 function renderCredit(){
   const book=creditBook(),total=r2(book.reduce((a,e)=>a+e.due,0));
   const q=creditQ.trim().toLowerCase();const list=book.filter(e=>!q||e.name.toLowerCase().includes(q)||String(e.phone).includes(q));
@@ -1692,14 +2078,36 @@ function renderLog(){
   if(!logFrom){const d=new Date();logTo=isoDate(d);d.setDate(d.getDate()-6);logFrom=isoDate(d)}
   const rows=DB.corrections.filter(c=>c.at.slice(0,10)>=logFrom&&c.at.slice(0,10)<=logTo&&(!logWho||String(c.user_id)===logWho)).map(corrView).reverse();
   const eff=r2(rows.reduce((s,c)=>s+c.after_net-c.before_net,0));
-  $("view").innerHTML=`<div class="head"><h1 class="title">Correction log</h1><div class="row">
+  const tabs=`<div class="seg" role="group" aria-label="Log"><button data-lt="bills" aria-pressed="${logTab==="bills"}">Bill corrections</button><button data-lt="other" aria-pressed="${logTab==="other"}">Deleted &amp; changed</button></div>`;
+  if(logTab==="other")return renderActivity(tabs);
+  $("view").innerHTML=`<div class="head"><h1 class="title">Correction log</h1><div class="row">${tabs}
     <div class="field"><label for="lFrom">From</label><input type="date" id="lFrom" value="${logFrom}" max="${today()}"></div><div class="field"><label for="lTo">To</label><input type="date" id="lTo" value="${logTo}" max="${today()}"></div>
     <div class="field"><label for="lWho">By</label><select id="lWho"><option value="">Everyone</option>${DB.users.map(u=>`<option value="${u.id}" ${String(u.id)===logWho?"selected":""}>${esc(u.name)}</option>`).join("")}</select></div></div></div>
   <div class="stack"><div class="stats"><div class="stat"><b>${rows.length}</b><span>Corrections &amp; cancellations</span></div><div class="stat"><b>${rows.filter(r=>r.kind==="cancel").length}</b><span>Bills cancelled</span></div>
     <div class="stat"><b>${new Set(rows.map(r=>r.bill_id)).size}</b><span>Bills affected</span></div><div class="stat"><b class="${eff<0?"down":"up"}">${eff<0?"−":"+"}${rs(Math.abs(eff))}</b><span>Net effect on sales</span></div></div>
     ${rows.map(logEntryHTML).join("")||`<div class="card"><div class="empty"><b>No corrections in this period</b>When anyone changes or cancels a saved bill, you'll see what changed, who did it, when and why.</div></div>`}</div>`;
-  $("lFrom").onchange=e=>{logFrom=e.target.value;renderLog()};$("lTo").onchange=e=>{logTo=e.target.value;renderLog()};$("lWho").onchange=e=>{logWho=e.target.value;renderLog()};
+  bindLogHead();
 }
+function bindLogHead(){$("lFrom").onchange=e=>{logFrom=e.target.value;renderLog()};$("lTo").onchange=e=>{logTo=e.target.value;renderLog()};$("lWho").onchange=e=>{logWho=e.target.value;renderLog()};
+  document.querySelectorAll("[data-lt]").forEach(b=>b.onclick=()=>{logTab=b.dataset.lt;renderLog()});if($("lKind"))$("lKind").onchange=e=>{logKind=e.target.value;renderLog()}}
+function actEntryHTML(a){const tbl=(head,rows)=>`<div class="tw"><table class="acttbl"><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  const info=a.info||a.snap;const n=(a.changes||[]).length;
+  return `<div class="logentry"><div class="loghead"><b>${esc(a.what)} <span class="pill ${a.del?"red":""}">${esc(ACT_KINDS[a.kind]||a.kind)}${a.del?" · deleted":""}</span></b><small>${dmy(a.at)} ${hm(a.at)} · by ${esc(a.who)}</small></div>
+    ${info||n||a.items?`<div class="logbody">${info?tbl(["",a.del?"What was deleted":"Details"],Object.entries(info).map(([k,v])=>[k,showV(v)])):""}
+      ${a.items?tbl(["Item","Qty","Rate ₹"],a.items):""}
+      ${n?(n>8?`<details><summary class="note">${n} change${n>1?"s":""} — show</summary>${tbl(["What","Before","After"],a.changes)}</details>`:tbl(["What","Before","After"],a.changes)):""}</div>`:""}</div>`}
+function renderActivity(tabs){const L=(DB.activity||[]).filter(a=>a.at.slice(0,10)>=logFrom&&a.at.slice(0,10)<=logTo&&(!logWho||String(a.by)===logWho)&&(!logKind||a.kind===logKind)).reverse();
+  const bad=actCheck(),delP=DB.products.filter(p=>!p.active).length,cxP=(DB.purchases||[]).filter(p=>p.status!=="active").length,SHOW=300;
+  $("view").innerHTML=`<div class="head"><h1 class="title">Deleted &amp; changed</h1><div class="row">${tabs}
+    <div class="field"><label for="lFrom">From</label><input type="date" id="lFrom" value="${logFrom}" max="${today()}"></div><div class="field"><label for="lTo">To</label><input type="date" id="lTo" value="${logTo}" max="${today()}"></div>
+    <div class="field"><label for="lWho">By</label><select id="lWho"><option value="">Everyone</option>${DB.users.map(u=>`<option value="${u.id}" ${String(u.id)===logWho?"selected":""}>${esc(u.name)}</option>`).join("")}</select></div>
+    <div class="field"><label for="lKind">What</label><select id="lKind"><option value="">Everything</option>${Object.entries(ACT_KINDS).map(([k,v])=>`<option value="${k}" ${k===logKind?"selected":""}>${v}</option>`).join("")}</select></div></div></div>
+  <div class="stack"><div class="stats"><div class="stat"><b>${L.length}</b><span>Entries in this period</span></div><div class="stat"><b class="${L.some(a=>a.del)?"down":""}">${L.filter(a=>a.del).length}</b><span>Deletions</span></div>
+    <div class="stat"><b>${delP}</b><span>Deleted products <button class="btn sm" type="button" id="toDel" ${delP?"":"hidden"}>See / restore</button></span></div><div class="stat"><b>${cxP}</b><span>Cancelled purchases (still listed on Purchases)</span></div></div>
+    <div class="card ${bad<0?"":"warnbox"}"><b>${bad<0?"✓ Log check: complete":"⚠ Log check failed"}</b> <span class="note">${bad<0?`All ${(DB.activity||[]).length} entries are as CB wrote them — none changed or removed.`:`Entry ${bad+1} of ${(DB.activity||[]).length} (and those after it) was changed or removed outside CB, or comes from a damaged backup.`} Entries can't be edited or deleted in CB.</span></div>
+    ${L.slice(0,SHOW).map(actEntryHTML).join("")||`<div class="card"><div class="empty"><b>Nothing in this period</b>Products deleted, added or changed; purchases changed or cancelled; credit payments undone; logins and settings changed; backups restored — all show here with who did it and when.</div></div>`}
+    ${L.length>SHOW?`<p class="note">Showing the latest ${SHOW} of ${L.length}. Pick a shorter period to see older ones.</p>`:""}</div>`;
+  bindLogHead();if($("toDel"))$("toDel").onclick=()=>{go("products");setTimeout(()=>{const d=$("pDel");if(d){d.open=true;d.scrollIntoView({behavior:"smooth"})}},50)}}
 
 /* ============================================================ products */
 function cleanProduct(d,strict){const name=String(d.name||"").trim();if(!name)throw new Bad("Enter the item name.");const rate=num(d.rate);if(rate<0)throw new Bad("Rate can't be negative.");
@@ -1736,10 +2144,23 @@ function importRows(rows,replace){if(!rows.length)throw new Bad("The file is emp
   if(!items.length)throw new Bad("No product rows found under the header.");
   items.forEach((n,k)=>{if(n.hsn&&!/^\d{4,8}$/.test(n.hsn))throw new Bad(`Row ${k+2}: HSN code "${n.hsn}" of ${n.name} should be 4 to 8 digits.`);
     if(n.gst!==""){let g=num(n.gst);if(g>0&&g<1&&GST_RATES.includes(r2(g*100)))g=r2(g*100);if(!GST_RATES.includes(g))throw new Bad(`Row ${k+2}: GST rate "${n.gst}" of ${n.name} should be one of ${GST_RATES.join(", ")}%.`);n.gst=g}});
+  const wasActive=new Set(DB.products.filter(p=>p.active).map(p=>p.id)),chg=[],newN=[];
   if(replace)DB.products.forEach(p=>p.active=false);let added=0,updated=0;
   items.forEach(n=>{const ex=DB.products.filter(p=>p.name.toLowerCase()===n.name.toLowerCase()).sort((a,b)=>b.active-a.active)[0];
-    if(ex){Object.assign(ex,{dept:n.dept,unit:n.unit,rate:n.rate,active:true});if(n.aliases)ex.aliases=n.aliases;if(hi>=0&&n.hsn)ex.hsn=n.hsn;if(gi>=0&&n.gst!=="")ex.gst=n.gst;updated++}else{DB.products.push({id:nextId(),...n,active:true});added++}});save();const miss=needTaxInfo()?missingTaxInfo().length:0;return `Upload done: ${added} new, ${updated} updated.`+(miss?` ${miss} product${miss>1?"s still need":" still needs"} HSN code and GST rate before billing.`:"")}
+    if(ex){const before={...ex,active:wasActive.has(ex.id)};Object.assign(ex,{dept:n.dept,unit:n.unit,rate:n.rate,active:true});if(n.aliases)ex.aliases=n.aliases;if(hi>=0&&n.hsn)ex.hsn=n.hsn;if(gi>=0&&n.gst!=="")ex.gst=n.gst;updated++;
+      diffs(before,ex,PFIELDS).forEach(c=>chg.push([ex.name+" · "+c[0],c[1],c[2]]));if(!before.active)chg.push([ex.name,"(deleted)","back in the list"])}
+    else{const np={id:nextId(),...n,active:true};DB.products.push(np);newN.push(np.name);added++}});
+  const gone=DB.products.filter(p=>wasActive.has(p.id)&&!p.active);
+  act("product",`Product list uploaded${replace?" (replace)":""}: ${added} new, ${updated} updated${gone.length?`, ${gone.length} deleted`:""}`,{del:gone.length>0,refs:gone.map(p=>p.id),
+    changes:[...gone.map(p=>[p.name,`₹${fmt(p.rate)} ${p.unit}`,"(deleted)"]),...chg,...newN.map(x=>[x,"","(new)"])].slice(0,1500)});save();const miss=needTaxInfo()?missingTaxInfo().length:0;return `Upload done: ${added} new, ${updated} updated.`+(miss?` ${miss} product${miss>1?"s still need":" still needs"} HSN code and GST rate before billing.`:"")}
 const PROD_PAGE=100;
+function deletedProdHTML(){const D=DB.products.filter(p=>!p.active);if(!D.length)return "";const A=DB.activity||[];
+  const when=id=>{for(let i=A.length-1;i>=0;i--){const a=A[i];if(a.kind==="product"&&a.del&&(a.ref===id||(a.refs&&a.refs.includes(id))))return `${dmy(a.at)} · ${esc(a.who)}`}return "before version 3.1"};
+  const L=D.slice().sort((a,b)=>a.name.localeCompare(b.name)).slice(0,300);
+  return `<details class="card" id="pDel" style="margin-top:14px"><summary><b>Deleted products (${D.length})</b> <span class="note">— kept so old bills still show them. Restore any time.</span></summary>
+    <div class="tw" style="margin-top:8px"><table><thead><tr><th>Product</th><th class="r">Rate ₹</th><th>Deleted</th><th></th></tr></thead><tbody>
+    ${L.map(p=>`<tr data-id="${p.id}"><td><b>${esc(p.name)}</b><div class="note">${esc(p.dept)} · ${esc(p.unit)}</div></td><td class="r num">${fmt(p.rate)}</td><td class="note">${when(p.id)}</td><td><button class="btn sm" type="button" data-undel>Restore</button></td></tr>`).join("")}</tbody></table></div>
+    ${D.length>L.length?`<p class="note">Showing ${L.length} of ${D.length}.</p>`:""}</details>`}
 function renderProducts(){
   const ps=activeProducts(),depts=[...new Set(ps.map(p=>p.dept))];const GT=gstType(),G=GT!=="none",GR=GT==="regular";
   const noRate=GR?ps.filter(p=>p.gst===undefined||p.gst===null||p.gst===""):[],noHsn=G?ps.filter(p=>!p.hsn):[];
@@ -1748,12 +2169,12 @@ function renderProducts(){
         <td><select class="inp" data-f="unit" aria-label="Unit">${UNITS.map(u=>`<option ${u===p.unit?"selected":""}>${u}</option>`).join("")}</select></td><td class="r"><input class="inp num" data-f="rate" value="${p.rate}" inputmode="decimal" style="width:90px;text-align:right" aria-label="Rate"></td>
         <td class="gx"><input class="inp num${GR&&!/^\d{4,8}$/.test(String(p.hsn||""))?" miss":""}" data-f="hsn" value="${esc(p.hsn||"")}" inputmode="numeric" maxlength="8" style="width:90px;text-align:left" aria-label="HSN code" placeholder="HSN"></td><td class="gx gr">${gstSel(p.gst,'data-f="gst" aria-label="GST rate"')}</td>
         <td><input class="inp" data-f="aliases" value="${esc(p.aliases)}" maxlength="300" style="width:100%;min-width:130px" aria-label="Other names" placeholder="Other names"></td><td style="white-space:nowrap"><button class="btn sm" data-save hidden>Save</button> <button class="btn sm danger" data-del>Delete</button></td></tr>`;
-  $("view").innerHTML=`<div class="head"><h1 class="title">Products</h1></div><div class="stack"><div class="twocol">
-    <div class="card"><h2>Upload product list</h2><p class="note">Excel (.xlsx) or CSV with columns <b>Item Name, Department, Unit, Rate</b>. Optional <b>Alias</b> column holds other names people say for the item (e.g. <i>chini, shakkar</i> for Sugar) so voice and search find it.${G?` Add <b>HSN</b>${GR?" and <b>GST %</b>":""} columns for GST.`:""}</p>
+  $("view").innerHTML=`<div class="head"><h1 class="title">Products</h1><button class="btn sm" id="pDelLink" type="button" hidden></button></div><div class="stack"><div class="twocol">
+    ${has("upload")?`<div class="card"><h2>Upload product list</h2><p class="note">Excel (.xlsx) or CSV with columns <b>Item Name, Department, Unit, Rate</b>. Optional <b>Alias</b> column holds other names people say for the item (e.g. <i>chini, shakkar</i> for Sugar) so voice and search find it.${G?` Add <b>HSN</b>${GR?" and <b>GST %</b>":""} columns for GST.`:""}</p>
       <div class="row"><div class="field"><label for="upMode">When uploading</label><select id="upMode"><option value="merge">Add new, update matching names</option><option value="replace">Replace the whole list</option></select></div>
         <div class="field"><label for="upFile">File</label><input type="file" id="upFile" accept=".xlsx,.csv,.txt"></div></div>
       <div class="row"><button class="btn" id="pExport">Download current list</button><button class="btn" id="pTpl">Download sample file</button></div>
-      <p class="note">Old bills are never changed by an upload. They keep the rate they were billed at.</p></div>
+      <p class="note">Old bills are never changed by an upload. They keep the rate they were billed at.</p></div>`:`<div class="card"><h2>Upload product list</h2><p class="note">Uploading your product list from Excel is not part of this shop's plan. Add products one by one here, or ask your support person.</p></div>`}
     <div class="card"><h2>Add a product</h2><div class="row"><div class="field" style="flex:2 1 180px"><label for="nName">Item name</label><input id="nName" maxlength="120"></div><div class="field"><label for="nDept">Group</label><input id="nDept" list="deptList" placeholder="General" maxlength="60"></div></div>
       <div class="row"><div class="field"><label for="nUnit">Unit</label><select id="nUnit">${UNITS.map(u=>`<option>${u}</option>`).join("")}</select></div><div class="field"><label for="nRate">Fixed rate ₹</label><input id="nRate" inputmode="decimal"></div>
         <div class="field" style="flex:2 1 180px"><label for="nAlias">Other names (comma separated)</label><input id="nAlias" placeholder="e.g. anda, ande" maxlength="300"></div></div>
@@ -1775,7 +2196,7 @@ function renderProducts(){
     <datalist id="deptList">${depts.map(d=>`<option value="${esc(d)}">`).join("")}</datalist>`;
   const rowData=tr=>{const pp=DB.products.find(x=>x.id===+tr.dataset.id)||{};const o={dept:pp.dept,hsn:pp.hsn||"",gst:pp.gst??""};tr.querySelectorAll("[data-f]").forEach(i=>o[i.dataset.f]=i.value);return o};
   const moveTo=(ids,dept)=>{dept=String(dept||"").trim().slice(0,60);if(!dept){toast("Enter a group name.",true);return false}
-    const ps2=DB.products.filter(x=>ids.includes(x.id));ps2.forEach(x=>x.dept=dept);save();toast(ps2.length===1?`${ps2[0].name} moved to ${dept}`:`${ps2.length} products moved to ${dept}`);renderProducts();return true};
+    const ps2=DB.products.filter(x=>ids.includes(x.id));act("product",ps2.length===1?`Moved ${ps2[0].name} to group ${dept}`:`Moved ${ps2.length} products to group ${dept}`,{changes:ps2.slice(0,500).map(x=>[x.name,x.dept,dept])});ps2.forEach(x=>x.dept=dept);save();toast(ps2.length===1?`${ps2[0].name} moved to ${dept}`:`${ps2.length} products moved to ${dept}`);renderProducts();return true};
   const askNewGroup=(ids)=>{openModal(`<h2>New group</h2><div class="field"><label for="ngName">Group name</label><input id="ngName" maxlength="60" placeholder="e.g. Snacks"></div>
       <div class="row"><button class="btn primary" id="ngOk" style="flex:1">Move ${ids.length>1?ids.length+" products":"product"} here</button><button class="btn" data-close>Cancel</button></div>`);$("ngName").focus();
     const go=()=>{if(moveTo(ids,$("ngName").value))closeModal()};$("ngOk").onclick=go;$("ngName").onkeydown=e=>{if(e.key==="Enter")go()};
@@ -1787,12 +2208,18 @@ function renderProducts(){
   if($("pAll"))$("pAll").onchange=e=>{[...$("pList").rows].forEach(tr=>{if(!tr.hidden)tr.querySelector("[data-pick]").checked=e.target.checked});updBulk()};
   if($("bulkMove"))$("bulkMove").onclick=()=>{const ids=picked();if(!ids.length)return;if($("bulkDept").value==="__new")askNewGroup(ids);else moveTo(ids,$("bulkDept").value)};
   if($("renGo"))$("renGo").onclick=()=>{const from=$("renFrom").value,to=$("renTo").value.trim().slice(0,60);if(!to){toast("Enter the new group name.",true);return}
-    const ids=DB.products.filter(x=>x.active&&x.dept===from).map(x=>x.id);DB.products.filter(x=>x.dept===from).forEach(x=>x.dept=to);save();toast(`Group ${from} renamed to ${to} (${ids.length} products)`);renderProducts()};
+    const ids=DB.products.filter(x=>x.active&&x.dept===from).map(x=>x.id);DB.products.filter(x=>x.dept===from).forEach(x=>x.dept=to);act("product",`Group ${from} renamed to ${to} (${ids.length} products)`,{changes:[["Group",from,to]]});save();toast(`Group ${from} renamed to ${to} (${ids.length} products)`);renderProducts()};
   const dirty=e=>{if(e.target.closest("[data-pick],[data-g]"))return;const tr=e.target.closest("tr");if(tr)tr.querySelector("[data-save]").hidden=false};$("pList").oninput=dirty;$("pList").onchange=dirty;
   $("pList").onkeydown=e=>{if(e.key==="Enter"){const s=e.target.closest("tr").querySelector("[data-save]");if(!s.hidden)s.click()}};
   $("pList").onclick=e=>{const tr=e.target.closest("tr");if(!tr)return;const id=+tr.dataset.id,p=DB.products.find(x=>x.id===id);
-    if(e.target.closest("[data-save]")){try{const d=cleanProduct(rowData(tr),GR);if(DB.products.some(x=>x.active&&x.id!==id&&x.name.toLowerCase()===d.name.toLowerCase()))throw new Bad(`Another product is already called ${d.name}.`);Object.assign(p,d);save();tr.querySelector("[data-save]").hidden=true;toast(`${p.name} saved · ₹${fmt(p.rate)} per ${p.unit}${GR?` · GST ${rateOf(p)}%`:""}`)}catch(err){toast(err.message,true)}}
-    const del=e.target.closest("[data-del]");if(del){if(!del.classList.contains("armed")){del.classList.add("armed");del.textContent="Sure?";setTimeout(()=>{del.classList.remove("armed");del.textContent="Delete"},2500);return}p.active=false;save();tr.remove();{const ix=ps.indexOf(p);if(ix>=0)ps.splice(ix,1)}pMatch=pMatch.filter(x=>x!==p);pShownN=Math.max(0,pShownN-1);showCount();toast("Product removed from the list")}};
+    if(e.target.closest("[data-save]")){try{const d=cleanProduct(rowData(tr),GR);if(DB.products.some(x=>x.active&&x.id!==id&&x.name.toLowerCase()===d.name.toLowerCase()))throw new Bad(`Another product is already called ${d.name}.`);const before={...p};Object.assign(p,d);{const ch=diffs(before,p,PFIELDS);if(ch.length)act("product",`Changed ${before.name}${before.name!==p.name?" → "+p.name:""}`,{ref:p.id,changes:ch})}save();tr.querySelector("[data-save]").hidden=true;toast(`${p.name} saved · ₹${fmt(p.rate)} per ${p.unit}${GR?` · GST ${rateOf(p)}%`:""}`)}catch(err){toast(err.message,true)}}
+    const del=e.target.closest("[data-del]");if(del){if(!del.classList.contains("armed")){del.classList.add("armed");del.textContent="Sure?";setTimeout(()=>{del.classList.remove("armed");del.textContent="Delete"},2500);return}p.active=false;act("product",`Deleted ${p.name}`,{ref:p.id,del:true,snap:prodSnap(p)});save();tr.remove();{const ix=ps.indexOf(p);if(ix>=0)ps.splice(ix,1)}pMatch=pMatch.filter(x=>x!==p);pShownN=Math.max(0,pShownN-1);showCount();drawDel();
+      toastUndo(`${p.name} deleted — it is kept under Deleted products`,"Undo",()=>{try{restoreProduct(p.id);renderProducts();toast(`${p.name} is back in the list`)}catch(err){toast(err.message,true)}})}};
+  /* deleted products: anyone who can open Products (Owner or Admin) can see them and put them back */
+  function drawDel(){const o=$("pDel"),open=!!(o&&o.open);if(o)o.remove();$("view").insertAdjacentHTML("beforeend",deletedProdHTML());const d=$("pDel"),n=DB.products.filter(x=>!x.active).length;
+    $("pDelLink").hidden=!n;$("pDelLink").textContent=`Deleted products (${n})`;
+    if(d){d.open=open;d.onclick=e=>{const b=e.target.closest("[data-undel]");if(!b)return;try{const p=restoreProduct(+b.closest("tr").dataset.id);toast(`${p.name} is back in the list`);renderProducts()}catch(err){toast(err.message,true)}}}}
+  drawDel();$("pDelLink").onclick=()=>{const d=$("pDel");if(d){d.open=true;d.scrollIntoView({behavior:"smooth",block:"start"})}};
   if($("showMiss"))$("showMiss").onclick=()=>{$("pFilter").value="missing gst details";$("pFilter").dispatchEvent(new Event("input"));$("pFilter").scrollIntoView({block:"start"})};
   /* big lists: only PROD_PAGE rows are drawn at a time (a 2,000-item list stays fast on a cheap phone) */
   let pMatch=ps,pShownN=Math.min(PROD_PAGE,ps.length);
@@ -1803,12 +2230,12 @@ function renderProducts(){
     pMatch=!q?ps:q==="missing gst details"?ps.filter(p=>!hasTaxInfo(p)):q==="no gst"?ps.filter(p=>p.gst===undefined||p.gst===null||p.gst===""):q==="no hsn"?ps.filter(p=>!p.hsn):ps.filter(p=>(p.name+" "+p.dept+" "+(p.aliases||"")+" "+(p.hsn||"")).toLowerCase().includes(q));
     pShownN=Math.min(PROD_PAGE,pMatch.length);drawRows()};
   showCount();
-  $("nAdd").onclick=()=>{try{const raw={name:$("nName").value,dept:$("nDept").value,unit:$("nUnit").value,rate:$("nRate").value,aliases:$("nAlias").value,hsn:$("nHsn")?$("nHsn").value:"",gst:$("nGst")?$("nGst").value:""};let d=cleanProduct(raw);if(DB.products.some(x=>x.active&&x.name.toLowerCase()===d.name.toLowerCase()))throw new Bad(`${d.name} is already in the list.`);d=cleanProduct(raw,GR);DB.products.push({id:nextId(),...d,active:true});save();toast(`Added ${d.name}`);renderProducts();$("nName").focus()}catch(err){toast(err.message,true)}};
-  $("upFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{let rows;
+  $("nAdd").onclick=()=>{try{const raw={name:$("nName").value,dept:$("nDept").value,unit:$("nUnit").value,rate:$("nRate").value,aliases:$("nAlias").value,hsn:$("nHsn")?$("nHsn").value:"",gst:$("nGst")?$("nGst").value:""};let d=cleanProduct(raw);if(DB.products.some(x=>x.active&&x.name.toLowerCase()===d.name.toLowerCase()))throw new Bad(`${d.name} is already in the list.`);d=cleanProduct(raw,GR);{const np={id:nextId(),...d,active:true};DB.products.push(np);act("product",`Added ${np.name}`,{ref:np.id,snap:prodSnap(np)})}save();toast(`Added ${d.name}`);renderProducts();$("nName").focus()}catch(err){toast(err.message,true)}};
+  if($("upFile"))$("upFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{let rows;
     if(/\.xlsx?$/i.test(f.name)){rows=await readXlsx(await f.arrayBuffer())}
     else rows=parseCSV(await f.text());const msg=importRows(rows,$("upMode").value==="replace");renderProducts();toast(msg)}catch(err){toast(err instanceof Bad?err.message:"Couldn't read that file.",true)}e.target.value=""};
-  $("pExport").onclick=()=>saveFile(`products-${today()}.csv`,csv([["Item Name","Department","Unit","Rate","Alias","HSN","GST %"],...ps.map(p=>[p.name,p.dept,p.unit,p.rate,p.aliases,p.hsn||"",p.gst??""])]));
-  $("pTpl").onclick=()=>saveFile("product-template.csv",csv([["Item Name","Department","Unit","Rate","Alias","HSN","GST %"],["Basmati Rice","Grocery","Kgs",120,"chawal","1006",5],["Sugar","Grocery","Kgs",46,"chini, shakkar","1701",5],["Eggs","Dairy","Dozen",84,"anda","0407",0]]));
+  if($("pExport"))$("pExport").onclick=()=>saveFile(`products-${today()}.csv`,csv([["Item Name","Department","Unit","Rate","Alias","HSN","GST %"],...ps.map(p=>[p.name,p.dept,p.unit,p.rate,p.aliases,p.hsn||"",p.gst??""])]));
+  if($("pTpl"))$("pTpl").onclick=()=>saveFile("product-template.csv",csv([["Item Name","Department","Unit","Rate","Alias","HSN","GST %"],["Basmati Rice","Grocery","Kgs",120,"chawal","1006",5],["Sugar","Grocery","Kgs",46,"chini, shakkar","1701",5],["Eggs","Dairy","Dozen",84,"anda","0407",0]]));
 }
 
 /* ============================================================ users */
@@ -1834,13 +2261,17 @@ function renderUsers(){
   $("uForm").onsubmit=e=>{e.preventDefault();const name=$("uName").value.trim(),username=$("uUser").value.trim(),pw=$("uPw").value;let err=validUser(name,username,pw);
     if(!err&&DB.users.some(u=>u.username.toLowerCase()===username.toLowerCase()))err=`Login ID ${username} is already taken.`;if(err){toast(err,true);return}
     const role=O&&$("uRole")&&$("uRole").value==="admin"?"admin":"staff";
+    if(role==="staff"&&!has("multiuser")&&DB.users.some(u=>u.role==="staff"&&u.active)){toast("This shop's plan allows one Admin login. Switch the old one off first, or ask your support person to add 'More than one Admin login'.",true);return}
     addUser(name,username,pw,role);renderUsers();toast(`${roleName(role)} login created for ${name}. Give them ID “${username}” and the password.`)};
   $("uList").onclick=e=>{const tr=e.target.closest("tr");if(!tr)return;const u=userById(+tr.dataset.id);
     if(!canEdit(u)&&u.id!==me.id){toast("Only the owner can change an owner login.",true);return}
     const owners=DB.users.filter(x=>x.role==="admin"&&x.active).length;const lastOwner=u.role==="admin"&&u.active&&owners<=1;
-    if(e.target.closest("[data-setpw]")){const pw=tr.querySelector("[data-pw]").value;if(pw.length<6){toast("Password must be at least 6 characters.",true);return}u.salt=Math.random().toString(36).slice(2,8);u.pw=hashPw(pw,u.salt);save();tr.querySelector("[data-pw]").value="";toast(`Password changed for ${u.name}.`)}
-    if(e.target.closest("[data-toggle]")){if(lastOwner){toast("Keep at least one active owner.",true);return}u.active=!u.active;save();renderUsers();toast(`${u.name} ${u.active?"can log in again":"can no longer log in"}.`)}
-    if(e.target.closest("[data-role]")&&O){if(lastOwner){toast("Keep at least one active owner.",true);return}u.role=u.role==="admin"?"staff":"admin";save();renderUsers();toast(`${u.name} is now ${roleName(u.role)}.`)}};
+    if(e.target.closest("[data-setpw]")){const pw=tr.querySelector("[data-pw]").value;if(pw.length<6){toast("Password must be at least 6 characters.",true);return}u.salt=Math.random().toString(36).slice(2,8);u.pw=hashPw(pw,u.salt);act("user",`Password changed for ${u.name} (${u.username})`,{ref:u.id});save();tr.querySelector("[data-pw]").value="";toast(`Password changed for ${u.name}.`)}
+    const adminLimit=x=>!has("multiuser")&&DB.users.some(o=>o.id!==x.id&&o.role==="staff"&&o.active);
+    if(e.target.closest("[data-toggle]")&&!u.active&&u.role==="staff"&&adminLimit(u)){toast("This shop's plan allows one Admin login. Switch the other one off first.",true);return}
+    if(e.target.closest("[data-role]")&&u.role==="admin"&&u.active&&adminLimit(u)){toast("This shop's plan allows one Admin login.",true);return}
+    if(e.target.closest("[data-toggle]")){if(lastOwner){toast("Keep at least one active owner.",true);return}u.active=!u.active;act("user",`${u.name} (${u.username}) ${u.active?"switched on — can log in again":"switched off — can no longer log in"}`,{ref:u.id,del:!u.active});save();renderUsers();toast(`${u.name} ${u.active?"can log in again":"can no longer log in"}.`)}
+    if(e.target.closest("[data-role]")&&O){if(lastOwner){toast("Keep at least one active owner.",true);return}u.role=u.role==="admin"?"staff":"admin";act("user",`${u.name} (${u.username}) is now ${roleName(u.role)}`,{ref:u.id,changes:[["Role",roleName(u.role==="admin"?"staff":"admin"),roleName(u.role)]]});save();renderUsers();toast(`${u.name} is now ${roleName(u.role)}.`)}};
 }
 
 /* ============================================================ settings */
@@ -1861,18 +2292,21 @@ function renderSettings(){const s=S(),O=isOwner();
       <p class="note">Every correction is recorded in your correction log with what changed, who did it and when. The admin can't see the log.</p>
       <div class="field"><label>Payment options shown when billing</label><div class="paychecks">${ALL_OPTIONS.map(m=>`<label class="chk pc"><input type="checkbox" data-pm="${m}" ${enabledModes().includes(m)?"checked":""}> ${m}</label>`).join("")}</div></div>
       <p class="note">Only ticked options appear on the bill and when receiving dues. <b>Bank</b> is for money paid straight into your bank (NEFT, IMPS, RTGS, cheque). <b>Split</b> lets one bill be paid in parts.</p>
-      <div class="field"><label for="sNum">Bill numbers</label><select id="sNum"><option value="daily" ${(s.numbering||"daily")==="daily"?"selected":""}>Start from 1 every day (e.g. ${shortDate(today())}/1)</option><option value="fy" ${s.numbering==="fy"?"selected":""}>Continue through the financial year (e.g. ${fyOf(today())}/1)</option></select></div>
+      <div class="field"><label for="sNum">Bill numbers</label><select id="sNum"><option value="daily" ${(s.numbering||"daily")==="daily"?"selected":""}>Start from 1 every day (e.g. ${shortDate(today())}/1)</option><option value="fy" ${s.numbering==="fy"?"selected":""}>Continue through the financial year (e.g. ${fyOf(today())}/1)</option><option value="fyn" ${s.numbering==="fyn"?"selected":""}>Continue through the financial year, number first (e.g. 1/${fyOf(today())})</option></select></div>
+      <p class="note" style="margin-top:-4px">A change applies from the next bill; saved bills keep their numbers. Financial-year numbering starts again from 1 on 1 April.${(s.gst_type||"none")!=="none"&&(s.numbering||"daily")==="daily"?` <b>GST (Rule 46):</b> invoice numbers should be consecutive and unique for the financial year — a financial-year option is the safe choice.`:""}</p>
       <p class="note">Changing this affects new bills only. Old bills keep their numbers.</p>
       <div class="field"><label for="sLock">Owner login locks itself after</label><select id="sLock">${[[10,"10 minutes without use"],[30,"30 minutes without use"],[60,"1 hour without use"],[240,"4 hours without use"],[0,"Never (only when I log out)"]].map(([v,t])=>`<option value="${v}" ${lockMin()===v?"selected":""}>${t}</option>`).join("")}</select></div>
       <p class="note">Refreshing or reopening the app within this time keeps you logged in. The lock stops the admin carrying on in your login. The admin's own login stays until they log out.</p>`:""}
       ${printBox(s,O)}
       <div><button class="btn primary">Save settings</button></div></form>
-    <div class="stack">${gstCard(s,O)}<div class="card"><h2>Users &amp; logins</h2><p class="note">Create logins, change passwords or switch a login off.</p><div><button class="btn" type="button" id="toUsers">Open Users</button></div></div>
+    <div class="stack">${planCard(O)}${gstCard(s,O)}<div class="card"><h2>Users &amp; logins</h2><p class="note">Create logins, change passwords or switch a login off.</p><div><button class="btn" type="button" id="toUsers">Open Users</button></div></div>
       <div class="card"><h2>About this app</h2><p class="note"><b>CB version ${APP_VERSION}</b>. Works without internet; all data stays on this device. When asking for help, mention this version number and send a screenshot.</p></div>
       <div class="card"><h2>Backup</h2><p class="note">Save everything (bills, products, users) as one file. Keep the backup file safe — copy it to a pen drive, Google Drive or WhatsApp it to yourself.</p>
       <p class="note"><b>Automatic daily backup is on.</b> On the first use of each new day, CB keeps a copy on this phone (last ${SNAP_KEEP} days) and saves a backup file to the Downloads folder.</p>
-      <p class="note"><b>Last backup file:</b> ${DB.lastBackup?dmy(DB.lastBackup)+" "+hm(DB.lastBackup):"never"}. Copy these files to a pen drive or WhatsApp them to yourself now and then — the copies on the phone are lost if the phone is lost.</p>
-      <div class="row"><button class="btn" id="bkSave">Download backup</button>${O?`<label class="btn" for="bkFile" style="cursor:pointer">Restore from file</label><input type="file" id="bkFile" accept=".json" hidden>`:""}</div>
+      <p class="note"><b>If this phone is lost:</b> only a backup kept <b>off the phone</b> can bring the bills back. Tap <b>Send backup</b> and choose WhatsApp (send it to yourself) or Google Drive. Do it at least once a week — CB reminds you.</p>
+      <p class="note"><b>Last sent off this phone:</b> ${DB.lastSent?dmy(DB.lastSent)+" "+hm(DB.lastSent):"never"} · <b>Last backup file:</b> ${DB.lastBackup?dmy(DB.lastBackup)+" "+hm(DB.lastBackup):"never"}</p>
+      <p class="note"><b>New phone:</b> install CB from the same link, then tap <b>New phone? Restore from backup</b> on the first screen and pick the backup file. Bills, products, logins, passwords and the plan all come back.</p>
+      <div class="row"><button class="btn primary" id="bkSend" type="button">Send backup (WhatsApp / Drive)</button><button class="btn" id="bkSave">Download backup</button>${O?`<label class="btn" for="bkFile" style="cursor:pointer">Restore from file</label><input type="file" id="bkFile" accept=".json,.txt,application/json,text/plain" hidden>`:""}</div>
       ${O?"":`<p class="note">Only the owner can restore a backup or clear data.</p>`}
       <div id="snapList"></div></div>
       ${O?`<div class="card" id="resetCard"><h2>Start fresh</h2><p class="note">${DB.demo?"This page is showing sample data. Clear it to start with your own shop: you'll create the owner login, then add products.":"Delete all bills, products and users on this device and start setup again. Take a backup first."}</p>
@@ -1880,7 +2314,7 @@ function renderSettings(){const s=S(),O=isOwner();
   $("sForm").onsubmit=e=>{e.preventDefault();
     if(O&&document.querySelector("[data-pm]")){const t=[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm);if(!t.some(m=>PAID.includes(m))){toast("Tick at least one of Cash, UPI, Card or Bank.",true);return}}
     Object.assign(DB.settings,O?{shop_name:$("sShop").value.trim()||"My Retail Store",header_lines:[0,1,2,3].map(i=>$("sH"+i).value.trim().slice(0,64))}:{},{footer:$("sFooter").value.trim().slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value,thermal_size:$("sTs").value}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value,owner_lock:num($("sLock").value)}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
-  $("toUsers").onclick=()=>go("users");
+  $("toUsers").onclick=()=>go("users");bindPlanCard();
   if($("sPrint")){const sy=()=>{const n=$("sPrint").value==="normal";$("sPaperF").hidden=n;$("sTsF").hidden=n;$("sPageF").hidden=!n};$("sPrint").onchange=sy;sy();
     $("sTestPrint").onclick=()=>{const b=DB.bills.filter(x=>x.status==="active").slice(-1)[0];if(!b){toast("Make one bill first, then try a test print.",true);return}
       const n=$("sPrint").value==="normal",p=n?$("sPage").value:$("sPaper").value;const keep=DB.settings.thermal_size;DB.settings.thermal_size=$("sTs").value;const h=receiptHTML(b,true,p);DB.settings.thermal_size=keep;printReceipt(h,p)}}
@@ -1888,6 +2322,7 @@ function renderSettings(){const s=S(),O=isOwner();
       $("gHint").textContent=!g?"":gstinCheck(g)?`✓ Valid · State ${stateName(g.slice(0,2))}`:"✗ Not a valid GSTIN — check each character";$("gHint").className="note "+(g&&!gstinCheck(g)?"bad":"good")};
     $("gType").onchange=sync;$("gGstin").oninput=sync;sync();
     $("gForm").onsubmit=e=>{e.preventDefault();const t=$("gType").value,g=$("gGstin").value.trim().toUpperCase();
+      if(!gstAllowed(t)&&t!==(S().gst_type||"none")){toast("That GST option is not in this shop's plan.",true);return}
       if(t!=="none"&&!gstinCheck(g)){toast("Enter a valid 15-character GSTIN for a GST-registered shop.",true);return}
       Object.assign(DB.settings,{gst_type:t,gstin:t==="none"?(g&&gstinCheck(g)?g:""):g,gst_incl:$("gIncl").value!=="excl"});
       DB.settings.header_lines=(DB.settings.header_lines||[]).map(l=>t!=="none"&&/^\s*gstin\b/i.test(l)?"":l);save();render();
@@ -1901,9 +2336,11 @@ function renderSettings(){const s=S(),O=isOwner();
         const v=await IDB.get(rs_.dataset.snaprs);if(!v)return;await IDB.set("snap_before_restore_"+stamp().replace(/[^0-9]/g,""),JSON.stringify(DB));
         DB=JSON.parse(v);upgradeDB();flush();me=null;LS.del("session");Bill.reset();view="billing";render();toast("Restored. Log in again.")}}});
   $("bkSave").onclick=()=>{if(saveFile(`CB-backup-${today()}.json`,JSON.stringify(DB))){DB.lastBackup=stamp();save();renderSettings()}};
-  if($("bkFile"))$("bkFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!d.users||!d.bills||!d.products)throw 0;DB=d;upgradeDB();flush();me=null;LS.del("session");Bill.reset();view="billing";render();toast("Backup restored. Log in with the IDs from the backup.")}catch(err){toast("That isn't a CB backup file.",true)}e.target.value=""};
+  if($("bkFile"))$("bkFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{await restoreFromFile(f)}catch(err){toast(err instanceof Bad?err.message:"That isn't a CB backup file.",true)}e.target.value=""};
+  if($("bkSend"))$("bkSend").onclick=()=>sendBackup();
   if($("resetAll"))$("resetAll").onclick=e=>{const b=e.currentTarget;if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Tap again to delete everything";setTimeout(()=>{b.classList.remove("armed");b.textContent="Clear everything"},3000);return}
-    DB=blankDB();save();me=null;LS.del("session");Bill.reset();view="billing";render()};
+    const had={bills:DB.bills.length,products:DB.products.filter(p=>p.active).length,purchases:(DB.purchases||[]).length},who=me?me.name:"—";
+    DB=blankDB();act("data","All data cleared on this phone",{del:true,info:{"Cleared":`${had.bills} bills, ${had.products} products, ${had.purchases} purchases`}},who);save();me=null;LS.del("session");Bill.reset();view="billing";render()};
 }
 
 /* owner chooses the printer: thermal roll or normal (A4/A5) — bills, payment slips and the day summary follow it */
@@ -1916,10 +2353,33 @@ function printBox(s,O){const m=s.print_mode||"thermal";const nm=m==="normal"?`No
       <div class="field" style="flex:0 0 auto"><label>&nbsp;</label><button type="button" class="btn" id="sTestPrint">Test print</button></div></div>
     <p class="note"><b>A5 landscape</b> is printed sideways: wide columns, so item names stay on one line. Load A5 paper (or A4 cut in half) and pick <b>A5</b> + <b>Landscape</b> in the print screen.</p>
     <p class="note"><b>Thermal</b> prints a narrow roll receipt. <b>Normal</b> prints a full bill with a proper table — good for laser / inkjet printers and for GST tax invoices to business buyers. Bills, payment receipts and the day summary all follow this choice. The admin can't change it.</p>`}
+/* Settings → Plan & support */
+function planCard(O){const P=planInfo(),till=P.till?dmy(P.till):"";
+  const st={trial:"Free trial",active:"Active",basic:"Basic (trial over)",demo:"Sample data"}[P.state];
+  if(!O)return `<div class="card"><h2>Plan</h2><p class="note"><b>${esc(P.name)}</b>${till?` · support till ${till}`:""}. Only the owner can change the plan.</p></div>`;
+  return `<div class="card" id="planCard"><h2>Plan &amp; support</h2>
+    <p class="note"><b>${esc(P.name)}</b> <span class="pill ${P.state==="active"?"green":P.state==="basic"?"red":""}">${st}</span>${till?`<br>Support &amp; updates valid till <b>${till}</b>`:""}</p>
+    <div class="field"><label>Shop ID</label><div class="row" style="align-items:center"><span class="reqcode" style="font-size:18px;padding:6px 10px;flex:1">${shopIdLabel(DB.shop_id)}</span><button type="button" class="btn sm" id="plSend">Send to support</button></div></div>
+    <div class="featlist">${Object.entries(FEATURES).map(([k,v])=>`<div class="${P.features.has(k)?"on":"off"}">${P.features.has(k)?"✓":"—"} ${esc(v)}</div>`).join("")}
+      <div class="on">✓ Billing, thermal printing, day end report, products, backup</div></div>
+    <div class="field"><label for="plCode">Plan code from your support person</label><textarea id="plCode" rows="2" spellcheck="false" autocapitalize="off" placeholder="Paste the plan code here"></textarea></div>
+    <div><button type="button" class="btn primary" id="plGo">Activate plan code</button></div>
+    ${checkinURL()?`<p class="note">When this phone is online, CB tells your support person that it is in use: shop ID, shop name, version, plan and how many bills were made. No customer names, amounts or bill details are sent.</p>`:""}</div>`}
+function bindPlanCard(){if(!$("plGo"))return;
+  const msg=`CB plan request\nShop: ${S().shop_name}\nShop ID: ${shopIdLabel(DB.shop_id)}\nVersion: ${APP_VERSION}`;
+  $("plSend").onclick=async()=>{if(navigator.share){try{await navigator.share({text:msg});return}catch(e){if(e&&e.name==="AbortError")return}}
+    try{await navigator.clipboard.writeText(msg);toast("Copied — paste it in WhatsApp to your support person")}catch(e){location.href="https://wa.me/?text="+encodeURIComponent(msg)}};
+  $("plGo").onclick=()=>{const pl=readPlanCode($("plCode").value);
+    if(!pl){toast("That plan code isn't valid. Check you pasted all of it.",true);return}
+    if(pl.s!==DB.shop_id){toast(`That code is for shop ID ${shopIdLabel(pl.s)}, not this phone (${shopIdLabel(DB.shop_id)}).`,true);return}
+    {const was=planInfo().name;DB.plan_code=pl.raw;act("plan",`Plan activated: ${pl.n}${pl.t?` · support till ${dmy(pl.t)}`:""}`,{changes:[["Plan",was,pl.n]]})}save();planCache.key=null;render();toast(`Plan activated: ${pl.n}${pl.t?` · support till ${dmy(pl.t)}`:""}`);checkin(true)}}
+const gstAllowed=k=>k==="none"||(k==="composition"&&has("gst_comp"))||(k==="regular"&&has("gst_reg"));
 function gstCard(s,O){const t=s.gst_type||"none";const nm={none:"Not registered for GST",composition:"Composition scheme",regular:"Regular GST (tax invoice)"};
   if(!O)return `<div class="card"><h2>GST</h2><p class="note"><b>${nm[t]}</b>${t!=="none"?` · GSTIN ${esc(s.gstin)}`:""}${t==="regular"?` · rates ${s.gst_incl!==false?"include":"exclude"} GST`:""}. Only the owner can change this.</p></div>`;
   return `<form class="card" id="gForm"><h2>GST</h2>
-    <div class="field"><label for="gType">This shop is</label><select id="gType">${Object.entries(nm).map(([k,v])=>`<option value="${k}" ${t===k?"selected":""}>${v}</option>`).join("")}</select></div>
+    <div class="field"><label for="gType">This shop is</label><select id="gType">${Object.entries(nm).filter(([k])=>gstAllowed(k)||k===t).map(([k,v])=>`<option value="${k}" ${t===k?"selected":""}>${v}</option>`).join("")}</select></div>
+    ${t!=="none"&&!gstAllowed(t)?`<p class="note bad">${nm[t]} is not in this shop's plan any more. Billing continues so your invoices stay legal — ask your support person to renew it.</p>`:""}
+    ${!gstAllowed("composition")||!gstAllowed("regular")?`<p class="note">GST options not in this shop's plan are hidden: ${["composition","regular"].filter(k=>!gstAllowed(k)).map(k=>nm[k]).join(", ")}.</p>`:""}
     <div id="gMore"><div class="field"><label for="gGstin">Your GSTIN (15 characters)</label><input id="gGstin" maxlength="15" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase;font-family:var(--mono,monospace)" value="${esc(s.gstin||"")}" placeholder="27ABCDE1234F1Z5"><p id="gHint" class="note"></p></div>
     <div id="gRegOnly"><div class="field"><label for="gIncl">Product rates are</label><select id="gIncl"><option value="incl" ${s.gst_incl!==false?"selected":""}>Including GST (MRP / counter price)</option><option value="excl" ${s.gst_incl===false?"selected":""}>Excluding GST (GST added on top)</option></select></div>
     <p class="note">Including: a ₹118 item at 18% is ₹100 + ₹18 GST, customer pays ₹118. Excluding: a ₹100 item at 18% becomes ₹118 on the bill.</p>
@@ -1967,9 +2427,10 @@ async function boot(){
   if(!DB){const old=LS.get("db",null);if(old&&old.users)DB=old}
   if(!DB)DB=blankDB();upgradeDB();
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
-  me=restoreSession();if(me){LS.set("lastAct",Date.now());const v=LS.get("view_"+me.id,"billing");view=VIEWS[v]&&!(ADMIN_ONLY.has(v)&&!isOwner())?v:"billing"}   /* a refresh keeps you on the same page */
+  me=restoreSession();if(me){LS.set("lastAct",Date.now());const v=LS.get("view_"+me.id,"billing");view=VIEWS[v]&&viewOK(v)?v:"billing"}   /* a refresh keeps you on the same page */
   Bill.load();render();
-  dailyBackup();setInterval(dailyBackup,60000);   /* also catches midnight if the app stays open */
+  dailyBackup();setInterval(dailyBackup,60000);
+  setTimeout(()=>checkin(),5000);addEventListener("online",()=>checkin());setInterval(()=>checkin(),3600000);   /* also catches midnight if the app stays open */
   if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
 boot();
