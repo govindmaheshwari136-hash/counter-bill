@@ -1,6 +1,6 @@
 /* Keeps the whole app on the device so it opens without internet.
    With internet, the app page is fetched fresh first (so updates show immediately); without it, the saved copy opens. */
-const VERSION = "cb-v3.2";
+const VERSION = "cb-v3.4";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", e => e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener("activate", e => e.waitUntil(caches.keys()
@@ -13,6 +13,7 @@ function fresh(req, ms) {
 }
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin) return;
+  if (/\/revoked\.json$/.test(new URL(e.request.url).pathname)) return;   /* list of cancelled plan codes: always from the internet */
   const isPage = e.request.mode === "navigate" || /\/(index\.html)?$/.test(new URL(e.request.url).pathname);
   e.respondWith(caches.open(VERSION).then(async c => {
     if (isPage) {

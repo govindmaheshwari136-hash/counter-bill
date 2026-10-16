@@ -568,7 +568,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="3.2";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="3.4";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -576,7 +576,10 @@ const PKEYS=["cash","upi","card","bank","credit"];
 const KEYNAME={cash:"Cash",upi:"UPI",card:"Card",bank:"Bank",credit:"Credit"};
 const ALL_OPTIONS=[...PAYMODES,"Split"];
 /* payment options the owner has switched on (Settings) */
-const enabledModes=()=>{const e=(S().paymodes||ALL_OPTIONS).filter(m=>ALL_OPTIONS.includes(m)&&(m!=="Credit"||has("credit"))&&(m!=="Split"||has("split")));return ALL_OPTIONS.filter(m=>e.includes(m))};
+const DIGITAL=["UPI","Card","Bank"];
+const modeInPlan=m=>m==="Cash"||(DIGITAL.includes(m)?has("digital"):m==="Credit"?has("credit"):m==="Split"?has("split"):true);
+const enabledModes=()=>{const dg=has("digital");const e=(S().paymodes||ALL_OPTIONS).filter(m=>ALL_OPTIONS.includes(m)&&(m!=="Credit"||has("credit"))&&(m!=="Split"||has("split"))&&(dg||!DIGITAL.includes(m)));
+  if(!dg&&!e.includes("Cash"))e.unshift("Cash");return ALL_OPTIONS.filter(m=>e.includes(m))};
 /* How a bill was paid: amounts in cash, upi, card and credit (unpaid). Older bills only have a single mode. */
 function payOf(b){const p={cash:0,upi:0,card:0,bank:0,credit:0};if(b.pay){PKEYS.forEach(k=>p[k]=+b.pay[k]||0);return p}p[PAYKEY[b.paymode]||"cash"]=b.net;return p}
 function buildPay(net,mode,split){const p={cash:0,upi:0,card:0,bank:0,credit:0};
@@ -589,6 +592,7 @@ function buildPay(net,mode,split){const p={cash:0,upi:0,card:0,bank:0,credit:0};
 function checkModes(pay,mode,keep){const on=new Set([...enabledModes(),...(keep||[])]);
   if(mode==="Split"&&!has("split")&&!(keep||[]).includes("Split"))throw new Bad("Split payment is not part of this shop's plan.");
   if(pay.credit>0.004&&!has("credit")&&!(keep||[]).includes("Credit"))throw new Bad("Credit sales are not part of this shop's plan.");
+  if(!has("digital"))DIGITAL.forEach(m=>{if(pay[PAYKEY[m]]>0.004&&!(keep||[]).includes(m))throw new Bad(`${m} payment is not part of this shop's plan — only cash bills.`)});
   if(mode==="Split"&&!on.has("Split"))throw new Bad("Split payment is switched off. Ask the owner to switch it on in Settings.");
   PKEYS.forEach(k=>{if(pay[k]>0.004&&!on.has(KEYNAME[k]))throw new Bad(k==="credit"?`Credit is switched off, so the full ₹${fmt(pay.credit+PKEYS.filter(x=>x!=="credit").reduce((a,x)=>a+pay[x],0))} must be paid now.`:`${KEYNAME[k]} payment is switched off. Ask the owner to switch it on in Settings.`)})}
 const modesUsed=b=>{const p=payOf(b);const u=PKEYS.filter(k=>p[k]>0.004).map(k=>KEYNAME[k]);if(modeOf(p)==="Split")u.push("Split");return u};
@@ -598,7 +602,9 @@ function payText(p){const parts=PKEYS.map(k=>[KEYNAME[k],p[k]||0]).filter(x=>x[1
   if(parts.length<=1)return parts.length?parts[0][0]:"Cash";return parts.map(x=>`${x[0]} ₹${fmt(x[1])}`).join(" + ")}
 /* credit (udhaar) book: a customer is known by name */
 /* the customer box starts with "Cash" — that (or empty) means a walk-in customer with no name */
-const normCust=n=>{n=String(n||"").trim();return /^cash$/i.test(n)?"":n};
+/* one-line text: tabs, line breaks and invisible control characters (often pasted from Excel / Word) become spaces */
+const clean1=t=>String(t??"").replace(/[\u0000-\u001F\u007F-\u009F\u200B\uFEFF]/g," ").replace(/\s+/g," ").trim();
+const normCust=n=>{n=clean1(n);return /^cash$/i.test(n)?"":n};
 const custKey=n=>normCust(n).toLowerCase().replace(/\s+/g," ");
 /* money received against each credit bill — indexed once, rebuilt whenever payments are added, undone or restored */
 let collIdx={arr:null,len:-1,map:null};
@@ -921,7 +927,7 @@ function purTotals(items,kind,inter,round){let sub=0,tx=0,cg=0,sg=0,ig=0;
   const rv=r2(num(round));if(Math.abs(rv)>100)throw new Bad("Round off can be at most ₹100 either way.");
   const tax=r2(cg+sg+ig),total=r2((kind==="itc"?tx+tax:sub)+rv);if(total<0)throw new Bad("Total can't be less than zero.");
   return{subtotal:sub,taxable:kind==="itc"?tx:0,cgst:cg,sgst:sg,igst:ig,tax_amt:tax,round_off:rv,total}}
-function cleanPurchase(d){const supplier=String(d.supplier||"").trim().slice(0,80);if(!supplier)throw new Bad("Enter the supplier's name.");
+function cleanPurchase(d,was){const supplier=clean1(d.supplier).slice(0,80);if(!supplier)throw new Bad("Enter the supplier's name.");
   const gstin=String(d.gstin||"").trim().toUpperCase();if(gstin&&!gstinCheck(gstin))throw new Bad("Supplier's GSTIN is not valid. Check it, or leave it empty for a supplier without GST.");
   const date=String(d.date||"");if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Bad("Enter the bill date.");if(date>today())throw new Bad("The bill date can't be in the future.");
   const kind=purKind(gstin);const inv_no=String(d.inv_no||"").trim().slice(0,30);if(kind==="itc"&&!inv_no)throw new Bad("Enter the supplier's invoice number — needed to claim GST credit.");
@@ -929,13 +935,14 @@ function cleanPurchase(d){const supplier=String(d.supplier||"").trim().slice(0,8
   const state=gstin?gstin.slice(0,2):(STATES[d.state]?d.state:sellerState()||"");const inter=!!(kind==="itc"&&state&&sellerState()&&state!==sellerState());
   if(!d.items||!d.items.length)throw new Bad("Add at least one item.");
   const items=d.items.map(r=>{const p=DB.products.find(x=>x.id===r.product_id);if(!p)throw new Bad("An item on this bill is not in the product list.");
+    if(!p.active&&!(was&&was.items.some(i=>i.product_id===p.id)))throw new Bad(`${p.name} was deleted from the products list. Restore it (Products → Deleted products) or remove it from this purchase.`);
     const qty=+num(r.qty).toFixed(3),rate=r2(num(r.rate));if(!(qty>0))throw Object.assign(new Bad(`Enter the quantity for ${p.name}.`),{pid:p.id,field:"qty"});
     if(qty>100000)throw Object.assign(new Bad(`Check the quantity for ${p.name}.`),{pid:p.id,field:"qty"});if(rate<0)throw Object.assign(new Bad(`Rate for ${p.name} can't be negative.`),{pid:p.id,field:"rate"});
     let gst=r.gst===undefined||r.gst===""?rateOf(p):num(r.gst);if(kind==="itc"&&!GST_RATES.includes(gst))throw new Bad(`Choose the GST rate for ${p.name}.`);
     return{product_id:p.id,name:p.name,hsn:p.hsn||"",unit:normUnit(r.unit||p.unit),qty,rate,gst}});
   const t=purTotals(items,kind,inter,d.round);
   return{supplier,gstin,state,inv_no,date,kind,inter,paymode,items,...t,note:String(d.note||"").trim().slice(0,200)}}
-function savePurchase(d,id){const c=cleanPurchase(d);
+function savePurchase(d,id){const c=cleanPurchase(d,id?DB.purchases.find(x=>x.id===id):null);
   if(id){const p=DB.purchases.find(x=>x.id===id);if(!p||p.status!=="active")throw new Bad("This purchase can't be changed.");
     const ch=purDiff(p,c);act("purchase",`Changed purchase ${p.inv_no||"(no invoice no.)"} from ${p.supplier}`,{ref:p.id,changes:ch.length?ch:[["(nothing changed)","",""]]});
     Object.assign(p,c,{rev:(p.rev||0)+1,updated_by:me.id,updated_at:stamp()});(p.log=p.log||[]).push({at:stamp(),by:me.id,what:`Changed · total ₹${fmt(c.total)}`});save();return p}
@@ -963,10 +970,13 @@ const accNames=()=>({...ACC_DEF,...(S().acc||{})});
 function accountingData(month){const A=accNames(),d1=month+"-01",d2=monthEnd(month),T=S();
   const sales=[],receipts=[],purchases=[],skipped=[];
   const modeLedger=k=>k==="cash"?A.cash:A.bank;
+  /* a customer or supplier called "Bank", "Sales" … must not be booked into that account ledger */
+  const own=new Set(Object.entries(A).filter(([k])=>k!=="cashSales").map(([,v])=>v.toLowerCase()));
+  const partyOf=(n,kind)=>{n=clean1(n);return own.has(n.toLowerCase())?`${n} (${kind})`:n};
   DB.bills.filter(b=>b.bill_date>=d1&&b.bill_date<=d2).sort((a,b)=>a.bill_date.localeCompare(b.bill_date)||a.id-b.id).forEach(b=>{
     if(b.status!=="active"){skipped.push({no:label(b),date:b.bill_date,net:b.net});return}
     const tx=b.tax||{type:"none"},REG=tx.type==="regular",p=payOf(b),paid=["cash","upi","card","bank"].filter(k=>p[k]>0.004),cust=normCust(b.customer);
-    let party;if(p.credit<=0.004&&paid.length===1)party=modeLedger(paid[0]);else party=cust||A.cashSales;
+    let party;if(p.credit<=0.004&&paid.length===1)party=modeLedger(paid[0]);else party=cust?partyOf(cust,"Customer"):A.cashSales;
     const items=b.items.map(i=>({name:i.name,hsn:i.hsn||"",unit:i.unit,qty:i.qty,gst:REG?num(i.gst):"",value:REG?r2(i.taxable||0):i.amount,cgst:REG?r2(i.cgst||0):0,sgst:REG?r2(i.sgst||0):0,igst:REG?r2(i.igst||0):0,mrp_rate:i.rate}));
     items.forEach(i=>i.rate=i.qty?r2(i.value/i.qty):0);
     const v={type:"Sales",no:label(b),date:b.bill_date,party,customer:cust||"Cash",gstin:REG?(tx.buyer_gstin||""):"",pos:REG?stateName(tx.pos):"",gst_type:tx.type,
@@ -976,15 +986,15 @@ function accountingData(month){const A=accNames(),d1=month+"-01",d2=monthEnd(mon
     if(party!==A.cash&&party!==A.bank){const cashAmt=p.cash,bankAmt=r2(p.upi+p.card+p.bank);
       if(cashAmt>0.004)receipts.push({type:"Receipt",no:`R-${label(b)}-C`,date:b.bill_date,party,dr:A.cash,amount:cashAmt,refs:[{name:label(b),amount:cashAmt}],narration:`Paid with bill ${label(b)} (cash)`});
       if(bankAmt>0.004)receipts.push({type:"Receipt",no:`R-${label(b)}-B`,date:b.bill_date,party,dr:A.bank,amount:bankAmt,refs:[{name:label(b),amount:bankAmt}],narration:`Paid with bill ${label(b)} (UPI/card/bank)`})}});
-  (DB.receipts||[]).filter(r=>r.date>=d1&&r.date<=d2).forEach(r=>receipts.push({type:"Receipt",no:`R${r.id}`,date:r.date,party:r.name,dr:r.mode==="Cash"?A.cash:A.bank,amount:r.amount,refs:(r.alloc||[]).map(a=>{const b=DB.bills.find(x=>x.id===a.bill_id);return{name:b?label(b):"",amount:a.amount}}).filter(x=>x.name),
+  (DB.receipts||[]).filter(r=>r.date>=d1&&r.date<=d2).forEach(r=>receipts.push({type:"Receipt",no:`R${r.id}`,date:r.date,party:partyOf(r.name,"Customer"),dr:r.mode==="Cash"?A.cash:A.bank,amount:r.amount,refs:(r.alloc||[]).map(a=>{const b=DB.bills.find(x=>x.id===a.bill_id);return{name:b?label(b):"",amount:a.amount}}).filter(x=>x.name),
     narration:`Credit payment (${r.mode}) against ${r.alloc.map(a=>{const b=DB.bills.find(x=>x.id===a.bill_id);return b?label(b):"?"}).join(", ")}`}));
   (DB.purchases||[]).filter(p=>p.status==="active"&&p.date>=d1&&p.date<=d2).sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id).forEach(p=>{const ITC=p.kind==="itc";
-    purchases.push({type:"Purchase",no:p.inv_no||`P${p.id}`,ref:p.inv_no||"",date:p.date,party:p.paymode==="Credit"?p.supplier:p.paymode==="Cash"?A.cash:A.bank,supplier:p.supplier,gstin:p.gstin||"",pos:p.state?stateName(p.state):"",itc:ITC,
+    purchases.push({type:"Purchase",no:p.inv_no||`P${p.id}`,ref:p.inv_no||"",date:p.date,party:p.paymode==="Credit"?partyOf(p.supplier,"Supplier"):p.paymode==="Cash"?A.cash:A.bank,supplier:partyOf(p.supplier,"Supplier"),gstin:p.gstin||"",pos:p.state?stateName(p.state):"",itc:ITC,
       items:p.items.map(i=>({name:i.name,hsn:i.hsn||"",unit:i.unit,qty:i.qty,gst:ITC?num(i.gst):"",value:ITC?r2(i.taxable):i.amount,rate:i.rate,cgst:ITC?i.cgst:0,sgst:ITC?i.sgst:0,igst:ITC?i.igst:0})),
       cgst:ITC?p.cgst:0,sgst:ITC?p.sgst:0,igst:ITC?p.igst:0,round_off:p.round_off,total:p.total,payment:p.paymode,narration:`Supplier bill ${p.inv_no||"-"} from ${p.supplier}${p.note?" · "+p.note:""}`})});
   return{shop:T.shop_name,gstin:T.gstin||"",gst_type:T.gst_type||"none",month,from:d1,to:d2,generated:stamp(),version:APP_VERSION,ledgers:A,sales,receipts,purchases,cancelled:skipped}}
 /* ---------- Tally XML */
-const xe=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const xe=v=>String(v??"").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g," ").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const tDate=d=>d.replace(/-/g,"");const amt=v=>(Math.round(v*100)/100).toFixed(2);
 const tq=(q,u)=>`${+(+q).toFixed(3)} ${xe(u)}`;
 function tallyEnvelope(id,body){return `<?xml version="1.0" encoding="UTF-8"?>\n<ENVELOPE>\n <HEADER>\n  <VERSION>1</VERSION>\n  <TALLYREQUEST>Import</TALLYREQUEST>\n  <TYPE>Data</TYPE>\n  <ID>${id}</ID>\n </HEADER>\n <BODY>\n  <DESC></DESC>\n  <DATA>\n${body}  </DATA>\n </BODY>\n</ENVELOPE>\n`}
@@ -1274,7 +1284,7 @@ const deptColor=d=>`hsl(${deptHue(d)} 62% 42%)`;
 const ADMIN_ONLY=new Set(["log"]);  /* only the Owner sees the correction log */
 let view="billing";   /* the app always opens on Billing */
 function viewOK(v){if(ADMIN_ONLY.has(v)&&!isOwner())return false;
-  if(v==="log")return has("audit");
+  if(v==="log")return has("audit")||DB.corrections.length>0||(DB.activity||[]).length>0;   /* old records always stay visible */
   if(v==="credit")return has("credit")||creditBook().length>0;
   if(v==="purchases")return has("purchases")||(DB.purchases||[]).length>0;
   return true}
@@ -1290,8 +1300,11 @@ function render(){try{auditSettings()}catch(e){}
   const firstAge=DB.bills.length?Math.floor((Date.now()-new Date(String(DB.bills[0].created_at||DB.bills[0].bill_date).replace(" ","T")))/864e5):0;
   const needBackup=!DB.demo&&DB.bills.length>0&&(sentAge===null?(firstAge>=3||bkAge===null||bkAge>=3):sentAge>=7);
   app.innerHTML=`${DB.demo?`<div class="demo"><div class="wrap">Sample data for trying out. ${isOwner()?`When you're ready to use it for real: <button class="btn sm" id="toEmpty" style="margin-left:4px">Start with my own data</button>`:""}</div></div>`:""}
-  ${(()=>{const P=planInfo();if(!isOwner()||DB.demo)return "";if(P.state==="trial"&&P.left<=7)return `<div class="warnbar"><div class="wrap"><span><b>Free trial:</b> ${P.left} day${P.left>1?"s":""} left. Ask your support person for a plan code (Settings → Plan &amp; support).</span></div></div>`;
-    if(P.state==="basic")return `<div class="warnbar"><div class="wrap"><span><b>Trial over:</b> CB is on the Basic plan. Billing works; ask your support person for a plan code to switch other features back on.</span></div></div>`;
+  ${(()=>{const P=planInfo();if(DB.demo)return "";
+    const low={basic:"<b>Trial over</b> — Basic plan",expired:`<b>Plan ended on ${dmy(P.ends)}</b> — Basic plan`,cancelled:"<b>Plan code cancelled by your support person</b> — Basic plan"}[P.state];
+    if(low)return `<div class="warnbar"><div class="wrap"><span>${low}: only cash bills can be made. All old bills, dues, reports and backups are safe and can be seen. ${isOwner()?"Ask your support person for a plan code (Settings → Plan &amp; support).":"Ask the owner."}</span></div></div>`;
+    if(!isOwner())return "";if(P.state==="trial"&&P.left<=7)return `<div class="warnbar"><div class="wrap"><span><b>Free trial:</b> ${P.left} day${P.left>1?"s":""} left. Ask your support person for a plan code (Settings → Plan &amp; support).</span></div></div>`;
+    if(P.state==="active"&&P.ends&&P.left<=7)return `<div class="warnbar"><div class="wrap"><span><b>Plan ends on ${dmy(P.ends)}</b> (${P.left<=0?"today":P.left+" day"+(P.left>1?"s":"")}). Pay your support person to keep all features — after that CB makes cash bills only.</span></div></div>`;
     if(P.till){const d=Math.floor((new Date(P.till)-new Date(today()))/864e5);if(d<0)return `<div class="warnbar"><div class="wrap"><span><b>Support ended</b> on ${dmy(P.till)}. CB keeps working — renew to get updates and help.</span></div></div>`;
       if(d<=15)return `<div class="warnbar"><div class="wrap"><span><b>Support &amp; updates</b> end on ${dmy(P.till)} (${d} day${d===1?"":"s"}). Renew with your support person.</span></div></div>`}return ""})()}
   ${needBackup?`<div class="warnbar"><div class="wrap"><span><b>Backup:</b> ${sentAge===null?"never sent off this phone":"last sent off this phone "+sentAge+" days ago"}. If the phone is lost or broken, bills since then can't be recovered.</span><button class="btn sm" id="bkNow">Send backup now</button></div></div>`:""}
@@ -1328,23 +1341,41 @@ const b64uDec=t=>{t=t.replace(/-/g,"+").replace(/_/g,"/");t+="===".slice((t.leng
 /* ============================================================ plans: which features this shop has paid for
    A plan code is made by the support person's private tool (same signing key as reset codes) for one shop ID.
    No code: everything works for a 30-day trial, then the Basic plan. Switching a feature off never deletes data. */
-const FEATURES={credit:"Credit sales & dues",split:"Split payment",voice:"Voice billing",pages:"A4 / A5 printing",pdf:"PDF bills (share / save)",
-  audit:"Owner verification & correction log",multiuser:"More than one Admin login",upload:"Excel product upload / download",
+const FEATURES={digital:"UPI, card & bank payments",credit:"Credit sales & dues",split:"Split payment",voice:"Voice billing",pages:"A4 / A5 printing",pdf:"PDF bills (share / save)",
+  audit:"Owner verification & change log",multiuser:"More than one Admin login",upload:"Excel product upload / download",
   gst_comp:"GST – Composition (bill of supply)",gst_reg:"GST – Regular (tax invoice, HSN, GSTR-1)",purchases:"Purchases",export:"Accounting export (Tally / Busy / Vyapar)"};
-const BASIC_FEATURES=["audit"];const TRIAL_DAYS=30;
+const BASIC_FEATURES=[];const TRIAL_DAYS=30;
+const OLD_CODE_FEATURES=["digital","audit"];   /* codes made before version 3.3 always included these */
 const shopIdLabel=c=>String(c||"").match(/.{4}/g).join("-");
 let planCache={key:null,val:null};
 function readPlanCode(code){try{const m=String(code||"").trim().match(/CBP1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{86})/);if(!m)return null;
     if(!nacl.sign.detached.verify(new TextEncoder().encode("CBPLAN1|"+m[1]),b64uDec(m[2]),b64uDec(RESET_PUB)))return null;
     const pl=JSON.parse(new TextDecoder().decode(b64uDec(m[1])));return pl&&Array.isArray(pl.f)?{...pl,raw:m[0]}:null}catch(e){return null}}
-function planInfo(){const key=(DB.plan_code||"")+"|"+DB.shop_id+"|"+DB.trial_start+"|"+today()+"|"+!!DB.demo;if(planCache.key===key)return planCache.val;
+/* the date used for plans never goes backwards: setting the phone's clock back doesn't bring an ended plan back */
+function planToday(){const t=today();const m=DB.seen_date&&DB.seen_date>t?DB.seen_date:t;
+  if(!DB.demo&&DB.seen_date!==m){DB.seen_date=m;save()}return m}
+const codeId=raw=>String(raw||"").split(".")[2]?String(raw).split(".")[2].slice(0,16):"";
+function planInfo(){const T=planToday(),key=(DB.plan_code||"")+"|"+DB.shop_id+"|"+DB.trial_start+"|"+T+"|"+!!DB.demo+"|"+(DB.revoked||[]).join(",");if(planCache.key===key)return planCache.val;
   let v;const pl=readPlanCode(DB.plan_code);
   if(DB.demo)v={state:"demo",name:"Sample data — all features",features:new Set(Object.keys(FEATURES))};
-  else if(pl&&pl.s===DB.shop_id)v={state:"active",name:pl.n||"Custom",features:new Set(pl.f.filter(f=>FEATURES[f]).concat(BASIC_FEATURES)),till:pl.t||"",issued:pl.i||"",client:pl.c||""};
-  else{const used=Math.floor((new Date(today())-new Date(DB.trial_start||today()))/864e5),left=TRIAL_DAYS-used;
-    v=left>0?{state:"trial",name:`Free trial — ${left} day${left>1?"s":""} left`,left,features:new Set(Object.keys(FEATURES))}:{state:"basic",name:"Basic",features:new Set(BASIC_FEATURES)}}
+  else if(pl&&pl.s===DB.shop_id){const base={name:pl.n||"Custom",till:pl.t||"",ends:pl.e||"",issued:pl.i||"",client:pl.c||""};
+    if((DB.revoked||[]).includes(codeId(pl.raw)))v={...base,state:"cancelled",features:new Set(BASIC_FEATURES)};
+    else if(pl.e&&T>pl.e)v={...base,state:"expired",features:new Set(BASIC_FEATURES)};
+    else v={...base,state:"active",left:pl.e?Math.round((new Date(pl.e)-new Date(T))/864e5):null,features:new Set(pl.f.filter(f=>FEATURES[f]).concat(BASIC_FEATURES,pl.v>=2?[]:OLD_CODE_FEATURES))}}
+  else{const used=Math.floor((new Date(T)-new Date(DB.trial_start||T))/864e5),left=TRIAL_DAYS-used;
+    v=left>0?{state:"trial",name:`Free trial — ${left} day${left>1?"s":""} left`,left,features:new Set(Object.keys(FEATURES))}:{state:"basic",name:"Basic — cash bills only",features:new Set(BASIC_FEATURES)}}
   planCache={key,val:v};return v}
 const has=f=>planInfo().features.has(f);
+/* Cancelled plan codes: the support person uploads revoked.json (made by the Support Tool) next to the app.
+   CB reads it whenever online and keeps the list, so a cancelled code stays cancelled offline too. No file = nothing cancelled. */
+function fetchRevoked(){try{if(!DB||DB.demo||!navigator.onLine||!/^https?:/.test(location.protocol))return;
+  fetch("revoked.json?t="+Date.now(),{cache:"no-store"}).then(r=>{
+      /* the server's date is the true date: fixes a phone clock that was set ahead by mistake, and catches one set back */
+      const sd=new Date(r.headers.get("Date")||"");if(!isNaN(sd)&&sd.getFullYear()>2024){const d=isoDate(sd);if(DB.seen_date!==d){DB.seen_date=d;planCache.key=null;save()}}
+      return r.status===404?{codes:[]}:r.ok?r.json().catch(()=>null):null}).then(j=>{if(!j||!Array.isArray(j.codes))return;
+    const list=j.codes.filter(x=>typeof x==="string"&&/^[A-Za-z0-9_-]{12,32}$/.test(x)).slice(0,5000);if(JSON.stringify(list)===JSON.stringify(DB.revoked||[]))return;
+    const was=planInfo().state;DB.revoked=list;planCache.key=null;save();const now=planInfo().state;
+    if(was!==now){act("plan",now==="cancelled"?"Plan code cancelled by the support person":"Plan code back in force",{changes:[["Plan",was,now]]},"Support");if(!Bill.lines.length)render()}}).catch(()=>{})}catch(e){}}
 /* Usage check-in: the support person's Google Sheet address. Set once here (CHECKIN_URL) or carried inside the plan code. */
 const CHECKIN_URL="";
 const checkinURL=()=>{const pl=readPlanCode(DB&&DB.plan_code);return (pl&&pl.u)||CHECKIN_URL};
@@ -2110,11 +2141,11 @@ function renderActivity(tabs){const L=(DB.activity||[]).filter(a=>a.at.slice(0,1
   bindLogHead();if($("toDel"))$("toDel").onclick=()=>{go("products");setTimeout(()=>{const d=$("pDel");if(d){d.open=true;d.scrollIntoView({behavior:"smooth"})}},50)}}
 
 /* ============================================================ products */
-function cleanProduct(d,strict){const name=String(d.name||"").trim();if(!name)throw new Bad("Enter the item name.");const rate=num(d.rate);if(rate<0)throw new Bad("Rate can't be negative.");
+function cleanProduct(d,strict){const name=clean1(d.name);if(!name)throw new Bad("Enter the item name.");const rate=num(d.rate);if(rate<0)throw new Bad("Rate can't be negative.");
   const hsn=normHsn(d.hsn);if(hsn&&!/^\d{4,8}$/.test(hsn))throw new Bad(`HSN code of ${name} should be 4 to 8 digits.`);
   let gst="";const gs=String(d.gst??"").replace("%","").trim();if(gs!==""){gst=num(gs);if(!GST_RATES.includes(gst))throw new Bad(`GST rate of ${name} should be one of ${GST_RATES.join(", ")}%.`)}
   if(strict&&!hsn)throw new Bad(`Enter the HSN code of ${name} — needed for GST bills.`);if(strict&&gst==="")throw new Bad(`Choose the GST rate of ${name} — needed for GST bills.`);
-  return{name:name.slice(0,120),dept:(String(d.dept||"").trim()||"General").slice(0,60),unit:normUnit(d.unit),rate:r2(rate),aliases:String(d.aliases||"").split(",").map(a=>a.trim()).filter(Boolean).join(", ").slice(0,300),hsn,gst}}
+  return{name:name.slice(0,120),dept:(clean1(d.dept)||"General").slice(0,60),unit:normUnit(d.unit),rate:r2(rate),aliases:clean1(d.aliases).split(",").map(a=>a.trim()).filter(Boolean).join(", ").slice(0,300),hsn,gst}}
 function parseCSV(t){const rows=[];let row=[],cur="",q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){cur+='"';i++}else q=false}else cur+=c}else if(c=='"')q=true;else if(c==","||c=="\t"){row.push(cur);cur=""}else if(c=="\n"||c=="\r"){if(c=="\r"&&t[i+1]=="\n")i++;row.push(cur);rows.push(row);row=[];cur=""}else cur+=c}
   if(cur||row.length){row.push(cur);rows.push(row)}return rows.filter(r=>r.some(x=>String(x).trim()))}
 /* Minimal .xlsx reader: first sheet → rows of cell text. Uses the browser's built-in unzip. */
@@ -2140,7 +2171,7 @@ async function readXlsx(buf){
 function importRows(rows,replace){if(!rows.length)throw new Bad("The file is empty.");const h=rows[0].map(x=>String(x).trim().toLowerCase());const find=re=>h.findIndex(x=>re.test(x));
   let ni=find(/item|name|product|particular|description/),di=find(/dep|categ|section|group/),ui=find(/unit|uom|measure/),ri=h.findIndex(x=>/rate|price|mrp|amount/.test(x)&&!/gst|tax|hsn|igst|cgst/.test(x)),ai=find(/alias|other name|hindi|local/),hi=find(/hsn|sac/),gi=h.findIndex(x=>/gst|tax/.test(x)&&!/hsn|gstin|incl|excl/.test(x));let body=rows.slice(1);
   if(ni<0&&ri<0){const w=rows[0].length;if(w<2||!/^\s*[\d.,₹]+\s*$/.test(String(rows[0][w-1])))throw new Bad("Couldn't find the Item Name and Rate columns. The first row should be: Item Name, Department, Unit, Rate.");ni=0;ri=w-1;di=w>3?1:-1;ui=w>3?2:w>2?1:-1;body=rows}if(ni<0)throw new Bad("Couldn't find an Item Name column. Check the header row.");
-  const cell=(r,i)=>i>=0&&i<r.length&&r[i]!=null?String(r[i]).trim():"";const items=body.map(r=>({name:cell(r,ni).slice(0,120),dept:(cell(r,di)||"General").slice(0,60),unit:normUnit(cell(r,ui)),rate:r2(Math.max(num(cell(r,ri)),0)),aliases:cell(r,ai).slice(0,300),hsn:normHsn(cell(r,hi)),gst:cell(r,gi).replace("%","")})).filter(x=>x.name);
+  const cell=(r,i)=>i>=0&&i<r.length&&r[i]!=null?String(r[i]).trim():"";const items=body.map(r=>({name:clean1(cell(r,ni)).slice(0,120),dept:(clean1(cell(r,di))||"General").slice(0,60),unit:normUnit(cell(r,ui)),rate:r2(Math.max(num(cell(r,ri)),0)),aliases:cell(r,ai).slice(0,300),hsn:normHsn(cell(r,hi)),gst:cell(r,gi).replace("%","")})).filter(x=>x.name);
   if(!items.length)throw new Bad("No product rows found under the header.");
   items.forEach((n,k)=>{if(n.hsn&&!/^\d{4,8}$/.test(n.hsn))throw new Bad(`Row ${k+2}: HSN code "${n.hsn}" of ${n.name} should be 4 to 8 digits.`);
     if(n.gst!==""){let g=num(n.gst);if(g>0&&g<1&&GST_RATES.includes(r2(g*100)))g=r2(g*100);if(!GST_RATES.includes(g))throw new Bad(`Row ${k+2}: GST rate "${n.gst}" of ${n.name} should be one of ${GST_RATES.join(", ")}%.`);n.gst=g}});
@@ -2290,7 +2321,8 @@ function renderSettings(){const s=S(),O=isOwner();
         <div class="field"><label for="sVoice">Default voice language</label><select id="sVoice"><option value="en-IN" ${s.voice_lang==="en-IN"?"selected":""}>English (India)</option><option value="hi-IN" ${s.voice_lang==="hi-IN"?"selected":""}>Hindi</option></select></div></div>
       ${O?`<div class="field"><label for="sCorr">Which saved bills can the admin correct</label><select id="sCorr"><option value="any" ${s.staff_correct==="any"?"selected":""}>Any bill</option><option value="today" ${s.staff_correct==="today"?"selected":""}>Only today's bills</option><option value="none" ${s.staff_correct==="none"?"selected":""}>None — only the owner corrects</option></select></div>
       <p class="note">Every correction is recorded in your correction log with what changed, who did it and when. The admin can't see the log.</p>
-      <div class="field"><label>Payment options shown when billing</label><div class="paychecks">${ALL_OPTIONS.map(m=>`<label class="chk pc"><input type="checkbox" data-pm="${m}" ${enabledModes().includes(m)?"checked":""}> ${m}</label>`).join("")}</div></div>
+      <div class="field"><label>Payment options shown when billing</label><div class="paychecks">${ALL_OPTIONS.map(m=>{const ok=modeInPlan(m);return `<label class="chk pc"${ok?"":` title="Not part of this shop's plan"`}><input type="checkbox" data-pm="${m}" ${(s.paymodes||ALL_OPTIONS).includes(m)?"checked":""} ${ok?"":"disabled"}> ${m}</label>`}).join("")}</div></div>
+      ${ALL_OPTIONS.some(m=>!modeInPlan(m))?`<p class="note">Greyed options are not part of this shop's plan: ${ALL_OPTIONS.filter(m=>!modeInPlan(m)).join(", ")}. Your ticks are kept and come back when the plan includes them.</p>`:""}
       <p class="note">Only ticked options appear on the bill and when receiving dues. <b>Bank</b> is for money paid straight into your bank (NEFT, IMPS, RTGS, cheque). <b>Split</b> lets one bill be paid in parts.</p>
       <div class="field"><label for="sNum">Bill numbers</label><select id="sNum"><option value="daily" ${(s.numbering||"daily")==="daily"?"selected":""}>Start from 1 every day (e.g. ${shortDate(today())}/1)</option><option value="fy" ${s.numbering==="fy"?"selected":""}>Continue through the financial year (e.g. ${fyOf(today())}/1)</option><option value="fyn" ${s.numbering==="fyn"?"selected":""}>Continue through the financial year, number first (e.g. 1/${fyOf(today())})</option></select></div>
       <p class="note" style="margin-top:-4px">A change applies from the next bill; saved bills keep their numbers. Financial-year numbering starts again from 1 on 1 April.${(s.gst_type||"none")!=="none"&&(s.numbering||"daily")==="daily"?` <b>GST (Rule 46):</b> invoice numbers should be consecutive and unique for the financial year — a financial-year option is the safe choice.`:""}</p>
@@ -2355,13 +2387,13 @@ function printBox(s,O){const m=s.print_mode||"thermal";const nm=m==="normal"?`No
     <p class="note"><b>Thermal</b> prints a narrow roll receipt. <b>Normal</b> prints a full bill with a proper table — good for laser / inkjet printers and for GST tax invoices to business buyers. Bills, payment receipts and the day summary all follow this choice. The admin can't change it.</p>`}
 /* Settings → Plan & support */
 function planCard(O){const P=planInfo(),till=P.till?dmy(P.till):"";
-  const st={trial:"Free trial",active:"Active",basic:"Basic (trial over)",demo:"Sample data"}[P.state];
+  const st={trial:"Free trial",active:"Active",basic:"Basic (trial over)",expired:"Ended — Basic",cancelled:"Cancelled — Basic",demo:"Sample data"}[P.state];
   if(!O)return `<div class="card"><h2>Plan</h2><p class="note"><b>${esc(P.name)}</b>${till?` · support till ${till}`:""}. Only the owner can change the plan.</p></div>`;
   return `<div class="card" id="planCard"><h2>Plan &amp; support</h2>
-    <p class="note"><b>${esc(P.name)}</b> <span class="pill ${P.state==="active"?"green":P.state==="basic"?"red":""}">${st}</span>${till?`<br>Support &amp; updates valid till <b>${till}</b>`:""}</p>
+    <p class="note"><b>${esc(P.name)}</b> <span class="pill ${P.state==="active"?"green":["basic","expired","cancelled"].includes(P.state)?"red":""}">${st}</span>${P.ends?`<br>Features ${P.state==="expired"?"ended":"valid till"} <b>${dmy(P.ends)}</b>`:""}${till?`<br>Support &amp; updates valid till <b>${till}</b>`:""}</p>
     <div class="field"><label>Shop ID</label><div class="row" style="align-items:center"><span class="reqcode" style="font-size:18px;padding:6px 10px;flex:1">${shopIdLabel(DB.shop_id)}</span><button type="button" class="btn sm" id="plSend">Send to support</button></div></div>
     <div class="featlist">${Object.entries(FEATURES).map(([k,v])=>`<div class="${P.features.has(k)?"on":"off"}">${P.features.has(k)?"✓":"—"} ${esc(v)}</div>`).join("")}
-      <div class="on">✓ Billing, thermal printing, day end report, products, backup</div></div>
+      <div class="on">✓ Cash billing, thermal printing, products, backup — and all old bills, dues, reports and logs, always</div></div>
     <div class="field"><label for="plCode">Plan code from your support person</label><textarea id="plCode" rows="2" spellcheck="false" autocapitalize="off" placeholder="Paste the plan code here"></textarea></div>
     <div><button type="button" class="btn primary" id="plGo">Activate plan code</button></div>
     ${checkinURL()?`<p class="note">When this phone is online, CB tells your support person that it is in use: shop ID, shop name, version, plan and how many bills were made. No customer names, amounts or bill details are sent.</p>`:""}</div>`}
@@ -2372,7 +2404,9 @@ function bindPlanCard(){if(!$("plGo"))return;
   $("plGo").onclick=()=>{const pl=readPlanCode($("plCode").value);
     if(!pl){toast("That plan code isn't valid. Check you pasted all of it.",true);return}
     if(pl.s!==DB.shop_id){toast(`That code is for shop ID ${shopIdLabel(pl.s)}, not this phone (${shopIdLabel(DB.shop_id)}).`,true);return}
-    {const was=planInfo().name;DB.plan_code=pl.raw;act("plan",`Plan activated: ${pl.n}${pl.t?` · support till ${dmy(pl.t)}`:""}`,{changes:[["Plan",was,pl.n]]})}save();planCache.key=null;render();toast(`Plan activated: ${pl.n}${pl.t?` · support till ${dmy(pl.t)}`:""}`);checkin(true)}}
+    if(pl.e&&planToday()>pl.e){toast(`That plan code ended on ${dmy(pl.e)}. Ask your support person for a new one.`,true);return}
+    if((DB.revoked||[]).includes(codeId(pl.raw))){toast("That plan code was cancelled by your support person. Ask for a new one.",true);return}
+    {const was=planInfo().name;DB.plan_code=pl.raw;act("plan",`Plan activated: ${pl.n}${pl.t?` · support till ${dmy(pl.t)}`:""}`,{changes:[["Plan",was,pl.n]]})}save();planCache.key=null;render();toast(`Plan activated: ${pl.n}${pl.e?` · features till ${dmy(pl.e)}`:""}${pl.t?` · support till ${dmy(pl.t)}`:""}`);checkin(true)}}
 const gstAllowed=k=>k==="none"||(k==="composition"&&has("gst_comp"))||(k==="regular"&&has("gst_reg"));
 function gstCard(s,O){const t=s.gst_type||"none";const nm={none:"Not registered for GST",composition:"Composition scheme",regular:"Regular GST (tax invoice)"};
   if(!O)return `<div class="card"><h2>GST</h2><p class="note"><b>${nm[t]}</b>${t!=="none"?` · GSTIN ${esc(s.gstin)}`:""}${t==="regular"?` · rates ${s.gst_incl!==false?"include":"exclude"} GST`:""}. Only the owner can change this.</p></div>`;
@@ -2430,7 +2464,7 @@ async function boot(){
   me=restoreSession();if(me){LS.set("lastAct",Date.now());const v=LS.get("view_"+me.id,"billing");view=VIEWS[v]&&viewOK(v)?v:"billing"}   /* a refresh keeps you on the same page */
   Bill.load();render();
   dailyBackup();setInterval(dailyBackup,60000);
-  setTimeout(()=>checkin(),5000);addEventListener("online",()=>checkin());setInterval(()=>checkin(),3600000);   /* also catches midnight if the app stays open */
+  setTimeout(()=>{checkin();fetchRevoked()},5000);addEventListener("online",()=>{checkin();fetchRevoked()});setInterval(()=>{checkin();fetchRevoked()},3600000);   /* also catches midnight if the app stays open */
   if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
 boot();
