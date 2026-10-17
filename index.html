@@ -304,6 +304,7 @@ tr.flash-row td{animation:rowflash 1.2s ease-out}
 .stk-low{color:#b26a00;font-weight:700}.stk-out{color:var(--danger);font-weight:700}
 .rcpt table.st{width:100%;border-collapse:collapse;font-size:10.5px;margin-top:2mm}.rcpt table.st th,.rcpt table.st td{border-bottom:1px solid #999;padding:1.5px 3px;text-align:right}.rcpt table.st th:first-child,.rcpt table.st td:first-child,.rcpt table.st td:nth-child(2),.rcpt table.st th:nth-child(2){text-align:left}
 .restorebox{display:flex;flex-direction:column;gap:6px;background:var(--mark-soft);border:1px solid var(--mark);border-radius:10px;padding:12px}.restorebox span{font-size:14px;color:var(--ink)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:10px 14px}
 .repticks{flex-direction:row;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:10px 14px}.repticks .chk{margin:0}
 .psug{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;margin-top:4px;overflow:hidden;background:var(--paper)}.psug button{text-align:left;padding:10px 12px;border:0;border-top:1px solid var(--line);background:none;font:inherit;color:inherit;cursor:pointer}.psug button:first-child{border-top:0}.psug button:hover,.psug button:focus{background:var(--soft,rgba(0,0,0,.05))}.psug .note{font-size:12px}
 .acttbl{font-size:13px}.acttbl td,.acttbl th{padding:4px 8px}.warnbox{border-left:4px solid var(--danger);background:var(--danger-soft)}
@@ -426,7 +427,8 @@ input.gstin{text-transform:uppercase;font-family:var(--f-num,monospace)}input.gs
   .nav .wrap{padding-block:8px}
   .nav nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--paper);border-top:1px solid var(--line);display:flex;justify-content:space-around;gap:0;
     padding:4px max(4px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(4px,env(safe-area-inset-left,0px));box-shadow:0 -4px 16px rgba(0,0,0,.06)}
-  .nav nav.tabs button{flex:1 1 0;min-width:0;flex-direction:column;gap:2px;padding:6px 2px;border-radius:10px;color:var(--muted);position:relative}
+  .nav nav.tabs{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}.nav nav.tabs::-webkit-scrollbar{display:none}
+  .nav nav.tabs button{flex:1 0 auto;min-width:40px;flex-direction:column;gap:2px;padding:6px 2px;border-radius:10px;color:var(--muted);position:relative}
   .nav nav.tabs button svg{width:22px;height:22px}
   .nav nav.tabs .tl{display:none}
   .nav nav.tabs button[data-go="users"]{display:none}
@@ -582,7 +584,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="4.7";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="4.8";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -885,7 +887,7 @@ function cancelBill(id){
 /* ---------- activity log: everything added, changed or deleted apart from bills (bills keep their own correction log).
    CB has no way to edit or remove an entry. Each entry is chained to the one before it, so an entry changed or removed
    from outside CB shows up in the log check. */
-const ACT_KINDS={stock:"Stock",product:"Products",purchase:"Purchases",payment:"Credit payments",user:"Logins",settings:"Settings",data:"Backup & data",plan:"Plan"};
+const ACT_KINDS={cash:"Cash & bank entries",stock:"Stock",product:"Products",purchase:"Purchases",payment:"Credit payments",user:"Logins",settings:"Settings",data:"Backup & data",plan:"Plan"};
 const b64uEnc=u=>{let x="";u.forEach(c=>x+=String.fromCharCode(c));return btoa(x).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
 function actHash(prev,e){const{h,...x}=e;return b64uEnc(nacl.hash(new TextEncoder().encode(prev+"|"+JSON.stringify(x)))).slice(0,22)}
 function act(kind,what,info,who){try{const L=DB.activity=Array.isArray(DB.activity)?DB.activity:[];
@@ -905,7 +907,7 @@ function purDiff(a,b){const ch=diffs(purSnap(a),purSnap(b),Object.fromEntries(Ob
 /* settings: every change made anywhere is written to the log when CB saves */
 const SET_LABEL={top_line:"Line above firm name",shop_name:"Shop name",header_lines:"Heading lines",footer:"Bill footer",bill_note:"Bill note",paymodes:"Payment options",paper:"Thermal roll width",voice_lang:"Voice language",
   staff_correct:"Who can correct bills",numbering:"Bill numbers",backup_days:"Backup reminder",prod_order:"Order of products",stock_value:"Stock value method",owner_lock:"Owner lock (minutes)",gst_type:"GST type",gstin:"GSTIN",gst_incl:"Rates include GST",gst_default:"Default GST rate",
-  print_mode:"Printer",print_rate:"Rate on printed bill",page:"Page size",thermal_size:"Thermal text size",acc:"Export ledger names"};
+  print_mode:"Printer",print_rate:"Rate on printed bill",print_time:"Time on the bill",cash_verify:"Admin cash entries need owner approval",page:"Page size",thermal_size:"Thermal text size",acc:"Export ledger names"};
 const NUM_NAME={daily:"From 1 every day",fy:"Financial year (26-27/1)",fyn:"Financial year, number first (1/26-27)"};
 let setShadow={db:null,s:null};
 function auditSettings(){if(!DB||!DB.settings)return;const cur=JSON.parse(JSON.stringify(DB.settings));
@@ -1149,6 +1151,79 @@ function renderStock(){const O=can("stockadj"),C=seeCost(),all=stockRows();const
   if($("stTpl"))$("stTpl").onclick=()=>saveFile("opening-stock.csv",csv([["Item Name","Qty","Cost","Re-order level"],...all.map(r=>[r.p.name,"","",r.p.reorder||""])]));
   if($("stUp"))$("stUp").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const rows=/\.xlsx?$/i.test(f.name)?await readXlsx(await f.arrayBuffer()):parseCSV(await f.text());const msg=importStock(rows);renderStock();toast(msg)}catch(err){toast(err instanceof Bad?err.message:"Couldn't read that file.",true)}e.target.value=""}}
 
+/* ============================================================ cash & bank entries: expenses, withdrawals, other income, capital, contra */
+const CT_HEADS={out:["Shop expenses","Salary / wages","Rent","Electricity / phone","Transport / freight","Repairs & maintenance","Owner withdrawal (drawings)","Other payment"],
+  in:["Other income","Capital introduced by owner","Loan received","Other receipt"]};
+const CT_TYPE={out:"Paid out",in:"Received",dep:"Cash deposited in bank",wd:"Cash withdrawn from bank"};
+/* how each head is booked in Tally */
+const CT_LEDGER={"Shop expenses":["Shop Expenses","Indirect Expenses"],"Salary / wages":["Salary & Wages","Indirect Expenses"],"Rent":["Rent","Indirect Expenses"],"Electricity / phone":["Electricity & Telephone","Indirect Expenses"],
+  "Transport / freight":["Freight & Transport","Indirect Expenses"],"Repairs & maintenance":["Repairs & Maintenance","Indirect Expenses"],"Owner withdrawal (drawings)":["Drawings","Capital Account"],"Other payment":["Other Expenses","Indirect Expenses"],
+  "Other income":["Other Income","Indirect Incomes"],"Capital introduced by owner":["Capital Account","Capital Account"],"Loan received":["Loan Received","Loans (Liability)"],"Other receipt":["Other Receipts","Indirect Incomes"]};
+const cashVerify=()=>S().cash_verify!==false;
+function saveCashTx(d){if(!has("cashentry"))throw new Bad("Cash & bank entries are not part of this shop's plan.");if(!can("cashentry"))throw new Bad("Entering cash & bank entries is switched off for your login.");
+  const type=CT_TYPE[d.type]?d.type:"";if(!type)throw new Bad("Choose what kind of entry this is.");
+  const date=String(d.date||today());if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>today())throw new Bad("Date can't be in the future.");
+  const amount=r2(num(d.amount));if(!(amount>0))throw new Bad("Enter the amount.");if(amount>99999999)throw new Bad("That amount looks too large.");
+  const book=type==="out"||type==="in"?(d.book==="bank"?"bank":"cash"):(type==="dep"?"cash":"bank");
+  const head=type==="out"||type==="in"?(CT_HEADS[type].includes(d.head)?d.head:""):CT_TYPE[type];if(!head)throw new Bad("Choose the head (what it was for).");
+  const note=UP(d.note).slice(0,120);if(/^Other /.test(head)&&!note)throw new Bad("Write a short note for an 'Other' entry.");
+  const pending=!isOwner()&&cashVerify();
+  const x={id:nextId(),at:stamp(),date,type,book,head,amount,note,by:me.id,status:pending?"pending":"ok"};(DB.cashtx=DB.cashtx||[]).push(x);
+  act("cash",`${CT_TYPE[type]}${type==="in"||type==="out"?` (${book==="cash"?"Cash":"Bank"}) · ${head}`:""}: ₹${fmt(amount)}${note?" · "+note:""}${pending?" — waiting for owner approval":""}`,{ref:x.id});save();return x}
+function approveCashTx(id,reject){if(!isOwner())throw new Bad("Only the owner can approve entries.");const x=(DB.cashtx||[]).find(y=>y.id===id);if(!x||x.status!=="pending")throw new Bad("This entry is already done.");
+  x.status=reject?"rejected":"ok";x.vby=me.id;x.vat=stamp();act("cash",`${reject?"Rejected":"Approved"}: ${CT_TYPE[x.type]} · ${x.head} ₹${fmt(x.amount)} (entered by ${uname(x.by)})`,{ref:x.id});save()}
+function deleteCashTx(id){const x=(DB.cashtx||[]).find(y=>y.id===id);if(!x)throw new Bad("Entry not found.");
+  if(!isOwner()&&!(x.by===me.id&&x.status==="pending"))throw new Bad("Only the owner can remove an approved entry.");
+  DB.cashtx=DB.cashtx.filter(y=>y.id!==id);act("cash",`Removed entry: ${CT_TYPE[x.type]} · ${x.head} ₹${fmt(x.amount)} of ${dmy(x.date)}${x.note?" · "+x.note:""}`,{ref:id,del:true,info:{"Entered by":uname(x.by),"Status was":x.status}});save()}
+/* money moves of an entry for the cash book: [book, in/out, amount] */
+function cashTxMoves(x){if(x.type==="dep")return[["cash","out"],["bank","in"]];if(x.type==="wd")return[["bank","out"],["cash","in"]];return[[x.book,x.type==="in"?"in":"out"]]}
+function cashTxVoucher(x,paper){paper=paper||printSize();const IN=x.type==="in",title=x.type==="out"?"PAYMENT VOUCHER":IN?"RECEIPT VOUCHER":"CONTRA VOUCHER";
+  return `<div class="rcpt w${paper}${thermalClass(paper)}">${topThermal()}<div class="c b big">${esc(S().shop_name)}</div><div class="c b">${title}</div><div class="hr"></div>
+  <div class="lr"><span>No: CV-${x.id}</span><span>${dmy(x.date)}</span></div><div>${esc(x.head)}</div>${x.type==="in"||x.type==="out"?`<div>${IN?"Received in":"Paid from"}: ${x.book==="cash"?"Cash":"Bank"}</div>`:""}
+  ${x.note?`<div>Note: ${esc(x.note)}</div>`:""}<div class="hr"></div><div class="lr b big"><span>AMOUNT</span><span>₹${fmt(x.amount)}</span></div><div>Rs. ${words(x.amount)} only</div>
+  <div class="hr"></div><div>Entered by ${esc(uname(x.by))}${x.status==="ok"&&x.vby?` · approved by ${esc(uname(x.vby))}`:x.status==="pending"?" · waiting for approval":""}</div><div style="margin-top:8mm" class="lr"><span>Receiver's sign</span><span>Authorised sign</span></div></div>`}
+let ctMonth=null;
+function renderCashTx(){const O=isOwner(),m=ctMonth||today().slice(0,7),d1=m+"-01",d2=monthEnd(m);
+  const all=(DB.cashtx||[]).filter(x=>O||x.by===me.id),list=all.filter(x=>x.date>=d1&&x.date<=d2).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id),pend=(DB.cashtx||[]).filter(x=>x.status==="pending");
+  const ok=list.filter(x=>x.status==="ok"),sum=t=>r2(ok.filter(x=>x.type===t).reduce((a,x)=>a+x.amount,0));
+  const byHead={};ok.filter(x=>x.type==="out"||x.type==="in").forEach(x=>{const k=x.type+"|"+x.head;byHead[k]=r2((byHead[k]||0)+x.amount)});
+  const pill=x=>x.status==="pending"?'<span class="pill">Waiting for approval</span>':x.status==="rejected"?'<span class="pill red">Rejected</span>':"";
+  $("view").innerHTML=`<div class="head"><h1 class="title">Cash &amp; bank entries</h1><div class="field"><label for="ctM">Month</label><input type="month" id="ctM" value="${m}" max="${today().slice(0,7)}"></div></div>
+  <div class="stack">
+  ${can("cashentry")&&has("cashentry")?`<form class="card" id="ctForm"><h3>New entry</h3>
+    <div class="seg" role="group" id="ctType">${Object.entries(CT_TYPE).map(([k,v],i)=>`<button type="button" data-ct="${k}" aria-pressed="${i===0}">${k==="out"?"Paid out (expense / withdrawal)":k==="in"?"Received (income / capital)":v}</button>`).join("")}</div>
+    <div class="grid2">
+      <div class="field" id="ctBookF"><label>Cash or bank</label><div class="seg" role="group" id="ctBook"><button type="button" data-cb="cash" aria-pressed="true">Cash</button><button type="button" data-cb="bank" aria-pressed="false">Bank</button></div></div>
+      <div class="field" id="ctHeadF"><label for="ctHead">For</label><select id="ctHead"></select></div>
+      <div class="field"><label for="ctAmt">Amount ₹</label><input class="inp num" id="ctAmt" inputmode="decimal"></div>
+      <div class="field"><label for="ctDate">Date</label><input type="date" id="ctDate" value="${today()}" max="${today()}"></div></div>
+    <div class="field"><label for="ctNote">Note</label><input class="inp" id="ctNote" maxlength="120" placeholder="e.g. TEA FOR STAFF, OCTOBER RENT"></div>
+    ${!O&&cashVerify()?`<p class="note">Your entry is counted after the owner approves it.</p>`:""}
+    <div><button class="btn primary" type="submit">Save entry</button></div></form>`:""}
+  ${O?`<label class="chk card" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="ctVerify" ${cashVerify()?"checked":""}> Entries made by Admins need my approval before they count</label>`:""}
+  ${O&&pend.length?`<div class="card"><h3>Waiting for your approval (${pend.length})</h3>${pend.map(x=>`<div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:8px">
+    <div><b>₹${fmt(x.amount)}</b> · ${esc(CT_TYPE[x.type])}${x.type==="in"||x.type==="out"?` (${x.book==="cash"?"Cash":"Bank"}) · ${esc(x.head)}`:""}<div class="note">${dmy(x.date)} · by ${esc(uname(x.by))}${x.note?" · "+esc(x.note):""}</div></div>
+    <div class="row"><button class="btn sm primary" data-cap="${x.id}" type="button">Approve</button><button class="btn sm" data-crj="${x.id}" type="button">Reject</button></div></div>`).join("")}</div>`:""}
+  <div class="stats"><div class="stat"><b>₹${fmt(sum("out"))}</b><span>Paid out this month</span></div><div class="stat"><b>₹${fmt(sum("in"))}</b><span>Received this month</span></div>
+    <div class="stat"><b>₹${fmt(sum("dep"))}</b><span>Deposited in bank</span></div><div class="stat"><b>₹${fmt(sum("wd"))}</b><span>Withdrawn from bank</span></div></div>
+  ${Object.keys(byHead).length?`<div class="card"><h3>Head-wise (approved)</h3><div class="tw"><table><thead><tr><th>Head</th><th class="r">Paid ₹</th><th class="r">Received ₹</th></tr></thead><tbody>
+    ${Object.entries(byHead).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{const[t,h]=k.split("|");return `<tr><td>${esc(h)}</td><td class="r num">${t==="out"?fmt(v):""}</td><td class="r num">${t==="in"?fmt(v):""}</td></tr>`}).join("")}</tbody></table></div></div>`:""}
+  <div class="card" style="padding:0"><div class="tw"><table><thead><tr><th>Date</th><th>Entry</th><th class="r">Amount ₹</th><th>By</th><th></th></tr></thead><tbody id="ctList">
+    ${list.map(x=>`<tr data-id="${x.id}" class="${x.status==="rejected"?"cx":""}"><td class="num">${shortDate(x.date)}</td><td>${esc(x.head)}${x.type==="in"||x.type==="out"?` <small class="note">${x.book==="cash"?"Cash":"Bank"} · ${x.type==="in"?"received":"paid"}</small>`:""} ${pill(x)}${x.note?`<small class="note" style="display:block">${esc(x.note)}</small>`:""}</td>
+      <td class="r num ${x.type==="in"||x.type==="wd"?"up":""}">${fmt(x.amount)}</td><td>${esc(uname(x.by))}</td><td class="r" style="white-space:nowrap"><button class="btn sm" data-cvp type="button">Voucher</button>${O||(x.by===me.id&&x.status==="pending")?` <button class="btn sm danger" data-cdel type="button">Remove</button>`:""}</td></tr>`).join("")||`<tr><td colspan="5" class="note">No entries in this month.</td></tr>`}</tbody></table></div></div>
+  <p class="note">Approved entries are included in the owner's Cash &amp; bank book and in the monthly accounting export (Tally payment, receipt and contra vouchers).</p></div>`;
+  $("ctM").onchange=e=>{ctMonth=e.target.value||null;renderCashTx()};
+  if($("ctVerify"))$("ctVerify").onchange=e=>{const was=cashVerify();DB.settings.cash_verify=e.target.checked;act("settings","Cash entry approval changed",{changes:[["Admin cash entries need owner approval",was?"Yes":"No",e.target.checked?"Yes":"No"]]});save();toast("Saved")};
+  if($("ctForm")){let type="out",book="cash";const heads=()=>{const t=type==="in"||type==="out";$("ctBookF").hidden=!t;$("ctHeadF").hidden=!t;if(t)$("ctHead").innerHTML=CT_HEADS[type].map(h=>`<option>${h}</option>`).join("")};heads();
+    document.querySelectorAll("[data-ct]").forEach(b=>b.onclick=()=>{type=b.dataset.ct;document.querySelectorAll("[data-ct]").forEach(x=>x.setAttribute("aria-pressed",x===b));heads()});
+    document.querySelectorAll("[data-cb]").forEach(b=>b.onclick=()=>{book=b.dataset.cb;document.querySelectorAll("[data-cb]").forEach(x=>x.setAttribute("aria-pressed",x===b))});
+    $("ctForm").onsubmit=e=>{e.preventDefault();try{const x=saveCashTx({type,book,head:$("ctHead").value,amount:$("ctAmt").value,date:$("ctDate").value,note:$("ctNote").value});ctMonth=x.date.slice(0,7);renderCashTx();toast(x.status==="pending"?"Saved — waiting for the owner's approval":"Saved")}catch(err){toast(err.message,true)}}}
+  document.querySelectorAll("[data-cap],[data-crj]").forEach(b=>b.onclick=()=>{try{approveCashTx(+(b.dataset.cap||b.dataset.crj),!!b.dataset.crj);renderCashTx();toast(b.dataset.cap?"Approved":"Rejected")}catch(err){toast(err.message,true)}});
+  $("ctList").onclick=e=>{const tr=e.target.closest("tr[data-id]");if(!tr)return;const x=(DB.cashtx||[]).find(y=>y.id===+tr.dataset.id);if(!x)return;
+    if(e.target.closest("[data-cvp]")){const p=printSize();openModal(`<div class="rprev">${cashTxVoucher(x,p)}</div><div class="row"><button class="btn primary" id="cvPrint" type="button" style="flex:1">Print</button><button class="btn" data-close type="button">Close</button></div>`);$("cvPrint").onclick=()=>printReceipt(cashTxVoucher(x,p),p)}
+    const del=e.target.closest("[data-cdel]");if(del){if(!del.classList.contains("armed")){del.classList.add("armed");del.textContent="Tap again";setTimeout(()=>{if(del.isConnected){del.classList.remove("armed");del.textContent="Remove"}},3000);return}
+      try{deleteCashTx(x.id);renderCashTx();toast("Entry removed — kept in the change log")}catch(err){toast(err.message,true)}}}}
+
 /* ============================================================ supplier payments (paid later against credit purchases) */
 const SPAY_MODES=["Cash","Bank"];
 const supKey=n=>clean1(n).toLowerCase();
@@ -1218,6 +1293,7 @@ function cashEntries(){const E=[];const add=(date,book,dir,what,amount)=>{if(amo
   (DB.receipts||[]).forEach(r=>add(r.date,r.mode==="Cash"?"cash":"bank","in",`Received from ${r.name}${r.mode!=="Cash"?" ("+r.mode+")":""}`,r.amount));
   (DB.purchases||[]).filter(x=>x.status==="active"&&x.paymode!=="Credit").forEach(x=>add(x.date,x.paymode==="Cash"?"cash":"bank","out",`Purchase ${x.inv_no||""} · ${x.supplier}`,x.total));
   (DB.spay||[]).forEach(x=>add(x.date,x.mode==="Cash"?"cash":"bank","out",`Paid to ${x.supplier}${x.note?" · "+x.note:""}`,x.amount));
+  (DB.cashtx||[]).filter(x=>x.status==="ok").forEach(x=>cashTxMoves(x).forEach(([bk,dir])=>add(x.date,bk,dir,`${x.head}${x.note?" · "+x.note:""}`,x.amount)));
   return E.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0)}
 function cashBook(d1,d2){const E=cashEntries(),O=DB.cash_open||{},out={};
   ["cash","bank"].forEach(k=>{const o=O[k];let open=null;if(o&&o.date<=d1){open=r2(o.amount+E.filter(e=>e.book===k&&e.date>=o.date&&e.date<d1).reduce((a,e)=>a+(e.dir==="in"?e.amount:-e.amount),0))}
@@ -1227,7 +1303,8 @@ function cashBook(d1,d2){const E=cashEntries(),O=DB.cash_open||{},out={};
     const tin=r2(rows.filter(e=>e.dir==="in").reduce((a,e)=>a+e.amount,0)),tout=r2(rows.filter(e=>e.dir==="out").reduce((a,e)=>a+e.amount,0));
     out[k]={open,in:tin,out:tout,close:open===null?null:r2(open+tin-tout),days,rows,setOn:o?o.date:""}});return out}
 function cashBookHTML(d1,d2){const C=cashBook(d1,d2),money=v=>v===null?"—":fmt(v),NM={cash:"Cash",bank:"Bank (UPI, card, bank)"};
-  return `<div class="card" id="cashCard"><h3>Cash &amp; bank book <span class="pill">Owner only</span></h3>
+  const pendC=(DB.cashtx||[]).filter(x=>x.status==="pending"&&x.date>=d1&&x.date<=d2);
+  return `<div class="card" id="cashCard"><h3>Cash &amp; bank book <span class="pill">Owner only</span></h3>${pendC.length?`<p class="note"><b>${pendC.length} cash/bank entr${pendC.length>1?"ies":"y"} (₹${fmt(r2(pendC.reduce((a,x)=>a+x.amount,0)))}) waiting for your approval</b> — not included below until approved.</p>`:""}
     <div class="stats">${["cash","bank"].map(k=>`<div class="stat"><b>${C[k].close===null?`₹${fmt(r2(C[k].in-C[k].out))}`:`₹${fmt(C[k].close)}`}</b><span>${NM[k]} ${C[k].close===null?"— received less paid (set the opening balance to see the closing)":`closing (opening ₹${fmt(C[k].open)})`} · received ₹${fmt(C[k].in)} · paid ₹${fmt(C[k].out)}</span></div>`).join("")}</div>
     ${["cash","bank"].map(k=>`<h4 style="margin:12px 0 4px">${NM[k]} — day by day</h4><div class="tw"><table><thead><tr><th>Date</th><th class="r">Opening ₹</th><th class="r">Received ₹</th><th class="r">Paid ₹</th><th class="r">Closing ₹</th></tr></thead>
       <tbody>${C[k].days.map(d=>`<tr><td class="num">${dmy(d.date)}</td><td class="r num">${money(d.open)}</td><td class="r num">${fmt(d.in)}</td><td class="r num">${fmt(d.out)}</td><td class="r num"><b>${money(d.close)}</b></td></tr>`).join("")||`<tr><td colspan="5" class="note">No ${k} entries in this period</td></tr>`}</tbody></table></div>`).join("")}
@@ -1284,7 +1361,11 @@ function accountingData(month){const A=accNames(),d1=month+"-01",d2=monthEnd(mon
       items:p.items.map(i=>({name:i.name,hsn:i.hsn||"",unit:i.unit,qty:i.qty,gst:ITC?num(i.gst):"",value:ITC?r2(i.taxable):i.amount,rate:i.rate,cgst:ITC?i.cgst:0,sgst:ITC?i.sgst:0,igst:ITC?i.igst:0})),
       cgst:ITC?p.cgst:0,sgst:ITC?p.sgst:0,igst:ITC?p.igst:0,round_off:p.round_off,total:p.total,payment:p.paymode,narration:`Supplier bill ${p.inv_no||"-"} from ${p.supplier}${p.note?" · "+p.note:""}`})});
   const payments=(DB.spay||[]).filter(x=>x.date>=d1&&x.date<=d2).sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id).map(x=>({type:"Payment",no:`PV-${x.id}`,date:x.date,party:partyOf(x.supplier,"Supplier"),supplier:partyOf(x.supplier,"Supplier"),cr:x.mode==="Cash"?A.cash:A.bank,amount:x.amount,ref:x.ref||"",narration:`Paid to ${x.supplier} (${x.mode})${x.ref?" against "+x.ref:""}${x.note?" · "+x.note:""}`}));
-  return{shop:T.shop_name,gstin:T.gstin||"",gst_type:T.gst_type||"none",month,from:d1,to:d2,generated:stamp(),version:APP_VERSION,ledgers:A,sales,receipts,purchases,payments,cancelled:skipped,
+  const cashtx=(DB.cashtx||[]).filter(x=>x.status==="ok"&&x.date>=d1&&x.date<=d2).sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id).map(x=>{const bk=x.book==="cash"?A.cash:A.bank,L=CT_LEDGER[x.head]||[x.head,"Indirect Expenses"];
+    return x.type==="out"?{type:"Payment",no:`CV-${x.id}`,date:x.date,dr:L[0],cr:bk,group:L[1],amount:x.amount,head:x.head,narration:`${x.head}${x.note?" · "+x.note:""} (CB entry CV-${x.id})`}:
+      x.type==="in"?{type:"Receipt",no:`CV-${x.id}`,date:x.date,dr:bk,cr:L[0],group:L[1],amount:x.amount,head:x.head,narration:`${x.head}${x.note?" · "+x.note:""} (CB entry CV-${x.id})`}:
+      {type:"Contra",no:`CV-${x.id}`,date:x.date,dr:x.type==="dep"?A.bank:A.cash,cr:x.type==="dep"?A.cash:A.bank,amount:x.amount,head:x.head,narration:`${x.head}${x.note?" · "+x.note:""} (CB entry CV-${x.id})`}});
+  return{shop:T.shop_name,gstin:T.gstin||"",gst_type:T.gst_type||"none",month,from:d1,to:d2,generated:stamp(),version:APP_VERSION,ledgers:A,sales,receipts,purchases,payments,cashtx,cancelled:skipped,
     ...(has("stock")&&(DB.stockadj||[]).length?{closing_stock:r2(stockRows(d2).reduce((a,r)=>a+r.value,0)),stock_method:stkVal()}:{})}}
 /* ---------- Tally XML */
 const xe=v=>String(v??"").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g," ").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -1304,6 +1385,7 @@ function tallyVouchers(D){const A=D.ledgers;let out="";
     if(Math.abs(v.round_off)>0.004)out+=led(A.round,v.round_off<0,v.round_off);out+=tail});
   D.receipts.forEach(v=>{out+=head(v,"Receipt","Accounting Voucher View")+led(v.party,false,v.amount,(v.refs||[]).map(r=>bill(r.name,r.amount).replace("New Ref","Agst Ref")).join(""))+led(v.dr,true,v.amount)+tail});
   (D.payments||[]).forEach(v=>{out+=head({...v,ref:""},"Payment","Accounting Voucher View")+led(v.party,true,v.amount,v.ref?bill(v.ref,-v.amount).replace("New Ref","Agst Ref"):"")+led(v.cr,false,v.amount)+tail});
+  (D.cashtx||[]).forEach(v=>{out+=head({...v,ref:""},v.type,"Accounting Voucher View")+led(v.dr,true,v.amount)+led(v.cr,false,v.amount)+tail});
   D.purchases.forEach(v=>{const isParty=v.party!==A.cash&&v.party!==A.bank;
     out+=head(v,"Purchase","Invoice Voucher View")+led(v.party,false,v.total,`     <ISPARTYLEDGER>Yes</ISPARTYLEDGER>\n${isParty?bill(v.ref||v.no,v.total):""}`)+v.items.map(i=>inv(i,true,A.purchase)).join("");
     if(v.cgst)out+=led(A.inC,true,v.cgst);if(v.sgst)out+=led(A.inS,true,v.sgst);if(v.igst)out+=led(A.inI,true,v.igst);
@@ -1319,6 +1401,7 @@ function tallyMasters(D){const A=D.ledgers,L=[];const seen=new Set();
   const gstinOf={};D.sales.forEach(v=>{if(v.gstin)gstinOf[v.party]=v.gstin});D.purchases.forEach(v=>{if(v.gstin)gstinOf[v.supplier]=v.gstin});
   D.sales.concat(D.receipts).forEach(v=>{if(v.party!==A.cash&&v.party!==A.bank)ledger(v.party,"Sundry Debtors",gstinOf[v.party]?`    <PARTYGSTIN>${xe(gstinOf[v.party])}</PARTYGSTIN>\n`:"")});
   (D.payments||[]).forEach(v=>ledger(v.supplier,"Sundry Creditors"));
+  (D.cashtx||[]).forEach(v=>{if(v.type==="Payment")ledger(v.dr,v.group);else if(v.type==="Receipt")ledger(v.cr,v.group)});
   D.purchases.forEach(v=>ledger(v.supplier,"Sundry Creditors",v.gstin?`    <PARTYGSTIN>${xe(v.gstin)}</PARTYGSTIN>\n`:""));
   const units=new Set(),items=new Map();D.sales.concat(D.purchases).forEach(v=>v.items.forEach(i=>{units.add(i.unit);if(!items.has(i.name))items.set(i.name,i)}));
   const U=[...units].map(u=>`   <TALLYMESSAGE xmlns:UDF="TallyUDF">\n   <UNIT NAME="${xe(u)}">\n    <NAME>${xe(u)}</NAME>\n    <ISSIMPLEUNIT>Yes</ISSIMPLEUNIT>\n    <DECIMALPLACES>${["Kgs","Ltr","Mtr","Gms"].includes(u)?3:0}</DECIMALPLACES>\n   </UNIT>\n   </TALLYMESSAGE>\n`);
@@ -1357,7 +1440,8 @@ function accountingXlsx(D){const dmyS=d=>d.split("-").reverse().join("-");
   const sum=[["Item","Value"],["Shop",D.shop],["GSTIN",D.gstin],["Month",D.month],["Made on",D.generated],["Sales bills",D.sales.length],["Sales total",r2(D.sales.reduce((a,v)=>a+v.total,0))],
     ["Receipts",D.receipts.length],["Receipts total",r2(D.receipts.reduce((a,v)=>a+v.amount,0))],["Purchase bills",D.purchases.length],["Purchases total",r2(D.purchases.reduce((a,v)=>a+v.total,0))],["Payments to suppliers",(D.payments||[]).length],["Payments total",r2((D.payments||[]).reduce((a,v)=>a+v.amount,0))],
     ["Cancelled bills (not exported)",D.cancelled.map(c=>c.no).join(", ")||"none"],...(D.closing_stock!==undefined?[["Closing stock value ("+D.stock_method+")",D.closing_stock]]:[]),...Object.entries(D.ledgers).map(([k,v])=>["Ledger: "+ACC_LABEL[k],v])];
-  return makeXlsx([{name:"Sales items",rows:sales},{name:"Purchase items",rows:pur},{name:"Receipts",rows:rec},{name:"Payments",rows:pays},{name:"Summary",rows:sum}])}
+  const ct=[["Date","Voucher Type","Voucher No","Debit (Dr)","Credit (Cr)","Amount","Head","Narration"]];(D.cashtx||[]).forEach(v=>ct.push([dmyS(v.date),v.type,v.no,v.dr,v.cr,v.amount,v.head,v.narration]));
+  return makeXlsx([{name:"Sales items",rows:sales},{name:"Purchase items",rows:pur},{name:"Receipts",rows:rec},{name:"Payments",rows:pays},{name:"Cash & bank entries",rows:ct},{name:"Summary",rows:sum}])}
 function exportCardHTML(){const m=LS.get("expMonth",null)||(()=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);return isoDate(d).slice(0,7)})();const A=accNames();
   return `<div class="card noprint" id="expCard"><h3>Accounting export — Tally / Busy / Vyapar</h3>
     <p class="note">Sales, receipts and purchases of a month with every item, ready to import into your accounting software.</p>
@@ -1390,6 +1474,7 @@ function saveFile(filename,data){
 /* which printer the owner chose: thermal roll (80/58 mm) or normal printer (A4/A5) */
 const PAGES={A4:"A4",A5:"A5",A5L:"A5 landscape"};
 const isPage=p=>!!PAGES[p];
+const showTime=()=>S().print_time!==false;   /* owner can hide the bill time on the bill (screen, print, PDF); CB still records it */
 const thermalClass=p=>isPage(p)?"":({N:" tsN",X:" tsX",XX:" tsXX"}[S().thermal_size]||"");
 /* a strip to check the printer uses the whole paper width: the black box should touch both edges of the paper */
 function widthCheckHTML(paper){const mm=paper==="58"?48:72,marks=[];for(let i=0;i<=mm;i+=paper==="58"?8:12)marks.push(i);
@@ -1429,7 +1514,7 @@ function receiptHTML(b,dup,paper){
   ${CMP?`<div class="c sm">Composition taxable person, not eligible to collect tax on supplies</div>`:""}<div class="hr"></div>
   ${b.status!=="active"?`<div class="void">CANCELLED</div>`:""}${b.rev&&b.status==="active"?`<div class="tag">REVISED BILL (Rev ${b.rev})</div>`:""}${dup?`<div class="c">— Duplicate copy —</div>`:""}
   <div class="lr"><span>Bill No: <b>${label(b)}</b></span><span>${dmy(b.bill_date)}</span></div>
-  <div>Time: ${hm(b.created_at)}</div>
+  ${showTime()?`<div>Time: ${hm(b.created_at)}</div>`:""}
   <div>${REG?"Buyer":"Customer"}: ${esc(b.customer||"CASH")}${b.phone?" "+esc(b.phone):""}</div>
   ${REG&&T.buyer_gstin?`<div>Buyer GSTIN: <b>${esc(T.buyer_gstin)}</b></div>`:""}${REG&&T.buyer_addr?`<div>Address: ${esc(T.buyer_addr)}</div>`:""}
   ${REG?`<div>Place of supply: ${esc(stateName(T.pos))}</div>`:""}
@@ -1467,7 +1552,7 @@ function invoiceHTML(b,dup,size){const T=b.tax||{type:"none"},REG=T.type==="regu
   const buyer=`<b>${esc(b.customer||"CASH")}</b>${b.phone?` · ${esc(b.phone)}`:""}`;
   if(W)return `<div class="inv A5L">
   ${topLine()?`<div class="topl">${esc(topLine())}</div>`:""}<div class="top"><div class="shop"><span class="nm">${esc(S().shop_name)}</span>${heads.length?`<div>${heads.map(esc).join(" · ")}</div>`:""}${gstLine}${cmpLine}</div>
-    <div class="meta"><div class="ttl">${title}</div><div>Bill No: <b>${label(b)}</b></div><div>${dmy(b.bill_date)} ${hm(b.created_at)}</div>${tags}</div></div>
+    <div class="meta"><div class="ttl">${title}</div><div>Bill No: <b>${label(b)}</b></div><div>${dmy(b.bill_date)}${showTime()?" "+hm(b.created_at):""}</div>${tags}</div></div>
   <div class="party"><div><span class="lb">${REG?"Buyer":"Customer"}</span>${buyer}${REG&&T.buyer_gstin?`<span>GSTIN: <b>${esc(T.buyer_gstin)}</b></span>`:""}${REG&&T.buyer_addr?`<span>${esc(T.buyer_addr)}</span>`:""}</div>
     ${REG?`<div><span class="lb">Place of supply</span>${esc(stateName(T.pos))}<span class="lb">Reverse charge</span>No</div>`:""}</div>
   ${table}
@@ -1478,7 +1563,7 @@ function invoiceHTML(b,dup,size){const T=b.tax||{type:"none"},REG=T.type==="regu
   <div class="ttl">${title}</div>
   <div class="top"><div class="shop"><span class="nm">${esc(S().shop_name)}</span>${heads.map(l=>`<div>${esc(l)}</div>`).join("")}
       ${gstLine}${cmpLine}</div>
-    <div class="meta"><div>Bill No: <b>${label(b)}</b></div><div>Date: ${dmy(b.bill_date)}</div><div>Time: ${hm(b.created_at)}</div>
+    <div class="meta"><div>Bill No: <b>${label(b)}</b></div><div>Date: ${dmy(b.bill_date)}</div>${showTime()?`<div>Time: ${hm(b.created_at)}</div>`:""}
       ${tags}</div></div>
   <div class="party"><div><div class="lb">${REG?"Buyer":"Customer"}</div>${buyer}
       ${REG&&T.buyer_addr?`<div>${esc(T.buyer_addr)}</div>`:""}${REG&&T.buyer_gstin?`<div>GSTIN: <b>${esc(T.buyer_gstin)}</b></div>`:""}</div>
@@ -1572,8 +1657,8 @@ async function pdfOut(b,dup,size,share){let blob;try{toast("Making PDF…");blob
   saveFile(name,blob)}
 
 /* ============================================================ shell & routing */
-const VIEWS={billing:"Billing",bills:"Bills",credit:"Credit",purchases:"Purchases",stock:"Stock",report:"Reports",log:"Change log",products:"Products",users:"Users",settings:"Settings"};
-const VIEW_SHORT={billing:"Bill",bills:"Bills",credit:"Credit",purchases:"Buy",stock:"Stock",report:"Report",log:"Log",products:"Items",users:"Users",settings:"Settings"};
+const VIEWS={billing:"Billing",bills:"Bills",credit:"Credit",purchases:"Purchases",cashbank:"Cash & bank",stock:"Stock",report:"Reports",log:"Change log",products:"Products",users:"Users",settings:"Settings"};
+const VIEW_SHORT={billing:"Bill",bills:"Bills",credit:"Credit",purchases:"Buy",cashbank:"Cash",stock:"Stock",report:"Report",log:"Log",products:"Items",users:"Users",settings:"Settings"};
 const ICO=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const VIEW_ICON={
   billing:ICO('<path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6"/>'),
@@ -1583,6 +1668,7 @@ const VIEW_ICON={
   credit:ICO('<rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10h19M16 14.5h2"/><path d="M6 6V4.5h12V6"/>'),
   purchases:ICO('<path d="M3 4h2.5l2.2 10.5h10.6L20.5 7H7"/><circle cx="9.5" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/><path d="M12 8.5v4M10 10.5h4"/>'),
   products:ICO('<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>'),
+  cashbank:ICO('<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>'),
   stock:ICO('<rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/><rect x="8" y="3" width="8" height="8" rx="1"/>'),
   users:ICO('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>'),
   settings:ICO('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>')};
@@ -1597,6 +1683,7 @@ function viewOK(v){if(ADMIN_ONLY.has(v)&&!isOwner())return false;
   if(v==="log")return has("audit")||DB.corrections.length>0||(DB.activity||[]).length>0;   /* old records always stay visible */
   if(v==="credit")return has("credit")||creditBook().length>0;
   if(v==="stock")return has("stock")&&can("stockview");
+  if(v==="cashbank")return isOwner()?(has("cashentry")||(DB.cashtx||[]).length>0):has("cashentry")&&can("cashentry");
   if(v==="purchases")return can("purview")&&(has("purchases")||(DB.purchases||[]).length>0);
   return true}
 function go(v){if(!viewOK(v))v="billing";if(v==="bills"&&view!=="bills"&&isOwner()&&!billsModeSet)billsMode=DB.bills.some(b=>!isVerified(b))?"verify":"date";view=v;if(me)LS.set("view_"+me.id,v);render();window.scrollTo(0,0)}
@@ -1629,7 +1716,7 @@ function render(){try{auditSettings()}catch(e){}
   $("logout").onclick=()=>{if(Bill.lines.length&&!Bill.editing)Bill.persist();me=null;LS.del("session");LS.set("loggedOut",true);render()};
   if($("bkNow"))$("bkNow").onclick=()=>sendBackup();
   if($("toEmpty"))$("toEmpty").onclick=()=>{go("settings");setTimeout(()=>{const el=$("resetCard");if(el)el.scrollIntoView({behavior:"smooth"})},50)};
-  ({billing:renderBilling,bills:renderBills,credit:renderCredit,purchases:renderPurchases,stock:renderStock,report:renderReport,log:renderLog,products:renderProducts,users:renderUsers,settings:renderSettings})[view]();
+  ({billing:renderBilling,bills:renderBills,credit:renderCredit,purchases:renderPurchases,cashbank:renderCashTx,stock:renderStock,report:renderReport,log:renderLog,products:renderProducts,users:renderUsers,settings:renderSettings})[view]();
 }
 
 /* ---------- login / setup */
@@ -1656,7 +1743,7 @@ const b64uDec=t=>{t=t.replace(/-/g,"+").replace(/_/g,"/");t+="===".slice((t.leng
    No code: everything works for a 30-day trial, then the Basic plan. Switching a feature off never deletes data. */
 const FEATURES={digital:"UPI, card & bank payments",credit:"Credit sales & dues",split:"Split payment",voice:"Voice billing",pages:"A4 / A5 printing",pdf:"PDF bills (share / save)",
   audit:"Owner verification & change log",multiuser:"More than one Admin login",upload:"Excel product upload / download",
-  gst_comp:"GST – Composition (bill of supply)",gst_reg:"GST – Regular (tax invoice, HSN, GSTR-1)",purchases:"Purchases",export:"Accounting export (Tally / Busy / Vyapar)",ranking:"Product ranking report (owner)",cashbook:"Cash & bank book (owner)",stock:"Stock maintenance (premium)"};
+  gst_comp:"GST – Composition (bill of supply)",gst_reg:"GST – Regular (tax invoice, HSN, GSTR-1)",purchases:"Purchases",export:"Accounting export (Tally / Busy / Vyapar)",ranking:"Product ranking report (owner)",cashbook:"Cash & bank book (owner)",stock:"Stock maintenance (premium)",cashentry:"Cash & bank entries — expenses, withdrawals, income, capital (premium)"};
 const BASIC_FEATURES=[];const TRIAL_DAYS=30;
 const OLD_CODE_FEATURES=["digital","audit"];   /* codes made before version 3.3 always included these */
 const V2_CODE_FEATURES=["ranking","cashbook"];   /* codes made before 4.3 had the ranking report and cash book included */
@@ -1688,11 +1775,11 @@ const STOP_MSG="Billing is stopped: the plan has ended. Old bills, dues, reports
 /* what an Admin may do. The owner can switch any of these off per Admin (plan feature "rights"); the owner can always do everything */
 const RIGHTS={rate:"Change the rate on a bill",discount:"Give discount / change round off",correct:"Correct or cancel saved bills",bills:"See old bills",
   receive:"Receive credit payments",products:"Add, change or delete products",purview:"See purchases and supplier payments",purchases:"Enter or change purchases",pay:"Pay suppliers",
-  reports:"See reports",export:"Accounting export",stockview:"See stock",stockcount:"Enter stock count (owner approves)",stockadj:"Adjust stock, opening stock, approve counts",settings:"Change settings",users:"Create logins / change other passwords",backup:"Download or send backups"};
+  reports:"See reports",export:"Accounting export",stockview:"See stock",stockcount:"Enter stock count (owner approves)",stockadj:"Adjust stock, opening stock, approve counts",cashentry:"Enter cash & bank expenses and income",settings:"Change settings",users:"Create logins / change other passwords",backup:"Download or send backups"};
 const RIGHT_OFF_BY_DEFAULT={stockadj:true};   /* the owner must tick these to give them */
 const rightOn=(u,k)=>{const v=u&&u.rights?u.rights[k]:undefined;return v===true||(v!==false&&!RIGHT_OFF_BY_DEFAULT[k])};
 /* a right is offered only when the shop's plan has that feature — the owner can only give what the shop has bought */
-const RIGHT_NEEDS={receive:"credit",purview:"purchases",purchases:"purchases",pay:"purchases",export:"export",stockview:"stock",stockcount:"stock",stockadj:"stock"};
+const RIGHT_NEEDS={receive:"credit",purview:"purchases",purchases:"purchases",pay:"purchases",export:"export",stockview:"stock",stockcount:"stock",stockadj:"stock",cashentry:"cashentry"};
 const rightsOffered=()=>Object.keys(RIGHTS).filter(k=>!RIGHT_NEEDS[k]||has(RIGHT_NEEDS[k]));
 const can=r=>{if(!me)return false;if(me.role==="admin")return true;const u=DB.users.find(x=>x.id===me.id)||me;if(!rightOn(u,r))return false;
   if(r==="purchases"||r==="pay")return can("purview");if(r==="stockcount"||r==="stockadj")return can("stockview");return true};
@@ -2777,6 +2864,8 @@ function renderSettings(){const s=S(),O=isOwner();setTimeout(()=>{if(!O&&!can("s
       ${printBox(s,O)}
       <div class="field" id="sRateF"><label for="sRate">Rate on printed bill</label><select id="sRate"><option value="yes" ${s.print_rate!==false?"selected":""}>Show rate (qty × rate = amount)</option><option value="no" ${s.print_rate===false?"selected":""}>Don't print rate (qty and amount only)</option></select></div>
       <p class="note">The bill on screen always shows the rate. This only changes what is printed, the PDF and the WhatsApp text.</p>
+      <div class="field"><label for="sTime">Time on the bill</label><select id="sTime"><option value="yes" ${s.print_time!==false?"selected":""}>Show the time the bill was made</option><option value="no" ${s.print_time===false?"selected":""}>Hide the time (screen, print and PDF)</option></select></div>
+      <p class="note">CB still records the time of every bill for the owner's checks (Bills, Reports, Change log).</p>
       <div><button class="btn primary">Save settings</button></div></form>
     <div class="stack">${planCard(O)}${gstCard(s,O)}<div class="card"><h2>Users &amp; logins</h2><p class="note">Create logins, change passwords or switch a login off.</p><div><button class="btn" type="button" id="toUsers">Open Users</button></div></div>
       <div class="card"><h2>About this app</h2><p class="note"><b>CB version ${APP_VERSION}</b>. Works without internet; all data stays on this device. When asking for help, mention this version number and send a screenshot.</p></div>
@@ -2794,7 +2883,7 @@ function renderSettings(){const s=S(),O=isOwner();setTimeout(()=>{if(!O&&!can("s
         <div><button class="btn danger" id="resetAll">Clear everything</button></div></div>`:""}</div></div>`;
   $("sForm").onsubmit=e=>{e.preventDefault();
     if(O&&document.querySelector("[data-pm]")){const t=[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm);if(!t.some(m=>PAID.includes(m))){toast("Tick at least one of Cash, UPI, Card or Bank.",true);return}}
-    Object.assign(DB.settings,O?{...(UP($("sTop").value)||S().top_line!==undefined?{top_line:UP($("sTop").value).slice(0,60)}:{}),shop_name:UP($("sShop").value)||"MY RETAIL STORE",header_lines:[0,1,2,3].map(i=>UP($("sH"+i).value).slice(0,64))}:{},{...($("sRate")&&($("sRate").value==="no"||S().print_rate!==undefined)?{print_rate:$("sRate").value!=="no"}:{}),footer:UP($("sFooter").value).slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value,thermal_size:$("sTs").value}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value,...($("sOrd")&&$("sOrd").value!==(S().prod_order||"sold")?(LS.del("order_"+me.id),{}):{}),...($("sOrd")&&($("sOrd").value!=="sold"||S().prod_order!==undefined)?{prod_order:$("sOrd").value}:{}),...($("sVal")&&($("sVal").value!=="last"||S().stock_value!==undefined)?{stock_value:$("sVal").value}:{}),owner_lock:num($("sLock").value)}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").split("\n").map(l=>UP(l)).join("\n").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
+    Object.assign(DB.settings,O?{...(UP($("sTop").value)||S().top_line!==undefined?{top_line:UP($("sTop").value).slice(0,60)}:{}),shop_name:UP($("sShop").value)||"MY RETAIL STORE",header_lines:[0,1,2,3].map(i=>UP($("sH"+i).value).slice(0,64))}:{},{...($("sRate")&&($("sRate").value==="no"||S().print_rate!==undefined)?{print_rate:$("sRate").value!=="no"}:{}),...($("sTime")&&($("sTime").value==="no"||S().print_time!==undefined)?{print_time:$("sTime").value!=="no"}:{}),footer:UP($("sFooter").value).slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value,thermal_size:$("sTs").value}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value,...($("sOrd")&&$("sOrd").value!==(S().prod_order||"sold")?(LS.del("order_"+me.id),{}):{}),...($("sOrd")&&($("sOrd").value!=="sold"||S().prod_order!==undefined)?{prod_order:$("sOrd").value}:{}),...($("sVal")&&($("sVal").value!=="last"||S().stock_value!==undefined)?{stock_value:$("sVal").value}:{}),owner_lock:num($("sLock").value)}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").split("\n").map(l=>UP(l)).join("\n").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
   $("toUsers").onclick=()=>go("users");bindPlanCard();
   if($("sPrint")){const sy=()=>{const n=$("sPrint").value==="normal";$("sPaperF").hidden=n;$("sTsF").hidden=n;$("sPageF").hidden=!n};$("sPrint").onchange=sy;sy();
     if($("sWidth"))$("sWidth").onclick=()=>{const p=$("sPrint").value==="normal"?"80":$("sPaper").value;const keep=DB.settings.thermal_size;DB.settings.thermal_size=$("sTs").value;const h=widthCheckHTML(p);DB.settings.thermal_size=keep;printReceipt(h,p)};
