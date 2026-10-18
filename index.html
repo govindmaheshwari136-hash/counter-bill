@@ -584,7 +584,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="4.8";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="4.10";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -1262,7 +1262,7 @@ function rankData(R){const tot=R.items.reduce((a,i)=>a+i.amount,0)||1,sold=R.ite
   const rows=sold.map((i,k)=>{cum+=i.amount;return{rank:k+1,name:i.name,dept:i.dept,unit:i.unit,qty:i.qty,bills:i.bills.size,amount:r2(i.amount),share:i.amount/tot*100,cum:cum/tot*100}});
   const soldNames=new Set(sold.map(i=>i.name)),none=activeProducts().filter(p=>!soldNames.has(p.name)).sort((a,b)=>a.name.localeCompare(b.name));return{rows,none}}
 function rankHTML(R){const{rows,none}=rankData(R),top=rows[0]?rows[0].amount:1;
-  return `<div class="card" id="rankCard"><h3>Product ranking <span class="pill">Owner only</span> <span class="note">highest sale to lowest · ${dmy(R.d1)}${R.d2!==R.d1?" to "+dmy(R.d2):""}</span></h3>
+  return `<div class="card" id="rankCard"><h3>Product ranking <span class="note">highest sale to lowest · ${dmy(R.d1)}${R.d2!==R.d1?" to "+dmy(R.d2):""}</span></h3>
     <div class="tw"><table><thead><tr><th class="r">#</th><th>Product</th><th class="r">Qty</th><th class="r">Bills</th><th class="r">Amount ₹</th><th class="r">Share</th><th class="barcell"></th></tr></thead>
     <tbody>${rows.map(r=>`<tr><td class="r num">${r.rank}</td><td>${esc(r.name)}<div class="note">${esc(r.dept)}</div></td><td class="r num">${fq(r.qty)} ${esc(r.unit)}</td><td class="r num">${r.bills}</td><td class="r num"><b>${fmt(r.amount)}</b></td><td class="r num">${r.share.toFixed(1)}%</td><td class="barcell"><div class="bar" style="width:${(r.amount/top*100).toFixed(1)}%"></div></td></tr>`).join("")||`<tr><td colspan="7" class="note">No sales in this period</td></tr>`}</tbody></table></div>
     ${rows.length>=5?`<p class="note">Top ${Math.min(rows.findIndex(r=>r.cum>=80)+1||rows.length,rows.length)} of ${rows.length} products make 80% of these sales.</p>`:""}
@@ -1304,7 +1304,7 @@ function cashBook(d1,d2){const E=cashEntries(),O=DB.cash_open||{},out={};
     out[k]={open,in:tin,out:tout,close:open===null?null:r2(open+tin-tout),days,rows,setOn:o?o.date:""}});return out}
 function cashBookHTML(d1,d2){const C=cashBook(d1,d2),money=v=>v===null?"—":fmt(v),NM={cash:"Cash",bank:"Bank (UPI, card, bank)"};
   const pendC=(DB.cashtx||[]).filter(x=>x.status==="pending"&&x.date>=d1&&x.date<=d2);
-  return `<div class="card" id="cashCard"><h3>Cash &amp; bank book <span class="pill">Owner only</span></h3>${pendC.length?`<p class="note"><b>${pendC.length} cash/bank entr${pendC.length>1?"ies":"y"} (₹${fmt(r2(pendC.reduce((a,x)=>a+x.amount,0)))}) waiting for your approval</b> — not included below until approved.</p>`:""}
+  return `<div class="card" id="cashCard"><h3>Cash &amp; bank book</h3>${pendC.length?`<p class="note"><b>${pendC.length} cash/bank entr${pendC.length>1?"ies":"y"} (₹${fmt(r2(pendC.reduce((a,x)=>a+x.amount,0)))}) waiting for your approval</b> — not included below until approved.</p>`:""}
     <div class="stats">${["cash","bank"].map(k=>`<div class="stat"><b>${C[k].close===null?`₹${fmt(r2(C[k].in-C[k].out))}`:`₹${fmt(C[k].close)}`}</b><span>${NM[k]} ${C[k].close===null?"— received less paid (set the opening balance to see the closing)":`closing (opening ₹${fmt(C[k].open)})`} · received ₹${fmt(C[k].in)} · paid ₹${fmt(C[k].out)}</span></div>`).join("")}</div>
     ${["cash","bank"].map(k=>`<h4 style="margin:12px 0 4px">${NM[k]} — day by day</h4><div class="tw"><table><thead><tr><th>Date</th><th class="r">Opening ₹</th><th class="r">Received ₹</th><th class="r">Paid ₹</th><th class="r">Closing ₹</th></tr></thead>
       <tbody>${C[k].days.map(d=>`<tr><td class="num">${dmy(d.date)}</td><td class="r num">${money(d.open)}</td><td class="r num">${fmt(d.in)}</td><td class="r num">${fmt(d.out)}</td><td class="r num"><b>${money(d.close)}</b></td></tr>`).join("")||`<tr><td colspan="5" class="note">No ${k} entries in this period</td></tr>`}</tbody></table></div>`).join("")}
@@ -1679,7 +1679,7 @@ const deptColor=d=>`hsl(${deptHue(d)} 62% 42%)`;
 const ADMIN_ONLY=new Set(["log"]);  /* only the Owner sees the correction log */
 let view="billing";   /* the app always opens on Billing */
 function viewOK(v){if(ADMIN_ONLY.has(v)&&!isOwner())return false;
-  if(v==="bills"&&!can("bills"))return false;if(v==="report"&&!can("reports"))return false;
+  if(v==="bills"&&!can("bills"))return false;if(v==="report"&&!Object.keys(REP_KINDS).some(repAllowed))return false;
   if(v==="log")return has("audit")||DB.corrections.length>0||(DB.activity||[]).length>0;   /* old records always stay visible */
   if(v==="credit")return has("credit")||creditBook().length>0;
   if(v==="stock")return has("stock")&&can("stockview");
@@ -1699,7 +1699,7 @@ function render(){try{auditSettings()}catch(e){}
   const needBackup=!DB.demo&&DB.bills.length>0&&(sentAge===null?(firstAge>=Math.min(3,backupDays())||bkAge===null||bkAge>=3):sentAge>=backupDays());
   app.innerHTML=`${DB.demo?`<div class="demo"><div class="wrap">Sample data for trying out. ${isOwner()?`When you're ready to use it for real: <button class="btn sm" id="toEmpty" style="margin-left:4px">Start with my own data</button>`:""}</div></div>`:""}
   ${(()=>{const P=planInfo();if(DB.demo)return "";
-    if(P.locked)return `<div class="warnbar"><div class="wrap"><span><b>Billing stopped</b> — ${P.state==="cancelled"?"plan code cancelled":"plan ended on "+dmy(P.ends)}. Old bills, dues, reports and backups are safe. ${isOwner()?"Enter a new plan code in Settings → Plan &amp; support.":"Ask the owner."}</span></div></div>`;
+    if(P.locked)return `<div class="warnbar"><div class="wrap"><span><b>Billing stopped</b> — ${P.stopped?"service stopped by your support person":P.state==="cancelled"?"plan code cancelled":"plan ended on "+dmy(P.ends)}. Old bills, dues, reports and backups are safe. ${isOwner()?"Enter a new plan code in Settings → Plan &amp; support.":"Ask the owner."}</span></div></div>`;
     if(P.stop_on)return `<div class="warnbar"><div class="wrap"><span><b>${P.state==="cancelled"?"Plan code cancelled":"Plan ended on "+dmy(P.ends)}</b> — only cash bills now, and <b>billing stops on ${dmy(P.stop_on)}</b>. ${isOwner()?"Pay your support person and enter the new plan code.":"Tell the owner."}</span></div></div>`;
     const low={basic:"<b>Trial over</b> — Basic plan",expired:`<b>Plan ended on ${dmy(P.ends)}</b> — Basic plan`,cancelled:"<b>Plan code cancelled by your support person</b> — Basic plan"}[P.state];
     if(low)return `<div class="warnbar"><div class="wrap"><span>${low}: only cash bills can be made. All old bills, dues, reports and backups are safe and can be seen. ${isOwner()?"Ask your support person for a plan code (Settings → Plan &amp; support).":"Ask the owner."}</span></div></div>`;
@@ -1755,9 +1755,12 @@ function readPlanCode(code){try{const m=String(code||"").trim().match(/CBP1\.([A
 /* the date used for plans never goes backwards: setting the phone's clock back doesn't bring an ended plan back */
 function planToday(){const t=today();const m=DB.seen_date&&DB.seen_date>t?DB.seen_date:t;
   if(!DB.demo&&DB.seen_date!==m){DB.seen_date=m;save()}return m}
+/* a random ID for this device. Kept outside the shop data, so it is NOT copied by a backup: a restored backup on another phone shows a new device ID. */
+function deviceId(){let d=LS.get("device_id",null);if(!d||!/^[A-Z0-9]{8}$/.test(d)){const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";d="";for(let i=0;i<8;i++)d+=A[Math.floor(Math.random()*A.length)];LS.set("device_id",d)}return d}
+const deviceLabel=()=>deviceId().slice(0,4)+"-"+deviceId().slice(4);
 const codeId=raw=>String(raw||"").split(".")[2]?String(raw).split(".")[2].slice(0,16):"";
 const addDays=(d,n)=>isoDate(new Date(new Date(d+"T00:00").getTime()+n*864e5+12*36e5));
-function planInfo(){const T=planToday(),key=(DB.plan_code||"")+"|"+DB.shop_id+"|"+DB.trial_start+"|"+T+"|"+!!DB.demo+"|"+(DB.revoked||[]).join(",")+"|"+JSON.stringify(DB.revoked_on||{});if(planCache.key===key)return planCache.val;
+function planInfo(){const T=planToday(),key=(DB.plan_code||"")+"|"+DB.shop_id+"|"+DB.trial_start+"|"+T+"|"+!!DB.demo+"|"+(DB.revoked||[]).join(",")+"|"+JSON.stringify(DB.revoked_on||{})+"|"+(DB.stop_codes||[]).join(",")+"|"+(DB.stop_shops||[]).join(",");if(planCache.key===key)return planCache.val;
   let v;const pl=readPlanCode(DB.plan_code);
   if(DB.demo)v={state:"demo",name:"Sample data — all features",features:new Set(Object.keys(FEATURES))};
   else if(pl&&pl.s===DB.shop_id){const base={name:pl.n||"Custom",till:pl.t||"",ends:pl.e||"",issued:pl.i||"",client:pl.c||""};
@@ -1768,6 +1771,7 @@ function planInfo(){const T=planToday(),key=(DB.plan_code||"")+"|"+DB.shop_id+"|
     else v={...base,state:"active",left:pl.e?Math.round((new Date(pl.e)-new Date(T))/864e5):null,features:new Set(pl.f.filter(f=>FEATURES[f]).concat(BASIC_FEATURES,pl.v>=2?[]:OLD_CODE_FEATURES,pl.v>=3?[]:V2_CODE_FEATURES))}}
   else{const used=Math.floor((new Date(T)-new Date(DB.trial_start||T))/864e5),left=TRIAL_DAYS-used;
     v=left>0?{state:"trial",name:`Free trial — ${left} day${left>1?"s":""} left`,left,features:new Set(Object.keys(FEATURES))}:{state:"basic",name:"Basic — cash bills only",features:new Set(BASIC_FEATURES)}}
+  if(!DB.demo){const pl2=readPlanCode(DB.plan_code);if((DB.stop_shops||[]).includes(DB.shop_id)||(pl2&&(DB.stop_codes||[]).includes(codeId(pl2.raw))))v={...v,state:v.state==="trial"||v.state==="basic"?v.state:"cancelled",name:"Service stopped",features:new Set(BASIC_FEATURES),locked:true,stopped:true,stop_on:null}}
   planCache={key,val:v};return v}
 const has=f=>planInfo().features.has(f);
 const billingStopped=()=>!!planInfo().locked;
@@ -1775,11 +1779,12 @@ const STOP_MSG="Billing is stopped: the plan has ended. Old bills, dues, reports
 /* what an Admin may do. The owner can switch any of these off per Admin (plan feature "rights"); the owner can always do everything */
 const RIGHTS={rate:"Change the rate on a bill",discount:"Give discount / change round off",correct:"Correct or cancel saved bills",bills:"See old bills",
   receive:"Receive credit payments",products:"Add, change or delete products",purview:"See purchases and supplier payments",purchases:"Enter or change purchases",pay:"Pay suppliers",
-  reports:"See reports",export:"Accounting export",stockview:"See stock",stockcount:"Enter stock count (owner approves)",stockadj:"Adjust stock, opening stock, approve counts",cashentry:"Enter cash & bank expenses and income",settings:"Change settings",users:"Create logins / change other passwords",backup:"Download or send backups"};
-const RIGHT_OFF_BY_DEFAULT={stockadj:true};   /* the owner must tick these to give them */
-const rightOn=(u,k)=>{const v=u&&u.rights?u.rights[k]:undefined;return v===true||(v!==false&&!RIGHT_OFF_BY_DEFAULT[k])};
+  rep_sales:"Report: Sales (day end)",rep_rank:"Report: Product ranking",rep_stock:"Report: Stock summary",rep_pur:"Report: Purchases",rep_cash:"Report: Cash & bank book",export:"Accounting export",stockview:"See stock",stockcount:"Enter stock count (owner approves)",stockadj:"Adjust stock, opening stock, approve counts",cashentry:"Enter cash & bank expenses and income",settings:"Change settings",users:"Create logins / change other passwords",backup:"Download or send backups"};
+const RIGHT_OFF_BY_DEFAULT={stockadj:true,rep_rank:true,rep_cash:true};   /* ranking and cash book were owner-only before: the owner must tick them */   /* the owner must tick these to give them */
+const rightOn=(u,k)=>{const v=u&&u.rights?u.rights[k]:undefined;if(v===undefined&&(/^rep_/.test(k)||k==="export")&&u&&u.rights&&u.rights.reports===false)return false;   /* old "See reports" switched off = every report off */
+  return v===true||(v!==false&&!RIGHT_OFF_BY_DEFAULT[k])};
 /* a right is offered only when the shop's plan has that feature — the owner can only give what the shop has bought */
-const RIGHT_NEEDS={receive:"credit",purview:"purchases",purchases:"purchases",pay:"purchases",export:"export",stockview:"stock",stockcount:"stock",stockadj:"stock",cashentry:"cashentry"};
+const RIGHT_NEEDS={receive:"credit",purview:"purchases",purchases:"purchases",pay:"purchases",export:"export",stockview:"stock",stockcount:"stock",stockadj:"stock",cashentry:"cashentry",rep_rank:"ranking",rep_stock:"stock",rep_pur:"purchases",rep_cash:"cashbook"};
 const rightsOffered=()=>Object.keys(RIGHTS).filter(k=>!RIGHT_NEEDS[k]||has(RIGHT_NEEDS[k]));
 const can=r=>{if(!me)return false;if(me.role==="admin")return true;const u=DB.users.find(x=>x.id===me.id)||me;if(!rightOn(u,r))return false;
   if(r==="purchases"||r==="pay")return can("purview");if(r==="stockcount"||r==="stockadj")return can("stockview");return true};
@@ -1790,10 +1795,14 @@ function fetchRevoked(){try{if(!DB||DB.demo||!navigator.onLine||!/^https?:/.test
       /* the server's date is the true date: fixes a phone clock that was set ahead by mistake, and catches one set back */
       const sd=new Date(r.headers.get("Date")||"");if(!isNaN(sd)&&sd.getFullYear()>2024){const d=isoDate(sd);if(DB.seen_date!==d){DB.seen_date=d;planCache.key=null;save()}}
       return r.status===404?{codes:[]}:r.ok?r.json().catch(()=>null):null}).then(j=>{if(!j||!Array.isArray(j.codes))return;
-    const list=j.codes.filter(x=>typeof x==="string"&&/^[A-Za-z0-9_-]{12,32}$/.test(x)).slice(0,5000);if(JSON.stringify(list)===JSON.stringify(DB.revoked||[]))return;
-    const was=planInfo().state;DB.revoked=list;DB.revoked_on=DB.revoked_on||{};list.forEach(id=>{if(!DB.revoked_on[id])DB.revoked_on[id]=planToday()});Object.keys(DB.revoked_on).forEach(id=>{if(!list.includes(id))delete DB.revoked_on[id]});
+    const ok_=a=>(Array.isArray(a)?a:[]).filter(x=>typeof x==="string"&&/^[A-Za-z0-9_-]{8,32}$/.test(x)).slice(0,5000);
+    const list=ok_(j.codes),stopC=ok_(j.stop),stopS=ok_(j.shops);
+    if(JSON.stringify([list,stopC,stopS])===JSON.stringify([DB.revoked||[],DB.stop_codes||[],DB.stop_shops||[]]))return;
+    const was=planInfo().state,wasStop=!!planInfo().stopped;DB.revoked=list;DB.stop_codes=stopC;DB.stop_shops=stopS;DB.revoked_on=DB.revoked_on||{};list.forEach(id=>{if(!DB.revoked_on[id])DB.revoked_on[id]=planToday()});Object.keys(DB.revoked_on).forEach(id=>{if(!list.includes(id))delete DB.revoked_on[id]});
     planCache.key=null;save();const now=planInfo().state;
-    if(was!==now){act("plan",now==="cancelled"?"Plan code cancelled by the support person":"Plan code back in force",{changes:[["Plan",was,now]]},"Support");if(!Bill.lines.length)render()}}).catch(()=>{})}catch(e){}}
+    const nowStop=!!planInfo().stopped;
+    if(nowStop!==wasStop){act("plan",nowStop?"Service stopped by the support person — billing stopped":"Service restarted by the support person",{changes:[["Service",wasStop?"stopped":"on",nowStop?"stopped":"on"]]},"Support");render()}
+    else if(was!==now){act("plan",now==="cancelled"?"Plan code cancelled by the support person":"Plan code back in force",{changes:[["Plan",was,now]]},"Support");if(!Bill.lines.length)render()}}).catch(()=>{})}catch(e){}}
 /* Usage check-in: the support person's Google Sheet address. Set once here (CHECKIN_URL) or carried inside the plan code. */
 const CHECKIN_URL="";
 const checkinURL=()=>{const pl=readPlanCode(DB&&DB.plan_code);return (pl&&pl.u)||CHECKIN_URL};
@@ -1802,7 +1811,7 @@ function checkin(force){try{const url=checkinURL();if(!url||!/^https:\/\//.test(
     const P=planInfo(),act=DB.bills.filter(b=>b.status==="active");
     const data={shop_id:shopIdLabel(DB.shop_id),shop:S().shop_name,version:APP_VERSION,plan:P.name,plan_state:P.state,support_till:P.till||"",gst:S().gst_type||"none",
       bills_today:act.filter(b=>b.bill_date===today()).length,bills_total:act.length,last_bill:act.length?act[act.length-1].bill_date:"",products:DB.products.filter(p=>p.active).length,
-      purchases:(DB.purchases||[]).length,users:DB.users.filter(u=>u.active).length,sent:stamp()};
+      purchases:(DB.purchases||[]).length,users:DB.users.filter(u=>u.active).length,sent:stamp(),device:deviceLabel(),code:DB.plan_code?codeId(DB.plan_code):"",trial_start:DB.trial_start||""};
     fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)}).then(()=>LS.set("checkin_day",today())).catch(()=>{})}catch(e){}}
 function resetRequest(){let r=DB.reset_req;
   if(!r||Date.now()-new Date(r.at).getTime()>7*864e5){const a=new Uint8Array(16);crypto.getRandomValues(a);r=DB.reset_req={code:[...a].map(x=>RESET_ABC[x&31]).join(""),at:stamp()};flush()}
@@ -1887,9 +1896,9 @@ function prodRank(){soldCounts();const key=soldCache.key+"|"+DB.seq+"|"+DB.produ
 function sortProducts(list){if(prodOrder()==="group")return list;const rank=prodRank(),r=p=>rank.has(p.id)?rank.get(p.id):1e9;return list.slice().sort((a,b)=>r(a)-r(b))}
 
 function renderBilling(){if(billingStopped()){const P=planInfo();$("view").innerHTML=`<div class="card" style="max-width:640px;margin:20px auto;text-align:center"><h2>Billing is stopped</h2>
-    <p>${P.state==="cancelled"?"The plan code was cancelled by your support person.":`The plan ended on <b>${dmy(P.ends)}</b>.`} New bills can't be made until a new plan code is entered.</p>
+    <p>${P.stopped?"The service was stopped by your support person.":P.state==="cancelled"?"The plan code was cancelled by your support person.":`The plan ended on <b>${dmy(P.ends)}</b>.`} New bills can't be made until a new plan code is entered.</p>
     <p class="note">Nothing is deleted. Old bills, credit dues, reports and backups can still be seen and sent.</p>
-    <div class="row" style="justify-content:center">${isOwner()?`<button class="btn primary" type="button" onclick="go('settings')">Enter plan code</button>`:`<span class="note">Ask the owner to renew the plan.</span>`}${can("bills")?`<button class="btn" type="button" onclick="go('bills')">Old bills</button>`:""}${can("reports")?`<button class="btn" type="button" onclick="go('report')">Reports</button>`:""}</div></div>`;return}
+    <div class="row" style="justify-content:center">${isOwner()?`<button class="btn primary" type="button" onclick="go('settings')">Enter plan code</button>`:`<span class="note">Ask the owner to renew the plan.</span>`}${can("bills")?`<button class="btn" type="button" onclick="go('bills')">Old bills</button>`:""}${viewOK("report")?`<button class="btn" type="button" onclick="go('report')">Reports</button>`:""}</div></div>`;return}
   const v=$("view");
   v.innerHTML=`<div class="switch" role="group" aria-label="View"><button id="vBill" aria-pressed="true">Bill <span id="vBillCount"></span></button><button id="vCat" aria-pressed="false">Products</button></div>
   <div class="billing" id="billing" data-view="bill">
@@ -2220,7 +2229,7 @@ function updateBadge(){const btn=document.querySelector('[data-go="bills"]');if(
 /* ============================================================ day end report */
 let repFrom=today(),repTo=today();
 const REP_KINDS={sales:"Sales report",rank:"Product ranking",stock:"Stock summary",purchases:"Purchase report",cash:"Cash & bank book",export:"Accounting export"};
-const repAllowed=k=>k==="sales"||(k==="rank"&&isOwner()&&has("ranking"))||(k==="stock"&&has("stock")&&can("stockview"))||(k==="purchases"&&can("purview")&&(has("purchases")||(DB.purchases||[]).length>0||(DB.spay||[]).length>0))||(k==="cash"&&isOwner()&&has("cashbook"))||(k==="export"&&has("export")&&can("export"));
+const repAllowed=k=>(k==="sales"&&can("rep_sales"))||(k==="rank"&&has("ranking")&&can("rep_rank"))||(k==="stock"&&has("stock")&&can("stockview")&&can("rep_stock"))||(k==="purchases"&&can("purview")&&can("rep_pur")&&(has("purchases")||(DB.purchases||[]).length>0||(DB.spay||[]).length>0))||(k==="cash"&&has("cashbook")&&can("rep_cash"))||(k==="export"&&has("export")&&can("export"));
 const repShow=()=>{const v=LS.get("repShow",null)||{sales:true,purchases:true,cash:true,export:true};const o={};Object.keys(REP_KINDS).forEach(k=>o[k]=repAllowed(k)&&(k==="stock"?v[k]===true:v[k]!==false));return o};   /* stock summary is a long list: shown only when ticked */
 const REG_ROWS=300;
 function renderReport(){
@@ -2933,13 +2942,14 @@ function planCard(O){const P=planInfo(),till=P.till?dmy(P.till):"";
   return `<div class="card" id="planCard"><h2>Plan &amp; support</h2>
     <p class="note"><b>${esc(P.name)}</b> <span class="pill ${P.state==="active"?"green":["basic","expired","cancelled"].includes(P.state)?"red":""}">${st}</span>${P.ends?`<br>Features ${P.state==="expired"?"ended":"valid till"} <b>${dmy(P.ends)}</b>`:""}${P.stop!==null&&P.stop!==undefined?`<br>When the plan ends: ${P.stop?`cash bills for ${P.stop} day${P.stop>1?"s":""}, then `:""}<b>billing stops</b>${P.stop_on&&!P.locked?` on ${dmy(P.stop_on)}`:""}`:""}${till?`<br>Support &amp; updates valid till <b>${till}</b>`:""}</p>
     <div class="field"><label>Shop ID</label><div class="row" style="align-items:center"><span class="reqcode" style="font-size:18px;padding:6px 10px;flex:1">${shopIdLabel(DB.shop_id)}</span><button type="button" class="btn sm" id="plSend">Send to support</button></div></div>
+    <p class="note">This device: <b class="num">${deviceLabel()}</b></p>
     <div class="featlist">${Object.entries(FEATURES).map(([k,v])=>`<div class="${P.features.has(k)?"on":"off"}">${P.features.has(k)?"✓":"—"} ${esc(v)}</div>`).join("")}
       <div class="on">✓ Cash billing, thermal printing, products, backup — and all old bills, dues, reports and logs, always</div></div>
     <div class="field"><label for="plCode">Plan code from your support person</label><textarea id="plCode" rows="2" spellcheck="false" autocapitalize="off" placeholder="Paste the plan code here"></textarea></div>
     <div><button type="button" class="btn primary" id="plGo">Activate plan code</button></div>
     ${checkinURL()?`<p class="note">When this phone is online, CB tells your support person that it is in use: shop ID, shop name, version, plan and how many bills were made. No customer names, amounts or bill details are sent.</p>`:""}</div>`}
 function bindPlanCard(){if(!$("plGo"))return;
-  const msg=`CB plan request\nShop: ${S().shop_name}\nShop ID: ${shopIdLabel(DB.shop_id)}\nVersion: ${APP_VERSION}`;
+  const msg=`CB plan request\nShop: ${S().shop_name}\nShop ID: ${shopIdLabel(DB.shop_id)}\nDevice: ${deviceLabel()}\nVersion: ${APP_VERSION}`;
   $("plSend").onclick=async()=>{if(navigator.share){try{await navigator.share({text:msg});return}catch(e){if(e&&e.name==="AbortError")return}}
     try{await navigator.clipboard.writeText(msg);toast("Copied — paste it in WhatsApp to your support person")}catch(e){location.href="https://wa.me/?text="+encodeURIComponent(msg)}};
   $("plGo").onclick=()=>{const pl=readPlanCode($("plCode").value);
