@@ -584,7 +584,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="4.10";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="4.12";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -714,6 +714,10 @@ function capsDB(){const U1=v=>typeof v==="string"?v.toUpperCase():v,ML=v=>typeof
 function upgradeDB(){if(!DB)return;if(!Array.isArray(DB.activity))DB.activity=[];if(!DB.caps&&DB.settings&&Array.isArray(DB.products)&&Array.isArray(DB.bills)&&Array.isArray(DB.users)){DB.settings.header_lines=DB.settings.header_lines||[];capsDB()}DB.receipts=DB.receipts||[];const s=DB.settings=DB.settings||{};
   if(s.owner_lock===undefined)s.owner_lock=30;
   if(!DB.shop_id)DB.shop_id=newShopId();
+  /* 4.9: "See reports" became one tick per report. An Admin whose old "See reports" was off gets each report off — written out,
+     so the owner can now tick the ones he wants (the old switch is removed). */
+  (DB.users||[]).forEach(u=>{if(u.rights&&u.rights.reports!==undefined){const off=u.rights.reports===false;delete u.rights.reports;
+    if(off)["rep_sales","rep_stock","rep_pur","export"].forEach(k=>{if(u.rights[k]===undefined)u.rights[k]=false})}});
   if(!DB.trial_start)DB.trial_start=today();if(!Array.isArray(DB.purchases))DB.purchases=[];
   (DB.bills||[]).forEach(b=>{if(b.tax!==undefined&&(typeof b.tax!=="object"||b.tax===null)){
     b.tax=(b.taxable>0||b.cgst>0||b.igst>0)?{type:"regular",incl:true,seller_gstin:s.gstin||"",seller_state:String(s.gstin||"").slice(0,2),buyer_gstin:"",buyer_addr:"",pos:String(s.gstin||"").slice(0,2),inter:b.igst>0}:{type:"none"}}});
@@ -1771,7 +1775,7 @@ function planInfo(){const T=planToday(),key=(DB.plan_code||"")+"|"+DB.shop_id+"|
     else v={...base,state:"active",left:pl.e?Math.round((new Date(pl.e)-new Date(T))/864e5):null,features:new Set(pl.f.filter(f=>FEATURES[f]).concat(BASIC_FEATURES,pl.v>=2?[]:OLD_CODE_FEATURES,pl.v>=3?[]:V2_CODE_FEATURES))}}
   else{const used=Math.floor((new Date(T)-new Date(DB.trial_start||T))/864e5),left=TRIAL_DAYS-used;
     v=left>0?{state:"trial",name:`Free trial — ${left} day${left>1?"s":""} left`,left,features:new Set(Object.keys(FEATURES))}:{state:"basic",name:"Basic — cash bills only",features:new Set(BASIC_FEATURES)}}
-  if(!DB.demo){const pl2=readPlanCode(DB.plan_code);if((DB.stop_shops||[]).includes(DB.shop_id)||(pl2&&(DB.stop_codes||[]).includes(codeId(pl2.raw))))v={...v,state:v.state==="trial"||v.state==="basic"?v.state:"cancelled",name:"Service stopped",features:new Set(BASIC_FEATURES),locked:true,stopped:true,stop_on:null}}
+  if(!DB.demo){const pl2=readPlanCode(DB.plan_code);if((DB.stop_shops||[]).includes(DB.shop_id)||(pl2&&(DB.stop_codes||[]).includes(codeId(pl2.raw))))v={...v,state:["trial","basic","expired"].includes(v.state)?v.state:"cancelled",name:"Service stopped",features:new Set(BASIC_FEATURES),locked:true,stopped:true,stop_on:null}}
   planCache={key,val:v};return v}
 const has=f=>planInfo().features.has(f);
 const billingStopped=()=>!!planInfo().locked;
@@ -2829,7 +2833,7 @@ function renderUsers(){
       <div class="row"><button class="btn primary" id="rtSave" type="button" style="flex:1">Save</button><button class="btn" id="rtAll" type="button">Tick all</button><button class="btn" data-close type="button">Cancel</button></div>`);
       $("rtAll").onclick=()=>document.querySelectorAll("[data-r]").forEach(c=>c.checked=true);
       $("rtSave").onclick=()=>{const before={...(u.rights||{})},r={};document.querySelectorAll("[data-r]").forEach(c=>{const k=c.dataset.r;if(RIGHT_OFF_BY_DEFAULT[k]){if(c.checked)r[k]=true}else if(!c.checked)r[k]=false});
-        Object.keys(before).forEach(k=>{if(!rightsOffered().includes(k))r[k]=before[k]});   /* keep choices for features not in the plan now */
+        Object.keys(before).forEach(k=>{if(!rightsOffered().includes(k)&&k!=="reports")r[k]=before[k]});   /* keep choices for features not in the plan now */
         const was={rights:before},now={rights:r};const ch=Object.keys(RIGHTS).filter(k=>rightOn(was,k)!==rightOn(now,k)).map(k=>[RIGHTS[k],rightOn(was,k)?"On":"Off",rightOn(now,k)?"On":"Off"]);
         if(Object.keys(r).length)u.rights=r;else delete u.rights;if(ch.length)act("user",`Rights changed for ${u.name} (${u.username})`,{ref:u.id,changes:ch});save();closeModal();renderUsers();toast(ch.length?`Saved — ${limited(u)} right${limited(u)===1?"":"s"} switched off for ${u.name}`:"No change")};return}
     if(!canEdit(u)&&u.id!==me.id){toast("Only the owner can change an owner login.",true);return}
