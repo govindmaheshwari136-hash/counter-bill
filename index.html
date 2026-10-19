@@ -154,6 +154,16 @@ tr.flash-row td{animation:rowflash 1.2s ease-out}
 .say{display:flex;gap:6px}
 .say input{flex:1;min-width:0;border:1px dashed var(--line);border-radius:7px;padding:7px 9px;background:var(--bg);font-size:12.5px}
 .depts{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.depts.dv-lines{flex-wrap:wrap;overflow:visible}
+.dept.deptall{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:700}
+#deptPanel{position:fixed;inset:0;z-index:60;background:var(--paper);display:flex;flex-direction:column}
+#deptPanel .dph{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+#deptPanel .dph b{font-size:18px}
+#deptPanel .dpg{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;padding:12px 12px 24px;overflow:auto}
+#deptPanel .dpt{border:1px solid var(--line);border-left:6px solid var(--dc,var(--line));border-radius:12px;padding:12px 4px;text-align:center;background:var(--bg);color:var(--ink);font-weight:700;font-size:12px;letter-spacing:-.01em;min-height:72px;display:flex;flex-direction:column;justify-content:center;gap:4px;overflow-wrap:break-word;hyphens:auto}
+#deptPanel .dpt span{color:var(--muted);font-weight:500;font-size:12px}
+#deptPanel .dpt[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+#deptPanel .dpt[aria-pressed="true"] span{color:var(--paper);opacity:.75}
 .dept{flex:none;border:1px solid var(--line);background:transparent;border-radius:99px;padding:6px 12px;font-weight:600;font-size:12.5px;white-space:nowrap}
 .dept span{color:var(--muted);font-weight:500;margin-left:4px}
 .dept[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
@@ -584,7 +594,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="4.16";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="4.17";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -916,7 +926,7 @@ function purDiff(a,b){const ch=diffs(purSnap(a),purSnap(b),Object.fromEntries(Ob
   B.forEach((n,k)=>{if(!A.has(k))ch.push(["Item added","",`${n.name} ${+n.qty} ${n.unit} @ ${fmt(n.rate)}`])});return ch}
 /* settings: every change made anywhere is written to the log when CB saves */
 const SET_LABEL={top_line:"Line above firm name",shop_name:"Shop name",header_lines:"Heading lines",footer:"Bill footer",bill_note:"Bill note",paymodes:"Payment options",paper:"Thermal roll width",voice_lang:"Voice language",
-  staff_correct:"Who can correct bills",numbering:"Bill numbers",backup_days:"Backup reminder",prod_order:"Order of products",stock_value:"Stock value method",owner_lock:"Owner lock (minutes)",gst_type:"GST type",gstin:"GSTIN",gst_incl:"Rates include GST",gst_default:"Default GST rate",
+  staff_correct:"Who can correct bills",numbering:"Bill numbers",backup_days:"Backup reminder",prod_order:"Order of products",dept_view:"Departments on the bill screen",stock_value:"Stock value method",owner_lock:"Owner lock (minutes)",gst_type:"GST type",gstin:"GSTIN",gst_incl:"Rates include GST",gst_default:"Default GST rate",
   print_mode:"Printer",print_rate:"Rate on printed bill",print_time:"Time on the bill",cash_verify:"Admin cash entries need owner approval",page:"Page size",thermal_size:"Thermal text size",acc:"Export ledger names"};
 const NUM_NAME={daily:"From 1 every day",fy:"Financial year (26-27/1)",fyn:"Financial year, number first (1/26-27)"};
 let setShadow={db:null,s:null};
@@ -1761,7 +1771,7 @@ function viewOK(v){if(ADMIN_ONLY.has(v)&&!isOwner())return false;
   if(v==="purchases")return can("purview")&&(has("purchases")||(DB.purchases||[]).length>0);
   return true}
 function go(v){if(!viewOK(v))v="billing";if(v==="bills"&&view!=="bills"&&isOwner()&&!billsModeSet)billsMode=DB.bills.some(b=>!isVerified(b))?"verify":"date";view=v;if(me)LS.set("view_"+me.id,v);render();window.scrollTo(0,0)}
-function render(){try{auditSettings()}catch(e){}
+function render(){closeDeptPanel();try{auditSettings()}catch(e){}
   const app=$("app");
   if(!DB.users.length){app.innerHTML=setupHTML();bindSetup();return}
   if(!me){app.innerHTML=loginHTML();bindLogin();return}
@@ -2057,7 +2067,27 @@ function showPrevDue(){const el=$("prevDue");if(!el)return;const e=dueForName($(
   if(due>0.004){el.hidden=false;el.innerHTML=`Previous due <b>₹${fmt(due)}</b> · ${e.bills.length} bill${e.bills.length>1?"s":""} <button type="button" class="linkbtn" id="seeDue">View</button>`;$("seeDue").onclick=()=>{creditOpen=e.key;go("credit")}}else el.hidden=true}
 function setLang(l){LS.set("voiceLang",l);document.querySelectorAll("[data-lang]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lang===l))}
 function renderDepts(){const ps=activeProducts();const counts={};ps.forEach(p=>counts[p.dept]=(counts[p.dept]||0)+1);const names=Object.keys(counts).sort();if(Bill.dept!=="All"&&!counts[Bill.dept])Bill.dept="All";
-  $("depts").innerHTML=[`<button class="dept ordbtn" type="button" data-ord title="Switch: most sold first / by group and name">⇅ ${ordLabel()}</button>`,`<button class="dept" data-d="All" aria-pressed="${Bill.dept==="All"}">All<span>${ps.length}</span></button>`].concat(names.map(d=>`<button class="dept" data-d="${esc(d)}" aria-pressed="${Bill.dept===d}" style="--dc:${deptColor(d)}"><i class="dot"></i>${esc(d)}<span>${counts[d]}</span></button>`)).join("")}
+  const dv=deptView(),box=$("depts");box.className="depts dv-"+dv;
+  const ord=`<button class="dept ordbtn" type="button" data-ord title="Switch: most sold first / by group and name">⇅ ${ordLabel()}</button>`,all=`<button class="dept" data-d="All" aria-pressed="${Bill.dept==="All"}">All<span>${ps.length}</span></button>`;
+  if(dv==="tiles"&&names.length>1){box.innerHTML=`<button class="dept deptall" type="button" data-alld aria-haspopup="dialog">▦ ${Bill.dept==="All"?"All departments":`${esc(Bill.dept)} · change`}</button>`+(Bill.dept!=="All"?all:"")+ord;return}
+  box.innerHTML=[ord,all].concat(names.map(d=>`<button class="dept" data-d="${esc(d)}" aria-pressed="${Bill.dept===d}" style="--dc:${deptColor(d)}"><i class="dot"></i>${esc(d)}<span>${counts[d]}</span></button>`)).join("")}
+/* how departments show on the bill screen (owner's choice in Settings): all on screen, a Departments button with tiles, or one line */
+const DEPT_VIEWS={auto:"Automatic — all on screen on tablets and laptops, a Departments button on phones",lines:"All departments on screen (several lines)",tiles:"Departments button → full screen of department tiles",swipe:"One line, swipe sideways"};
+const deptView=()=>{const v=DEPT_VIEWS[S().dept_view]?S().dept_view:"auto";return v==="auto"?(innerWidth<700?"tiles":"lines"):v};
+function openDeptPanel(){const ps=activeProducts(),counts={};ps.forEach(p=>counts[p.dept]=(counts[p.dept]||0)+1);const names=Object.keys(counts).sort();
+  closeDeptPanel();const P=document.createElement("div");P.id="deptPanel";P.setAttribute("role","dialog");P.setAttribute("aria-label","Departments");
+  P.innerHTML=`<div class="dph"><b>Departments</b><button class="btn sm" type="button" data-dpclose>Close</button></div><div class="dpg">
+    <button class="dpt" type="button" data-d="All" aria-pressed="${Bill.dept==="All"}">ALL PRODUCTS<span>${ps.length} item${ps.length===1?"":"s"}</span></button>
+    ${names.map(d=>`<button class="dpt" type="button" data-d="${esc(d)}" aria-pressed="${Bill.dept===d}" style="--dc:${deptColor(d)}">${esc(d)}<span>${counts[d]} item${counts[d]===1?"":"s"}</span></button>`).join("")}</div>`;
+  document.body.appendChild(P);try{history.pushState({deptPanel:1},"")}catch(e){}   /* the phone's Back button closes the panel */
+  P.onclick=e=>{if(e.target.closest("[data-dpclose]")){closeDeptPanel();return}const t=e.target.closest(".dpt");if(!t)return;pickDept(t.dataset.d);closeDeptPanel()};
+  const cur=P.querySelector('.dpt[aria-pressed="true"]');(cur||P.querySelector(".dpt")).focus()}
+function closeDeptPanel(fromBack){const P=$("deptPanel");if(!P)return;P.remove();if(!fromBack&&history.state&&history.state.deptPanel){try{history.back()}catch(e){}}}
+addEventListener("popstate",()=>{if($("deptPanel"))closeDeptPanel(true)});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("deptPanel"))closeDeptPanel()});
+/* a department was chosen: show its products, and bring them into view when the department list is long */
+function pickDept(d){Bill.dept=d;renderDepts();renderGrid();const g=$("grid");if(!g)return;const r=g.getBoundingClientRect();if(r.top>innerHeight*0.55||r.top<0)g.scrollIntoView({behavior:"smooth",block:"start"})}
+let deptW=innerWidth;addEventListener("resize",()=>{if(Math.abs(innerWidth-deptW)<60)return;deptW=innerWidth;if(view==="billing"&&$("depts")&&(S().dept_view||"auto")==="auto"){closeDeptPanel();renderDepts()}});
 document.addEventListener("click",e=>{const b=e.target.closest("[data-ord]");if(!b)return;toggleOrder();if(view==="billing"){renderDepts();renderGrid()}else if(view==="products")renderProducts();else if(view==="stock")renderStock()});
 /* refresh just one product tile (its ✓ or ×qty badge) instead of redrawing every tile */
 function updTile(pid){const t=document.querySelector(`#grid .tile[data-id="${pid}"]`);if(!t){return}
@@ -2194,7 +2224,7 @@ function bindBilling(){
     if(e.target.closest("[data-reset]")){L()[i].rate=L()[i].base;L()[i].edited=false;Bill.persist();renderLines()}});
   $("grid").onclick=e=>{const qa=e.target.closest("[data-quickadd]");if(qa){quickAdd(qa.dataset.quickadd);return}const t=e.target.closest(".tile");if(t)selectProduct(+t.dataset.id)};
   $("catInfo").onclick=e=>{const qa=e.target.closest("[data-quickadd]");if(qa)quickAdd($("search").value.trim());if(e.target.closest("[data-fixgroups]"))go("products")};
-  $("depts").onclick=e=>{const b=e.target.closest(".dept");if(!b)return;Bill.dept=b.dataset.d;renderDepts();renderGrid()};
+  $("depts").onclick=e=>{if(e.target.closest("[data-alld]")){openDeptPanel();return}const b=e.target.closest(".dept[data-d]");if(!b)return;pickDept(b.dataset.d)};
   $("search").oninput=renderGrid;$("search").onkeydown=e=>{if(e.key!=="Enter")return;const q=e.target.value.trim();if(!q)return;
     /* Enter adds only a sure match: a direct name/alias hit, or a very close spelling. Otherwise offer to add a new product. */
     const pool=activeProducts().filter(p=>Bill.dept==="All"||p.dept===Bill.dept),ql=q.toLowerCase();
@@ -2980,6 +3010,7 @@ function renderSettings(){const s=S(),O=isOwner();setTimeout(()=>{if(!O&&!can("s
       ${ALL_OPTIONS.some(m=>!modeInPlan(m))?`<p class="note">Greyed options are not part of this shop's plan: ${ALL_OPTIONS.filter(m=>!modeInPlan(m)).join(", ")}. Your ticks are kept and come back when the plan includes them.</p>`:""}
       <p class="note">Only ticked options appear on the bill and when receiving dues. <b>Bank</b> is for money paid straight into your bank (NEFT, IMPS, RTGS, cheque). <b>Split</b> lets one bill be paid in parts.</p>
       <div class="field"><label for="sOrd">Order of products (bill screen and product list)</label><select id="sOrd"><option value="sold" ${(S().prod_order||"sold")==="sold"?"selected":""}>Most sold first — all groups together</option><option value="soldgroup" ${S().prod_order==="soldgroup"?"selected":""}>Most sold first — inside each group</option><option value="group" ${S().prod_order==="group"?"selected":""}>By group, then name (A–Z)</option></select><span class="note">Shop default. Each login can switch its own view with the ⇅ button.</span></div>
+      <div class="field"><label for="sDv">Departments on the bill screen</label><select id="sDv">${Object.entries(DEPT_VIEWS).map(([k,v])=>`<option value="${k}" ${(DEPT_VIEWS[S().dept_view]?S().dept_view:"auto")===k?"selected":""}>${v}</option>`).join("")}</select><span class="note">Tap a department to see only its products.</span></div>
       <p class="note" style="margin-top:-4px">"Most sold" = billed most often in the last 90 days. Products never billed come last.</p>
       ${has("stock")?`<div class="field"><label for="sVal">Stock value method</label><select id="sVal"><option value="last" ${valMethod()==="last"?"selected":""}>Last purchase rate (recommended)</option><option value="avg" ${valMethod()==="avg"?"selected":""}>Weighted average cost</option></select></div>`:""}
       <div class="field"><label for="sNum">Bill numbers</label><select id="sNum"><option value="daily" ${(s.numbering||"daily")==="daily"?"selected":""}>Start from 1 every day (e.g. ${shortDate(today())}/1)</option><option value="fy" ${s.numbering==="fy"?"selected":""}>Continue through the financial year (e.g. ${fyOf(today())}/1)</option><option value="fyn" ${s.numbering==="fyn"?"selected":""}>Continue through the financial year, number first (e.g. 1/${fyOf(today())})</option></select></div>
@@ -3010,7 +3041,7 @@ function renderSettings(){const s=S(),O=isOwner();setTimeout(()=>{if(!O&&!can("s
         <div><button class="btn danger" id="resetAll">Clear everything</button></div></div>`:""}</div></div>`;
   $("sForm").onsubmit=e=>{e.preventDefault();
     if(O&&document.querySelector("[data-pm]")){const t=[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm);if(!t.some(m=>PAID.includes(m))){toast("Tick at least one of Cash, UPI, Card or Bank.",true);return}}
-    Object.assign(DB.settings,O?{...(UP($("sTop").value)||S().top_line!==undefined?{top_line:UP($("sTop").value).slice(0,60)}:{}),shop_name:UP($("sShop").value)||"MY RETAIL STORE",header_lines:[0,1,2,3].map(i=>UP($("sH"+i).value).slice(0,64))}:{},{...($("sRate")&&($("sRate").value==="no"||S().print_rate!==undefined)?{print_rate:$("sRate").value!=="no"}:{}),...($("sTime")&&($("sTime").value==="no"||S().print_time!==undefined)?{print_time:$("sTime").value!=="no"}:{}),footer:UP($("sFooter").value).slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value,thermal_size:$("sTs").value}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value,...($("sOrd")&&$("sOrd").value!==(S().prod_order||"sold")?(LS.del("order_"+me.id),{}):{}),...($("sOrd")&&($("sOrd").value!=="sold"||S().prod_order!==undefined)?{prod_order:$("sOrd").value}:{}),...($("sVal")&&($("sVal").value!=="last"||S().stock_value!==undefined)?{stock_value:$("sVal").value}:{}),owner_lock:num($("sLock").value)}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").split("\n").map(l=>UP(l)).join("\n").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
+    Object.assign(DB.settings,O?{...(UP($("sTop").value)||S().top_line!==undefined?{top_line:UP($("sTop").value).slice(0,60)}:{}),shop_name:UP($("sShop").value)||"MY RETAIL STORE",header_lines:[0,1,2,3].map(i=>UP($("sH"+i).value).slice(0,64))}:{},{...($("sRate")&&($("sRate").value==="no"||S().print_rate!==undefined)?{print_rate:$("sRate").value!=="no"}:{}),...($("sTime")&&($("sTime").value==="no"||S().print_time!==undefined)?{print_time:$("sTime").value!=="no"}:{}),footer:UP($("sFooter").value).slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value,thermal_size:$("sTs").value}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value,...($("sOrd")&&$("sOrd").value!==(S().prod_order||"sold")?(LS.del("order_"+me.id),{}):{}),...($("sOrd")&&($("sOrd").value!=="sold"||S().prod_order!==undefined)?{prod_order:$("sOrd").value}:{}),...($("sVal")&&($("sVal").value!=="last"||S().stock_value!==undefined)?{stock_value:$("sVal").value}:{}),...($("sDv")&&($("sDv").value!=="auto"||S().dept_view!==undefined)?{dept_view:$("sDv").value}:{}),owner_lock:num($("sLock").value)}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").split("\n").map(l=>UP(l)).join("\n").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
   $("toUsers").onclick=()=>go("users");bindPlanCard();
   if($("sPrint")){const sy=()=>{const n=$("sPrint").value==="normal";$("sPaperF").hidden=n;$("sTsF").hidden=n;$("sPageF").hidden=!n};$("sPrint").onchange=sy;sy();
     if($("sWidth"))$("sWidth").onclick=()=>{const p=$("sPrint").value==="normal"?"80":$("sPaper").value;const keep=DB.settings.thermal_size;DB.settings.thermal_size=$("sTs").value;const h=widthCheckHTML(p);DB.settings.thermal_size=keep;printReceipt(h,p)};
