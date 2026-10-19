@@ -584,7 +584,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="4.15";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="4.16";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -702,7 +702,7 @@ async function restoreFromFile(f){let d=null;try{d=JSON.parse((await f.text()).r
   /* a photo still on this phone is the right one only when it is the same shop's same purchase */
   for(const x of DB.purchases||[]){if(!x.photo||(photos&&photos[x.id]))continue;
     const o=sameShop&&(had.purchases||[]).find(y=>y.id===x.id);if(!(o&&o.photo&&o.supplier===x.supplier&&(o.inv_no||"")===(x.inv_no||"")))delete x.photo}
-  if(photos&&typeof photos==="object"&&idbOK){for(const[k,v]of Object.entries(photos)){if(/^\d+$/.test(k)&&typeof v==="string"&&v.startsWith("data:image/")){try{await IDB.set(photoKey(+k),v)}catch(e){}}}}
+  if(photos&&typeof photos==="object"&&idbOK){for(const[k,v]of Object.entries(photos)){if(/^\d+$/.test(k)&&typeof v==="string"&&(v.startsWith("data:image/")||v.startsWith("data:application/pdf"))){try{await IDB.set(photoKey(+k),v)}catch(e){}}}}
   act("data",`Backup restored from file ${String(f.name).slice(0,80)}`,{info:{"Backup has":`${d.bills.length} bills, ${d.products.filter(p=>p.active).length} products, ${d.users.length} logins`,"Last bill in backup":last?`${label(last)} on ${dmy(last.bill_date)}`:"none",
     ...(had?{"Replaced on this phone":`${had.bills.length} bills, ${had.products.filter(p=>p.active).length} products (a copy is kept on this phone)`}:{})}},who);
   flush();me=null;LS.del("session");Bill.reset();view="billing";render();toast("Backup restored. Log in with the login IDs and passwords from the backup.")}
@@ -1185,8 +1185,40 @@ function parseEInvoiceQR(t){t=String(t||"").trim();const parts=t.split(".");if(p
       return{kind:"einv",gstin:String(d.SellerGstin||"").toUpperCase(),buyer:String(d.BuyerGstin||"").toUpperCase(),inv_no:String(d.DocNo||"").slice(0,30),date:dt?`${dt[3]}-${dt[2]}-${dt[1]}`:"",total:num(d.TotInvVal),items:+d.ItemCnt||0,hsn:String(d.MainHsnCode||""),irn:String(d.Irn||"")}}}catch(e){}}
   const u=t.match(/^upi:\/\/pay\?(.*)$/i);if(u){const q=new URLSearchParams(u[1]);return{kind:"upi",name:UP(q.get("pn")||"").slice(0,80),vpa:q.get("pa")||""}}
   return{kind:"other"}}
-async function photoFromFile(file){const im=await loadImage(file);const qr=await readQR(im);const c=drawScaled(im,1400);return{data:c.toDataURL("image/jpeg",0.6),qr:qr?parseEInvoiceQR(qr):null}}
-function showPhoto(data,title){openModal(`<h2>${esc(title||"Bill photo")}</h2><div style="overflow:auto;max-height:70vh"><img src="${data}" alt="Bill photo" style="width:100%;height:auto;border-radius:8px"></div><div class="row"><button class="btn" data-close type="button" style="flex:1">Close</button></div>`)}
+async function photoFromFile(file){if(isPdfFile(file))return pdfFromFile(file);
+  const im=await loadImage(file);const qr=await readQR(im);const c=drawScaled(im,1400);return{data:c.toDataURL("image/jpeg",0.6),qr:qr?parseEInvoiceQR(qr):null}}
+const PDF_MAX_MB=5;
+const isPdfFile=f=>!!f&&(f.type==="application/pdf"||/\.pdf$/i.test(f.name||""));
+const isPdfData=d=>typeof d==="string"&&d.startsWith("data:application/pdf");
+const fileKB=d=>Math.max(1,Math.round((String(d).length-String(d).indexOf(",")-1)*0.75/1024));
+const dataBlob=d=>{const i=d.indexOf(","),bin=atob(d.slice(i+1)),a=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)a[k]=bin.charCodeAt(k);return new Blob([a],{type:d.slice(5,d.indexOf(";"))})};
+const readAsDataURL=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(f)});
+let pdfLib=null;
+async function loadPdfLib(){if(pdfLib)return pdfLib;const base=new URL(".",location.href).href;const m=await import(base+"cb-pdf.js");m.GlobalWorkerOptions.workerSrc=base+"cb-pdf-worker.js";pdfLib=m;return m}
+/* draw the first pages of a PDF as pictures */
+async function pdfPages(data,max,scale){const L=await loadPdfLib();const bytes=new Uint8Array(await dataBlob(data).arrayBuffer());
+  const doc=await L.getDocument({data:bytes,isEvalSupported:false}).promise,out=[];
+  for(let n=1;n<=Math.min(max,doc.numPages);n++){const pg=await doc.getPage(n),vp=pg.getViewport({scale:typeof scale==="function"?scale(pg.getViewport({scale:1})):scale}),c=document.createElement("canvas");c.width=Math.round(vp.width);c.height=Math.round(vp.height);
+    const x=c.getContext("2d",{willReadFrequently:true});x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);await pg.render({canvasContext:x,viewport:vp}).promise;out.push(c);c.text=await pg.getTextContent().then(t=>t.items.map(i=>i.str).join(" ")).catch(()=>"")}
+  try{doc.destroy()}catch(e){}return out}
+/* a PDF bill: keep the PDF itself; read the e-invoice QR from its pages, or at least the supplier's GSTIN from its text */
+async function pdfFromFile(file){if(file.size>PDF_MAX_MB*1048576)throw new Bad(`That PDF is bigger than ${PDF_MAX_MB} MB. Ask the supplier for a smaller PDF, or take a photo of the bill.`);
+  const data=await readAsDataURL(file);let qr=null,pages=null;
+  try{await loadPdfLib()}catch(e){return{data,qr:null,pdf:true,noReader:true}}
+  try{pages=await pdfPages(data,3,v=>Math.min(4,2200/Math.max(v.width,v.height)*1.4))}
+  catch(e){if(e&&e.name==="PasswordException")return{data,qr:null,pdf:true,locked:true};throw new Bad("That PDF couldn't be opened — it may be damaged. Ask the supplier to send it again, or take a photo of the bill.")}
+  for(const c of pages){const t=await readQR(c);if(t){qr=parseEInvoiceQR(t);if(qr.kind==="einv")break}}
+  if(!qr||qr.kind!=="einv"){const own=String(S().gstin||"").toUpperCase();const g=[...new Set((pages.map(c=>c.text).join(" ").toUpperCase().match(/\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b/g)||[]))].filter(x=>x!==own&&gstinCheck(x));
+    if(g.length&&(!qr||qr.kind==="other"))qr={kind:"gstin",gstin:g[0]}}
+  return{data,qr,pdf:true}}
+function showPhoto(data,title){const pdf=isPdfData(data);
+  openModal(`<h2>${esc(title||"Bill photo")}</h2><div style="overflow:auto;max-height:70vh" id="billView">${pdf?`<p class="note">Opening the PDF…</p>`:`<img src="${data}" alt="Bill photo" style="width:100%;height:auto;border-radius:8px">`}</div>
+    <div class="row">${pdf?`<button class="btn" type="button" id="billSave">Save / share PDF</button>`:""}<button class="btn" data-close type="button" style="flex:1">Close</button></div>`);
+  if(!pdf)return;
+  $("billSave").onclick=async()=>{const blob=dataBlob(data),name=`bill-${String(title||"bill").replace(/[^0-9A-Za-z]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"bill"}.pdf`;
+    const f=new File([blob],name,{type:"application/pdf"});if(navigator.canShare&&navigator.share){let ok=false;try{ok=navigator.canShare({files:[f]})}catch(e){}if(ok){try{await navigator.share({files:[f]});return}catch(e){if(e&&e.name==="AbortError")return}}}saveFile(name,blob)};
+  pdfPages(data,3,1.6).then(cs=>{const v=$("billView");if(!v)return;v.innerHTML="";cs.forEach(c=>{const im=document.createElement("img");im.src=c.toDataURL("image/jpeg",0.8);im.alt="Bill page";im.style.cssText="width:100%;height:auto;border-radius:8px;border:1px solid var(--line);margin-bottom:8px";v.appendChild(im)})})
+    .catch(()=>{const v=$("billView");if(v)v.innerHTML=`<p class="note">This phone can't show the PDF here. Tap <b>Save / share PDF</b> to open it in a PDF app.</p>`})}
 /* remove every bill photo kept on this device (Start fresh) */
 async function clearBillPhotos(){if(!idbOK)return;try{for(const k of await IDB.keys())if(/^billphoto_/.test(String(k)))await IDB.del(k)}catch(e){}}
 /* backups that leave the phone carry the bill photos too */
@@ -1788,7 +1820,7 @@ const FEATURES={digital:"UPI, card & bank payments",credit:"Credit sales & dues"
   gst_comp:"GST – Composition (bill of supply)",gst_reg:"GST – Regular (tax invoice, HSN, GSTR-1)",purchases:"Purchases",export:"Accounting export (Tally / Busy / Vyapar)",ranking:"Product ranking report (owner)",cashbook:"Cash & bank book (owner)",stock:"Stock maintenance (premium)",cashentry:"Cash & bank entries — expenses, withdrawals, income, capital (premium)"};
 /* ADD-ONS: switched on ONLY when the support person allots them in the plan code ("a" list).
    Never part of any plan or preset, never in the free trial, and never from an older code — even a "Full" one. */
-const ADDONS={billphoto:"Bill photo & e-invoice QR reading on purchases"};
+const ADDONS={billphoto:"Bill photo / PDF & e-invoice QR reading on purchases"};
 const BASIC_FEATURES=[];const TRIAL_DAYS=30;
 const OLD_CODE_FEATURES=["digital","audit"];   /* codes made before version 3.3 always included these */
 const V2_CODE_FEATURES=["ranking","cashbook"];   /* codes made before 4.3 had the ranking report and cash book included */
@@ -2544,8 +2576,8 @@ function renderPurEditor(){const P=purEdit==="new"?null:DB.purchases.find(x=>x.i
       <div class="field" id="puStateF"><label for="puState">Supplier's state</label><select id="puState" ${ro?"disabled":""}>${Object.keys(STATES).map(c=>`<option value="${c}" ${(D.state||sellerState()||"27")===c?"selected":""}>${esc(stateName(c))}</option>`).join("")}</select></div></div>
       <div class="field"><label>Paid by</label><div class="seg" id="puPay" role="group">${PUR_PAY.map(m=>`<button type="button" data-pm="${m}" aria-pressed="${D.paymode===m}" ${ro?"disabled":""}>${m==="Credit"?"Credit (pay later)":m}</button>`).join("")}</div></div>
       <p class="note" id="puKind"></p>
-      <div class="row" style="align-items:center">${ro||!has("billphoto")?"":`<label class="btn" for="puCam" style="cursor:pointer">📷 ${P&&P.photo?"Replace bill photo":"Photo of bill"}</label><input type="file" id="puCam" accept="image/*" capture="environment" hidden>`}
-        <span id="puThumb"></span></div><p class="note" id="puQR">${ro?"":!has("billphoto")?(isOwner()?"📷 Bill photo &amp; e-invoice QR reading is an add-on. Ask your support person if you want it.":""):"Take a photo of the supplier's bill. It is kept with this purchase. If the bill has a GST e-invoice QR code, CB fills the supplier GSTIN, invoice no., date and bill value from it."}</p></div>
+      <div class="row" style="align-items:center">${ro||!has("billphoto")?"":`<label class="btn" for="puCam" style="cursor:pointer">📷 ${P&&P.photo?"New photo of bill":"Photo of bill"}</label><input type="file" id="puCam" accept="image/*" capture="environment" hidden><label class="btn" for="puFile" style="cursor:pointer">📎 Upload bill PDF / image</label><input type="file" id="puFile" accept="application/pdf,.pdf,image/*" hidden>`}
+        <span id="puThumb"></span></div><p class="note" id="puQR">${ro?"":!has("billphoto")?(isOwner()?"📷 Bill photo &amp; e-invoice QR reading is an add-on. Ask your support person if you want it.":""):"Take a photo of the supplier's bill, or upload the bill PDF / image he sent (WhatsApp, e-mail, gallery). It is kept with this purchase. If the bill has a GST e-invoice QR code, CB fills the supplier GSTIN, invoice no., date and bill value from it."}</p></div>
     <div class="card"><h2>Items</h2>
       <div id="puCopy"></div>
       ${ro?"":`<div class="row"><div class="field grow"><label for="puAdd">Add item</label><input id="puAdd" placeholder="Type a few letters of the product" autocomplete="off" role="combobox" aria-controls="puSug" aria-expanded="false"><div id="puSug" class="psug" hidden></div></div>
@@ -2578,9 +2610,9 @@ function renderPurEditor(){const P=purEdit==="new"?null:DB.purchases.find(x=>x.i
     if($("puRound"))$("puRound").oninput=e=>{D.round=e.target.value;keep();const pos=e.target.selectionStart;tot();const r=$("puRound");if(r){r.focus();r.setSelectionRange(pos,pos)}}};
   drawLines();
   $("purBack").onclick=()=>{purEdit=null;purDraft=null;purPhoto=null;renderPurchases()};
-  const thumb=data=>{const t=$("puThumb");if(!t)return;t.innerHTML=data?`<img src="${data}" alt="Bill photo" style="height:56px;border-radius:6px;border:1px solid var(--line);cursor:pointer" id="puImg">${ro||!has("billphoto")?"":` <button class="btn sm" type="button" id="puImgDel">Remove photo</button>`}`:"";
-    if($("puImg"))$("puImg").onclick=()=>showPhoto(data,P?`Bill · ${P.supplier} ${P.inv_no||""}`:"Bill photo");
-    if($("puImgDel"))$("puImgDel").onclick=async e=>{const b=e.currentTarget;if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Tap again to remove";setTimeout(()=>{if(b.isConnected){b.classList.remove("armed");b.textContent="Remove photo"}},3000);return}
+  const thumb=data=>{const t=$("puThumb");if(!t)return;t.innerHTML=data?`${isPdfData(data)?`<button class="btn sm" type="button" id="puImg">📄 Bill PDF (${fileKB(data)} KB)</button>`:`<img src="${data}" alt="Bill photo" style="height:56px;border-radius:6px;border:1px solid var(--line);cursor:pointer" id="puImg">`}${ro||!has("billphoto")?"":` <button class="btn sm" type="button" id="puImgDel">Remove ${isPdfData(data)?"PDF":"photo"}</button>`}`:"";
+    if($("puImg"))$("puImg").onclick=()=>showPhoto(data,P?`Bill · ${P.supplier} ${P.inv_no||""}`:"Bill");
+    if($("puImgDel"))$("puImgDel").onclick=async e=>{const b=e.currentTarget;if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Tap again to remove";setTimeout(()=>{if(b.isConnected){b.classList.remove("armed");b.textContent=isPdfData(data)?"Remove PDF":"Remove photo"}},3000);return}
       if(P){await setBillPhoto(P.id,null);delete P.photo;act("purchase",`Bill photo removed: purchase ${P.inv_no||""} from ${P.supplier}`,{ref:P.id});save()}else{purPhoto=null;try{await IDB.del("billphoto_draft")}catch(e){}}thumb(null);toast("Photo removed")}};
   if(P&&P.photo)getBillPhoto(P.id).then(thumb);else if(!P&&has("billphoto")){if(purPhoto)thumb(purPhoto);else if(idbOK)IDB.get("billphoto_draft").then(v=>{if(v){purPhoto=v;thumb(v)}}).catch(()=>{})}
   if(ro)return;
@@ -2588,9 +2620,9 @@ function renderPurEditor(){const P=purEdit==="new"?null:DB.purchases.find(x=>x.i
     $("puQR").innerHTML=`<b>Read from the e-invoice QR:</b> GSTIN ${esc(q.gstin)} · invoice ${esc(q.inv_no)} · ${dmy(q.date)} · bill value <b>₹${fmt(q.total)}</b>${q.items?` · ${q.items} item${q.items>1?"s":""}`:""}${q.hsn?` · main HSN ${esc(q.hsn)}`:""}.
       ${D.items.length?(Math.abs(tot-q.total)<=1?' <span class="up">✓ Your total matches.</span>':` <span class="down">Your total ₹${fmt(tot)} differs from the bill by ₹${fmt(r2(Math.abs(tot-q.total)))} — check the items.</span>`):" Now add the items."}
       ${q.buyer&&gstinCheck(q.buyer)&&S().gstin&&q.buyer!==String(S().gstin).toUpperCase()?`<br><span class="down">This bill is made out to GSTIN ${esc(q.buyer)}, not to your GSTIN ${esc(S().gstin)}.</span>`:""}`};qrNoteFn=qrNote;if(D.qr)qrNote();
-  if($("puCam"))$("puCam").onchange=async e=>{if(!has("billphoto")){toast("Bill photo is not part of this shop's plan.",true);return}const f=e.target.files[0];e.target.value="";if(!f)return;$("puQR").textContent="Reading the photo…";
+  const onBillFile=async e=>{if(!has("billphoto")){toast("Bill photo is not part of this shop's plan.",true);return}const f=e.target.files[0];e.target.value="";if(!f)return;$("puQR").textContent=isPdfFile(f)?"Reading the PDF…":"Reading the photo…";
     try{const r=await photoFromFile(f);
-      if(P){await setBillPhoto(P.id,r.data);const had=P.photo;P.photo=1;act("purchase",`Bill photo ${had?"replaced":"added"}: purchase ${P.inv_no||""} from ${P.supplier}`,{ref:P.id});save()}
+      if(P){await setBillPhoto(P.id,r.data);const had=P.photo;P.photo=1;act("purchase",`Bill ${r.pdf?"PDF":"photo"} ${had?"replaced":"added"}: purchase ${P.inv_no||""} from ${P.supplier}`,{ref:P.id});save()}
       else{purPhoto=r.data;try{await IDB.set("billphoto_draft",r.data)}catch(e2){}}
       thumb(r.data);const q=r.qr;
       if(q&&q.kind==="einv"){const filled=[];
@@ -2598,9 +2630,13 @@ function renderPurEditor(){const P=purEdit==="new"?null:DB.purchases.find(x=>x.i
         if(q.inv_no&&!D.inv_no){D.inv_no=q.inv_no;$("puInv").value=q.inv_no;filled.push("invoice no.")}
         if(q.date&&q.date<=today()){D.date=q.date;$("puDate").value=q.date;filled.push("date")}
         D.qr=q;keep();drawLines();qrNote();copyBtn();toast(filled.length?"Filled from the e-invoice QR: "+filled.join(", "):"E-invoice QR read")}
+      else if(q&&q.kind==="gstin"){const filled=[];if(!D.gstin&&q.gstin){D.gstin=q.gstin;$("puGst").value=q.gstin;filled.push("GSTIN");const m=suppliers.find(x=>x.gstin===q.gstin);if(m&&!D.supplier.trim()){D.supplier=m.supplier;$("puSup").value=m.supplier;filled.push("supplier")}keep();drawLines();copyBtn()}
+        $("puQR").innerHTML=`PDF saved. No e-invoice QR in it; supplier GSTIN <b>${esc(q.gstin)}</b> found in the PDF text${filled.length?" and filled":""}. Type the other details.`}
       else if(q&&q.kind==="upi"){if(q.name&&!D.supplier.trim()){D.supplier=q.name;$("puSup").value=q.name;keep();copyBtn()}$("puQR").innerHTML=`Photo saved. The bill has a UPI payment QR${q.name?` for <b>${esc(q.name)}</b>`:""} (no invoice details in it).`}
-      else $("puQR").textContent=q?"Photo saved. The QR code on this bill is not a GST e-invoice QR — type the details.":"Photo saved. No e-invoice QR found — type the details (the photo stays with the purchase for checking).";
-    }catch(err){$("puQR").textContent="";toast(err instanceof Bad?err.message:"Couldn't read that photo.",true)}};
+      else if(r.locked)$("puQR").textContent="PDF saved. It is locked with a password, so CB couldn't read it — type the details. Open it with Save / share PDF.";
+      else $("puQR").textContent=(r.pdf?(r.noReader?"PDF saved. This phone couldn't open the PDF reader, so its QR was not read — type the details.":"PDF saved. "):"Photo saved. ")+(r.noReader?"":q?"The QR code on this bill is not a GST e-invoice QR — type the details.":"No e-invoice QR found — type the details (the bill stays with the purchase for checking).");
+    }catch(err){$("puQR").textContent="";toast(err instanceof Bad?err.message:"Couldn't read that file.",true)}};
+  if($("puCam"))$("puCam").onchange=onBillFile;if($("puFile"))$("puFile").onchange=onBillFile;
   /* copy the items of this supplier's last bill (rates as last time, quantities to fill) */
   const copyBtn=()=>{const box=$("puCopy");if(!box)return;const name=D.supplier.trim().toLowerCase();
     const last=name?[...(DB.purchases||[])].reverse().find(x=>x.status==="active"&&x.supplier.toLowerCase()===name&&(!P||x.id!==P.id)):null;

@@ -1,8 +1,11 @@
 /* Keeps the whole app on the device so it opens without internet.
    With internet, the app page is fetched fresh first (so updates show immediately); without it, the saved copy opens. */
-const VERSION = "cb-v4.15";
+const VERSION = "cb-v4.16";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
-self.addEventListener("install", e => e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
+/* the PDF reader (used only for bill PDFs on purchases): kept offline too, but the app still installs if these files are missing */
+const EXTRA = ["./cb-pdf.js", "./cb-pdf-worker.js"];
+const keepExtra = async c => { for (const f of EXTRA) { try { const old = await caches.match(f, { ignoreSearch: true }); if (old) await c.put(f, old.clone()); else await c.add(f); } catch (err) {} } };
+self.addEventListener("install", e => e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES).then(() => keepExtra(c))).then(() => self.skipWaiting())));
 self.addEventListener("activate", e => e.waitUntil(caches.keys()
   .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 function fresh(req, ms) {
