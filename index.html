@@ -240,6 +240,33 @@ tr.flash-row td{animation:rowflash 1.2s ease-out}
 .inv.A5L .sum3 .gt{margin:0;min-width:0}.inv.A5L .sum3 .tot{min-width:58mm}
 .inv.A5L .mid .note{border-top:0;padding-top:0;margin-top:1mm;font-size:.9em}.inv.A5L .mid .foot{text-align:left;margin-top:1mm}
 .inv.A5L .signw{text-align:right;margin-top:1.5mm;font-size:.92em}
+/* bill heading styles for A4 / A5 (owner's choice) */
+.inv .hb,.inv .hgst,.inv .rib span,.inv .he .nm{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.inv .logo{height:17mm;max-width:34mm;object-fit:contain;flex:none}
+.inv .shopL{display:flex;gap:4mm;align-items:center}
+.inv .hb{display:flex;justify-content:space-between;gap:5mm;align-items:center;background:var(--ac);color:#fff;padding:4mm 5mm;border-radius:2.5mm}
+.inv .hbL{display:flex;gap:4mm;align-items:center;min-width:0}
+.inv .hb .logo{background:#fff;border-radius:2mm;padding:1mm}
+.inv .hb .nm{font-size:1.85em;font-weight:800;letter-spacing:.02em;line-height:1.1;display:block}
+.inv .hb .hl{font-size:.95em;opacity:.95;margin-top:.6mm}
+.inv .hbR{text-align:right;white-space:nowrap;line-height:1.5}
+.inv .ttlp{display:inline-block;background:#fff;color:var(--ac);font-weight:800;letter-spacing:.12em;padding:.7mm 3.2mm;border-radius:99px;margin-bottom:1.2mm;font-size:.92em}
+.inv .hb .tag{border-color:#fff;color:#fff;margin-top:1mm}
+.inv .hgst{display:flex;justify-content:space-between;gap:2mm 5mm;flex-wrap:wrap;background:color-mix(in srgb,var(--ac) 9%,#fff);border:1px solid color-mix(in srgb,var(--ac) 35%,#fff);border-top:0;border-radius:0 0 2.5mm 2.5mm;margin:0 2mm;padding:1.4mm 4mm}
+.inv .he{text-align:center}
+.inv .he .logo{display:block;margin:0 auto 1.5mm}
+.inv .he .nm{font-family:Georgia,"Times New Roman",serif;font-size:2.15em;font-weight:700;color:var(--ac);letter-spacing:.03em;line-height:1.15}
+.inv .he .hl{color:#333;margin-top:.8mm}
+.inv .rib{border-top:2px solid var(--ac);margin:4.5mm 0 1mm;height:0;text-align:center}
+.inv .rib span{position:relative;top:-.8em;background:var(--ac);color:#fff;padding:.7mm 6mm;border-radius:99px;font-weight:800;letter-spacing:.16em;font-size:.95em}
+.inv .hmeta{display:flex;justify-content:space-between;align-items:center;gap:4mm;flex-wrap:wrap;padding:1.5mm 0;border-bottom:1px solid #999}
+.inv .hmeta .tag{margin:0}
+.inv.A5L .hb{padding:2mm 3.5mm}.inv.A5L .hb .nm{font-size:1.45em}.inv.A5L .logo{height:11mm}.inv.A5L .hgst{padding:.8mm 3mm}
+.inv.A5 .logo{height:13mm}.inv.A5 .hb{padding:3mm 3.5mm}.inv.A5 .he .nm,.inv.A5 .hb .nm{font-size:1.6em}
+.hpick{display:flex;gap:6px;flex-wrap:wrap}.hpick label{display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:99px;padding:5px 10px;cursor:pointer;font-size:13px}
+.hpick i{width:16px;height:16px;border-radius:50%;display:inline-block}
+.hprev{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;height:46mm;position:relative}
+.hprev>div{transform:scale(.5);transform-origin:0 0;position:absolute;left:0;top:0;pointer-events:none}
 /* long bills continue on the next page with the column headings repeated */
 .reqcode{font-family:var(--f-num,monospace);font-size:22px;font-weight:700;letter-spacing:.06em;text-align:center;padding:12px;border:2px dashed var(--accent);border-radius:10px;user-select:all;word-break:break-all}
 .featlist{display:grid;grid-template-columns:1fr;gap:2px;font-size:13.5px;margin:4px 0 10px}.featlist .off{color:var(--muted);opacity:.75}.featlist .on{font-weight:600}
@@ -499,6 +526,7 @@ input.gstin{text-transform:uppercase;font-family:var(--f-num,monospace)}input.gs
   body.print-rcpt #printArea .rcpt,body.print-rcpt #printArea .inv{box-shadow:none}
   body.print-rcpt #printArea .inv,body.print-rcpt #printArea .rcpt.wA4,body.print-rcpt #printArea .rcpt.wA5{width:100%;padding:0}
   .inv th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
   body:not(.print-rcpt) .nav,body:not(.print-rcpt) .demo,body:not(.print-rcpt) .warnbar,body:not(.print-rcpt) .noprint,body:not(.print-rcpt) .toast{display:none!important}
   .card,.stat{break-inside:avoid}
 }
@@ -594,7 +622,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="4.17";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="4.19";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -926,14 +954,14 @@ function purDiff(a,b){const ch=diffs(purSnap(a),purSnap(b),Object.fromEntries(Ob
   B.forEach((n,k)=>{if(!A.has(k))ch.push(["Item added","",`${n.name} ${+n.qty} ${n.unit} @ ${fmt(n.rate)}`])});return ch}
 /* settings: every change made anywhere is written to the log when CB saves */
 const SET_LABEL={top_line:"Line above firm name",shop_name:"Shop name",header_lines:"Heading lines",footer:"Bill footer",bill_note:"Bill note",paymodes:"Payment options",paper:"Thermal roll width",voice_lang:"Voice language",
-  staff_correct:"Who can correct bills",numbering:"Bill numbers",backup_days:"Backup reminder",prod_order:"Order of products",dept_view:"Departments on the bill screen",stock_value:"Stock value method",owner_lock:"Owner lock (minutes)",gst_type:"GST type",gstin:"GSTIN",gst_incl:"Rates include GST",gst_default:"Default GST rate",
+  staff_correct:"Who can correct bills",numbering:"Bill numbers",backup_days:"Backup reminder",prod_order:"Order of products",inv_style:"Bill heading (A4 / A5)",logo:"Shop logo",inv_color:"Heading colour",dept_view:"Departments on the bill screen",stock_value:"Stock value method",owner_lock:"Owner lock (minutes)",gst_type:"GST type",gstin:"GSTIN",gst_incl:"Rates include GST",gst_default:"Default GST rate",
   print_mode:"Printer",print_rate:"Rate on printed bill",print_time:"Time on the bill",cash_verify:"Admin cash entries need owner approval",page:"Page size",thermal_size:"Thermal text size",acc:"Export ledger names"};
 const NUM_NAME={daily:"From 1 every day",fy:"Financial year (26-27/1)",fyn:"Financial year, number first (1/26-27)"};
 let setShadow={db:null,s:null};
 function auditSettings(){if(!DB||!DB.settings)return;const cur=JSON.parse(JSON.stringify(DB.settings));
   if(setShadow.db!==DB){setShadow={db:DB,s:cur};return}const old=setShadow.s;setShadow.s=cur;
   const keys=[...new Set([...Object.keys(old),...Object.keys(cur)])].filter(k=>JSON.stringify(old[k])!==JSON.stringify(cur[k]));if(!keys.length)return;
-  const v=(k,x)=>k==="numbering"?(NUM_NAME[x]||showV(x)):showV(x);
+  const v=(k,x)=>k==="logo"?(x?"(logo picture)":"none"):k==="inv_style"?(INV_STYLES[x]||"Classic"):k==="inv_color"?((INV_COLORS[x]||INV_COLORS.teal)[0]):k==="numbering"?(NUM_NAME[x]||showV(x)):showV(x);
   act("settings",("Settings changed: "+keys.map(k=>SET_LABEL[k]||k).join(", ")),{changes:keys.map(k=>[SET_LABEL[k]||k,v(k,old[k]),v(k,cur[k])])})}
 function restoreProduct(id){const p=DB.products.find(x=>x.id===id);if(!p||p.active)throw new Bad("Already in the list.");
   if(DB.products.some(x=>x.active&&x.name.toLowerCase()===p.name.toLowerCase()))throw new Bad(`A product called ${p.name} is already in the list.`);
@@ -1567,7 +1595,80 @@ function widthCheckHTML(paper){const mm=paper==="58"?48:72,marks=[];for(let i=0;
 const printSize=()=>S().print_mode==="normal"&&has("pages")?(PAGES[S().page]?S().page:"A4"):(S().paper==="58"?"58":"80");
 const sizeChoices=()=>S().print_mode==="normal"&&has("pages")?[["A4","A4"],["A5","A5"],["A5L","A5 wide"]]:[["80","80 mm"],["58","58 mm"]];
 const printBill=(b,dup)=>{const p=printSize();printReceipt(receiptHTML(b,!!dup,p),p)};
-function printReceipt(html,paper){
+
+/* ============================================================ print directly to a thermal printer (no RawBT)
+   The receipt is drawn as a picture (so Hindi and every font prints right), turned into the printer's own
+   ESC/POS commands and sent over Bluetooth (BLE), a USB cable (OTG) or, on a laptop, Bluetooth / COM port.
+   The connection is kept on this device only. */
+const DP_SPP="00001101-0000-1000-8000-00805f9b34fb";
+const DP_BLE=["000018f0-0000-1000-8000-00805f9b34fb","e7810a71-73ae-499d-8c15-faa9aef0c3f2","49535343-fe7d-4ae5-8fa9-9fafd205e455","0000ff00-0000-1000-8000-00805f9b34fb",
+  "0000ffe0-0000-1000-8000-00805f9b34fb","0000fee7-0000-1000-8000-00805f9b34fb","0000ae30-0000-1000-8000-00805f9b34fb","0000ae00-0000-1000-8000-00805f9b34fb","0000ff10-0000-1000-8000-00805f9b34fb"];
+const DP={dev:null,ch:null,ep:null,port:null,chunk:180};
+const dpSaved=()=>LS.get("dprint",null);
+const dpCan={ble:()=>!!(navigator.bluetooth&&navigator.bluetooth.requestDevice),usb:()=>!!(navigator.usb&&navigator.usb.requestDevice),serial:()=>!!(navigator.serial&&navigator.serial.requestPort)};
+const dpActive=()=>{const d=dpSaved();return !!(d&&dpCan[d.type]&&dpCan[d.type]())};
+const DP_NAME={ble:"Bluetooth",usb:"USB cable",serial:"Bluetooth / COM port"};
+async function dpOpenBLE(dev){const srv=await dev.gatt.connect();let best=null;
+  for(const sv of await srv.getPrimaryServices().catch(()=>[])){for(const c of await sv.getCharacteristics().catch(()=>[])){const pr=c.properties;if(pr.writeWithoutResponse||pr.write){best=best&&best.properties.writeWithoutResponse?best:c}}}
+  if(!best){try{dev.gatt.disconnect()}catch(e){}throw new Bad(`${dev.name||"This device"} doesn't accept printing over this kind of Bluetooth. Use the USB cable, or RawBT.`)}
+  DP.dev=dev;DP.ch=best;DP.chunk=180;dev.addEventListener("gattserverdisconnected",()=>{if(DP.dev===dev)DP.ch=null})}
+async function dpOpenUSB(dev){await dev.open();if(!dev.configuration)await dev.selectConfiguration(1);
+  for(const it of dev.configuration.interfaces){for(const alt of it.alternates){const ep=alt.endpoints.find(e=>e.direction==="out"&&e.type==="bulk");
+    if(ep){try{await dev.claimInterface(it.interfaceNumber)}catch(e){throw new Bad("Another app is using the printer. Close RawBT / other printing apps and try again.")}if(alt.alternateSetting)await dev.selectAlternateInterface(it.interfaceNumber,alt.alternateSetting).catch(()=>{});DP.dev=dev;DP.ep=ep.endpointNumber;return}}}
+  throw new Bad("That USB device is not a printer CB can send to.")}
+async function dpOpenSerial(port){if(!port.readable&&!port.writable)await port.open({baudRate:9600});DP.port=port}
+/* connect — the first time the printer is picked from Chrome's list (needs a tap) */
+async function dpConnect(type){try{
+  if(type==="ble"){const dev=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:DP_BLE});await dpOpenBLE(dev);LS.set("dprint",{type,name:dev.name||"Bluetooth printer",id:dev.id})}
+  else if(type==="usb"){const dev=await navigator.usb.requestDevice({filters:[]});await dpOpenUSB(dev);LS.set("dprint",{type,name:dev.productName||"USB printer",vid:dev.vendorId,pid:dev.productId,sn:dev.serialNumber||""})}
+  else{const port=await navigator.serial.requestPort({allowedBluetoothServiceClassIds:[DP_SPP]});await dpOpenSerial(port);const i=port.getInfo?port.getInfo():{};LS.set("dprint",{type,name:i.bluetoothServiceClassId?"Bluetooth printer":"COM port printer",vid:i.usbVendorId||0,pid:i.usbProductId||0})}
+  return true}catch(e){if(e&&(e.name==="NotFoundError"||e.name==="AbortError"))return false;throw e instanceof Bad?e:new Bad(dpWhy(e,type))}}
+const dpWhy=(e,type)=>type==="ble"?"Couldn't connect over Bluetooth. Switch the printer off and on, keep it close, and try again. If it never shows in the list, it has only \"classic\" Bluetooth — use the USB cable or RawBT.":type==="usb"?"Couldn't open the USB printer. Unplug it, plug it in again and tap USB cable again.":"Couldn't open the printer's port. Check it is paired / plugged in and not used by another app.";
+/* reconnect to the printer chosen before (no list needed when the browser allows it) */
+async function dpReady(){const d=dpSaved();if(!d)throw new Bad("No printer connected.");
+  if(d.type==="ble"){if(DP.ch&&DP.dev&&DP.dev.gatt.connected)return;
+    if(DP.dev){try{await dpOpenBLE(DP.dev);return}catch(e){}}
+    if(navigator.bluetooth.getDevices){const L=await navigator.bluetooth.getDevices().catch(()=>[]);const dev=L.find(x=>x.id===d.id);if(dev){try{await dpOpenBLE(dev);return}catch(e){}}}
+    const dev=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:DP_BLE});await dpOpenBLE(dev);LS.set("dprint",{...d,name:dev.name||d.name,id:dev.id});return}
+  if(d.type==="usb"){if(DP.dev&&DP.dev.opened&&DP.ep)return;const L=await navigator.usb.getDevices();const dev=L.find(x=>x.vendorId===d.vid&&x.productId===d.pid&&(!d.sn||x.serialNumber===d.sn))||L[0];
+    if(!dev)throw new Bad("The USB printer isn't plugged in. Connect it with the OTG cable and try again.");await dpOpenUSB(dev);return}
+  if(DP.port&&DP.port.writable)return;const L=await navigator.serial.getPorts();const port=L[0];if(!port)throw new Bad("The printer's port isn't available. Tap Connect again in Settings.");await dpOpenSerial(port)}
+const dpWait=ms=>new Promise(r=>setTimeout(r,ms));
+async function dpSend(bytes){const d=dpSaved();await dpReady();
+  if(d.type==="usb"){for(let i=0;i<bytes.length;i+=16384)await DP.dev.transferOut(DP.ep,bytes.subarray(i,i+16384));return}
+  if(d.type==="serial"){const w=DP.port.writable.getWriter();try{for(let i=0;i<bytes.length;i+=1024)await w.write(bytes.subarray(i,i+1024))}finally{w.releaseLock()}return}
+  const ch=DP.ch,nr=ch.properties.writeWithoutResponse;let i=0,n=0;
+  while(i<bytes.length){const part=bytes.subarray(i,i+DP.chunk);
+    try{if(nr)await ch.writeValueWithoutResponse(part);else await ch.writeValueWithResponse(part)}
+    catch(e){if(DP.chunk>20){DP.chunk=DP.chunk>100?100:20;continue}throw new Bad("The printer stopped answering. Check paper and power, then print again.")}
+    i+=part.length;if(nr&&++n%16===0)await dpWait(25)}}
+/* receipt picture → ESC/POS raster commands (black dots), then feed and cut */
+function escposFromCanvas(c){const W=c.width,H=c.height,bw=W>>3,d=c.getContext("2d").getImageData(0,0,W,H).data,band=128;
+  const out=new Uint8Array(2+Math.ceil(H/band)*8+bw*H+8);let o=0;out[o++]=0x1B;out[o++]=0x40;
+  for(let y0=0;y0<H;y0+=band){const h=Math.min(band,H-y0);out.set([0x1D,0x76,0x30,0,bw&255,bw>>8,h&255,h>>8],o);o+=8;
+    for(let y=y0;y<y0+h;y++)for(let bx=0;bx<bw;bx++){let b=0;for(let k=0;k<8;k++){const i=(y*W+bx*8+k)*4;if(d[i+3]>0&&d[i]*0.3+d[i+1]*0.59+d[i+2]*0.11<165)b|=0x80>>k}out[o++]=b}}
+  out.set([0x1B,0x64,4,0x1D,0x56,0x42,0x00],o);o+=7;return out.subarray(0,o)}
+async function dpRender(html,paper){const dots=paper==="58"?384:576;const box=document.createElement("div");box.style.cssText="position:fixed;left:-20000px;top:0";box.innerHTML=html;document.body.appendChild(box);
+  const w=box.firstElementChild.offsetWidth||272;box.remove();const r=await billCanvas(html,dots/w);
+  const c=document.createElement("canvas");c.width=dots;c.height=r.c.height;const x=c.getContext("2d",{willReadFrequently:true});x.fillStyle="#fff";x.fillRect(0,0,dots,c.height);x.drawImage(r.c,0,0,Math.min(dots,r.c.width),r.c.height);return c}
+let dpBusy=false;
+async function dpPrint(html,paper){if(dpBusy){toast("Still printing the last one…");return}dpBusy=true;toast("Printing…");
+  try{const c=await dpRender(html,paper);await dpSend(escposFromCanvas(c));toast("Printed")}finally{dpBusy=false}}
+function directPrintCard(){const d=dpSaved(),any=dpCan.ble()||dpCan.usb()||dpCan.serial();
+  return `<div class="card" id="dpCard"><h2>Print directly to the thermal printer</h2>
+    <p class="note">For a printer that shows <b>paired but not connected</b>, or to print without RawBT: CB sends the bill to the printer itself. Set up once on each phone / tablet / laptop.</p>
+    ${any?`<p class="note" id="dpState">${d?`✓ <b>Connected: ${esc(d.name)}</b> (${DP_NAME[d.type]}). Bills, payment slips and the day summary print straight to it.`:"Not set up — bills print through the phone's print screen (RawBT)."}</p>
+    <div class="row">${dpCan.ble()?`<button class="btn" type="button" id="dpBle">🔵 Bluetooth printer</button>`:""}${dpCan.usb()?`<button class="btn" type="button" id="dpUsb">🔌 USB cable (OTG)</button>`:""}${dpCan.serial()?`<button class="btn" type="button" id="dpSer">💻 Laptop: Bluetooth / COM port</button>`:""}</div>
+    ${d?`<div class="row"><button class="btn primary" type="button" id="dpTest">Test print</button><button class="btn" type="button" id="dpOff">Stop printing directly</button></div>`:""}
+    <p class="note"><b>Bluetooth:</b> switch the printer on, tap <b>Bluetooth printer</b> and pick it in the list (it may show as "Printer", a model number or an unnamed device — the one that appears when the printer is on). Allow "Nearby devices", and on older phones switch on Location. If the printer never shows in the list it has only classic Bluetooth: use the <b>USB cable</b> with an OTG adapter, or RawBT.</p>
+    <p class="note"><b>USB:</b> connect the printer's USB cable to the phone with an OTG adapter, tap <b>USB cable</b> and allow. Roll width and text size follow the Printer setting above.</p>`
+    :`<p class="note">This browser can't talk to printers directly (iPhone / iPad, or not Chrome). Print through the phone's print screen instead.</p>`}</div>`}
+function bindDirectPrint(){const go_=t=>async()=>{try{if(await dpConnect(t)){toast("Printer connected — printing a test slip");renderSettings();await dpPrint(widthCheckHTML(S().paper==="58"?"58":"80"),S().paper==="58"?"58":"80")}}catch(e){toast(e instanceof Bad?e.message:"Couldn't connect to the printer.",true)}};
+  if($("dpBle"))$("dpBle").onclick=go_("ble");if($("dpUsb"))$("dpUsb").onclick=go_("usb");if($("dpSer"))$("dpSer").onclick=go_("serial");
+  if($("dpTest"))$("dpTest").onclick=async()=>{const p=S().paper==="58"?"58":"80",b=DB.bills.filter(x=>x.status==="active").slice(-1)[0];try{await dpPrint(b?receiptHTML(b,true,p):widthCheckHTML(p),p)}catch(e){toast(e instanceof Bad?e.message:"Couldn't print.",true)}};
+  if($("dpOff"))$("dpOff").onclick=async()=>{LS.del("dprint");try{if(DP.dev&&DP.dev.gatt)DP.dev.gatt.disconnect();if(DP.dev&&DP.dev.close)await DP.dev.close();if(DP.port)await DP.port.close()}catch(e){}Object.assign(DP,{dev:null,ch:null,ep:null,port:null});toast("Direct printing switched off — bills use the print screen again");renderSettings()}}
+function printReceipt(html,paper,viaDialog){
+  if(!viaDialog&&!isPage(paper)&&dpActive()){dpPrint(html,paper).catch(e=>{toast((e instanceof Bad?e.message:"Couldn't reach the printer.")+" Opening the print screen instead.",true);printReceipt(html,paper,true)});return}
   if(isPage(paper)){const pa=$("printArea");pa.innerHTML=html;$("pageStyle").textContent=`@page{size:${PAGES[paper]};margin:${paper==="A5L"?"6mm 7mm":"8mm"}}`;document.body.classList.add("print-rcpt");
     setTimeout(()=>{try{window.print()}catch(e){toast("Printing isn't available on this device.",true)}},60);return}
   const pa=$("printArea");pa.innerHTML=html;pa.style.cssText="display:block;position:absolute;left:-9999px;top:0";
@@ -1619,6 +1720,19 @@ function receiptHTML(b,dup,paper){
   ${b.note?`<div class="bnote">${esc(b.note)}</div><div class="hr"></div>`:""}${REG?`<div class="r sm" style="text-align:right;margin:2px 0 4px">For ${esc(S().shop_name)}<br><br>Authorised signatory</div><div class="hr"></div>`:""}<div class="c">${esc(S().footer)}</div></div>`}
 const sizeSeg=paper=>`<div class="seg" role="group" aria-label="Paper size">${sizeChoices().map(([v,t])=>`<button data-w="${v}" aria-pressed="${paper===v}">${t}</button>`).join("")}</div>`;
 /* full-page bill for a normal printer (A4 / A5) — plain bill, bill of supply or tax invoice */
+/* the heading of an A4 / A5 bill: Classic (lines), Colour band, or Elegant (centred with ribbon); optional shop logo */
+const INV_STYLES={classic:"Classic — black lines",band:"Colour band — shop name on a coloured strip",elegant:"Elegant — centred name with a ribbon"};
+const INV_COLORS={teal:["Teal","#0f5c4d"],blue:["Blue","#1d4e89"],maroon:["Maroon","#8b1e3f"],green:["Green","#2e6b30"],orange:["Orange","#b8570b"],purple:["Purple","#5b2a86"],black:["Black","#222222"]};
+const invStyle=()=>INV_STYLES[S().inv_style]?S().inv_style:"classic";
+const invColor=()=>(INV_COLORS[S().inv_color]||INV_COLORS.teal)[1];
+const logoImg=()=>S().logo&&/^data:image\//.test(S().logo)?`<img class="logo" src="${S().logo}" alt="">`:"";
+function invHead(o){const st=invStyle(),ac=invColor(),lg=logoImg();
+  const meta=`<div>Bill No: <b>${o.no}</b></div><div>${o.W?"":"Date: "}${o.date}${o.W&&o.time?" "+o.time:""}</div>${!o.W&&o.time?`<div>Time: ${o.time}</div>`:""}`;
+  if(st==="band")return `<div class="hb" style="--ac:${ac}"><div class="hbL">${lg}<div><span class="nm">${esc(S().shop_name)}</span>${o.heads.length?`<div class="hl">${o.heads.map(esc).join(" · ")}</div>`:""}</div></div>
+      <div class="hbR"><div class="ttlp">${o.title}</div>${meta}${o.tags}</div></div>${o.gstLine||o.cmpLine?`<div class="hgst" style="--ac:${ac}">${o.gstLine}${o.cmpLine}</div>`:""}`;
+  if(st==="elegant")return `<div class="he" style="--ac:${ac}">${lg}<div class="nm">${esc(S().shop_name)}</div>${o.heads.length?`<div class="hl">${o.heads.map(esc).join(" · ")}</div>`:""}${o.gstLine}${o.cmpLine}
+      <div class="rib"><span>${o.title}</span></div></div><div class="hmeta"><div>Bill No: <b>${o.no}</b></div><div>Date: ${o.date}${o.time?` · ${o.time}`:""}</div>${o.tags}</div>`;
+  return null}
 function invoiceHTML(b,dup,size){const T=b.tax||{type:"none"},REG=T.type==="regular",CMP=T.type==="composition",G=REG||CMP;const by=uname(b.updated_by||b.created_by);const p=payOf(b);
   const W=size==="A5L";   /* A5 landscape: heading and totals packed side by side so more item rows fit */
   const parts=PAID.map(m=>[m,p[PAYKEY[m]]]).filter(x=>x[1]>0.004);
@@ -1634,9 +1748,10 @@ function invoiceHTML(b,dup,size){const T=b.tax||{type:"none"},REG=T.type==="regu
   const table=`<table><thead><tr><th>#</th><th class="l">Item</th>${G?"<th>HSN</th>":""}<th>Qty</th><th class="l">Unit</th>${showRate()?"<th>Rate ₹</th>":""}${REG?`<th>GST %</th><th>Taxable ₹</th>`:""}<th>Amount ₹</th></tr></thead>
   <tbody>${b.items.map((i,k)=>`<tr><td>${k+1}</td><td class="l">${esc(i.name)}</td>${G?`<td>${esc(i.hsn||"")}</td>`:""}<td>${fq(i.qty)}</td><td class="l">${esc(i.unit)}</td>${showRate()?`<td>${fmt(i.rate)}</td>`:""}${REG?`<td>${num(i.gst)}</td><td>${fmt(i.taxable||0)}</td>`:""}<td>${fmt(i.amount)}</td></tr>`).join("")}</tbody></table>`;
   const buyer=`<b>${esc(b.customer||"CASH")}</b>${b.phone?` · ${esc(b.phone)}`:""}`;
+  const HD=invHead({W,title,heads,gstLine,cmpLine,tags,no:label(b),date:dmy(b.bill_date),time:showTime()?hm(b.created_at):""});
   if(W)return `<div class="inv A5L">
-  ${topLine()?`<div class="topl">${esc(topLine())}</div>`:""}<div class="top"><div class="shop"><span class="nm">${esc(S().shop_name)}</span>${heads.length?`<div>${heads.map(esc).join(" · ")}</div>`:""}${gstLine}${cmpLine}</div>
-    <div class="meta"><div class="ttl">${title}</div><div>Bill No: <b>${label(b)}</b></div><div>${dmy(b.bill_date)}${showTime()?" "+hm(b.created_at):""}</div>${tags}</div></div>
+  ${topLine()?`<div class="topl">${esc(topLine())}</div>`:""}${HD||`<div class="top"><div class="shop${logoImg()?" shopL":""}">${logoImg()}<div><span class="nm">${esc(S().shop_name)}</span>${heads.length?`<div>${heads.map(esc).join(" · ")}</div>`:""}${gstLine}${cmpLine}</div></div>
+    <div class="meta"><div class="ttl">${title}</div><div>Bill No: <b>${label(b)}</b></div><div>${dmy(b.bill_date)}${showTime()?" "+hm(b.created_at):""}</div>${tags}</div></div>`}
   <div class="party"><div><span class="lb">${REG?"Buyer":"Customer"}</span>${buyer}${REG&&T.buyer_gstin?`<span>GSTIN: <b>${esc(T.buyer_gstin)}</b></span>`:""}${REG&&T.buyer_addr?`<span>${esc(T.buyer_addr)}</span>`:""}</div>
     ${REG?`<div><span class="lb">Place of supply</span>${esc(stateName(T.pos))}<span class="lb">Reverse charge</span>No</div>`:""}</div>
   ${table}
@@ -1644,11 +1759,11 @@ function invoiceHTML(b,dup,size){const T=b.tax||{type:"none"},REG=T.type==="regu
     <div class="mid"><div class="words">Rupees ${words(b.net)} only</div><div>${payTxt}</div>${b.note?`<div class="note">${esc(b.note)}</div>`:""}<div class="foot">${esc(S().footer)}</div></div>
     <div>${totals}<div class="signw">For <b>${esc(S().shop_name)}</b><br><br>Authorised signatory</div></div></div></div>`;
   return `<div class="inv ${size}">${topLine()?`<div class="topl">${esc(topLine())}</div>`:""}
-  <div class="ttl">${title}</div>
-  <div class="top"><div class="shop"><span class="nm">${esc(S().shop_name)}</span>${heads.map(l=>`<div>${esc(l)}</div>`).join("")}
-      ${gstLine}${cmpLine}</div>
+  ${HD||`<div class="ttl">${title}</div>
+  <div class="top"><div class="shop${logoImg()?" shopL":""}">${logoImg()}<div><span class="nm">${esc(S().shop_name)}</span>${heads.map(l=>`<div>${esc(l)}</div>`).join("")}
+      ${gstLine}${cmpLine}</div></div>
     <div class="meta"><div>Bill No: <b>${label(b)}</b></div><div>Date: ${dmy(b.bill_date)}</div>${showTime()?`<div>Time: ${hm(b.created_at)}</div>`:""}
-      ${tags}</div></div>
+      ${tags}</div></div>`}
   <div class="party"><div><div class="lb">${REG?"Buyer":"Customer"}</div>${buyer}
       ${REG&&T.buyer_addr?`<div>${esc(T.buyer_addr)}</div>`:""}${REG&&T.buyer_gstin?`<div>GSTIN: <b>${esc(T.buyer_gstin)}</b></div>`:""}</div>
     ${REG?`<div style="text-align:right"><div class="lb">Place of supply</div>${esc(stateName(T.pos))}<div class="lb" style="margin-top:1mm">Reverse charge</div>No</div>`:""}</div>
@@ -3024,7 +3139,7 @@ function renderSettings(){const s=S(),O=isOwner();setTimeout(()=>{if(!O&&!can("s
       <div class="field"><label for="sTime">Time on the bill</label><select id="sTime"><option value="yes" ${s.print_time!==false?"selected":""}>Show the time the bill was made</option><option value="no" ${s.print_time===false?"selected":""}>Hide the time (screen, print and PDF)</option></select></div>
       <p class="note">CB still records the time of every bill for the owner's checks (Bills, Reports, Change log).</p>
       <div><button class="btn primary">Save settings</button></div></form>
-    <div class="stack">${planCard(O)}${gstCard(s,O)}<div class="card"><h2>Users &amp; logins</h2><p class="note">Create logins, change passwords or switch a login off.</p><div><button class="btn" type="button" id="toUsers">Open Users</button></div></div>
+    <div class="stack">${planCard(O)}${gstCard(s,O)}${(s.print_mode||"thermal")!=="normal"?directPrintCard():""}<div class="card"><h2>Users &amp; logins</h2><p class="note">Create logins, change passwords or switch a login off.</p><div><button class="btn" type="button" id="toUsers">Open Users</button></div></div>
       <div class="card"><h2>About this app</h2><p class="note"><b>CB version ${APP_VERSION}</b>. Works without internet; all data stays on this device. When asking for help, mention this version number and send a screenshot.</p></div>
       <div class="card"><h2>Backup</h2><p class="note">Save everything (bills, products, users) as one file. Keep the backup file safe — copy it to a pen drive, Google Drive or WhatsApp it to yourself.</p>
       <p class="note"><b>Automatic daily backup is on.</b> On the first use of each new day, CB keeps a copy on this phone (last ${SNAP_KEEP} days) and saves a backup file to the Downloads folder.</p>
@@ -3041,9 +3156,20 @@ function renderSettings(){const s=S(),O=isOwner();setTimeout(()=>{if(!O&&!can("s
         <div><button class="btn danger" id="resetAll">Clear everything</button></div></div>`:""}</div></div>`;
   $("sForm").onsubmit=e=>{e.preventDefault();
     if(O&&document.querySelector("[data-pm]")){const t=[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm);if(!t.some(m=>PAID.includes(m))){toast("Tick at least one of Cash, UPI, Card or Bank.",true);return}}
-    Object.assign(DB.settings,O?{...(UP($("sTop").value)||S().top_line!==undefined?{top_line:UP($("sTop").value).slice(0,60)}:{}),shop_name:UP($("sShop").value)||"MY RETAIL STORE",header_lines:[0,1,2,3].map(i=>UP($("sH"+i).value).slice(0,64))}:{},{...($("sRate")&&($("sRate").value==="no"||S().print_rate!==undefined)?{print_rate:$("sRate").value!=="no"}:{}),...($("sTime")&&($("sTime").value==="no"||S().print_time!==undefined)?{print_time:$("sTime").value!=="no"}:{}),footer:UP($("sFooter").value).slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value,thermal_size:$("sTs").value}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value,...($("sOrd")&&$("sOrd").value!==(S().prod_order||"sold")?(LS.del("order_"+me.id),{}):{}),...($("sOrd")&&($("sOrd").value!=="sold"||S().prod_order!==undefined)?{prod_order:$("sOrd").value}:{}),...($("sVal")&&($("sVal").value!=="last"||S().stock_value!==undefined)?{stock_value:$("sVal").value}:{}),...($("sDv")&&($("sDv").value!=="auto"||S().dept_view!==undefined)?{dept_view:$("sDv").value}:{}),owner_lock:num($("sLock").value)}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").split("\n").map(l=>UP(l)).join("\n").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
-  $("toUsers").onclick=()=>go("users");bindPlanCard();
-  if($("sPrint")){const sy=()=>{const n=$("sPrint").value==="normal";$("sPaperF").hidden=n;$("sTsF").hidden=n;$("sPageF").hidden=!n};$("sPrint").onchange=sy;sy();
+    Object.assign(DB.settings,O?{...(UP($("sTop").value)||S().top_line!==undefined?{top_line:UP($("sTop").value).slice(0,60)}:{}),shop_name:UP($("sShop").value)||"MY RETAIL STORE",header_lines:[0,1,2,3].map(i=>UP($("sH"+i).value).slice(0,64))}:{},{...($("sRate")&&($("sRate").value==="no"||S().print_rate!==undefined)?{print_rate:$("sRate").value!=="no"}:{}),...($("sTime")&&($("sTime").value==="no"||S().print_time!==undefined)?{print_time:$("sTime").value!=="no"}:{}),footer:UP($("sFooter").value).slice(0,120),voice_lang:$("sVoice").value},O&&$("sPrint")?{print_mode:$("sPrint").value,paper:$("sPaper").value,page:$("sPage").value,thermal_size:$("sTs").value,...($("sInvS")&&($("sInvS").value!=="classic"||S().inv_style!==undefined)?{inv_style:$("sInvS").value}:{}),...(document.querySelector("[name=invc]:checked")&&(document.querySelector("[name=invc]:checked").value!=="teal"||S().inv_color!==undefined)?{inv_color:document.querySelector("[name=invc]:checked").value}:{})}:{},O&&$("sCorr")?{staff_correct:$("sCorr").value,numbering:$("sNum").value,...($("sOrd")&&$("sOrd").value!==(S().prod_order||"sold")?(LS.del("order_"+me.id),{}):{}),...($("sOrd")&&($("sOrd").value!=="sold"||S().prod_order!==undefined)?{prod_order:$("sOrd").value}:{}),...($("sVal")&&($("sVal").value!=="last"||S().stock_value!==undefined)?{stock_value:$("sVal").value}:{}),...($("sDv")&&($("sDv").value!=="auto"||S().dept_view!==undefined)?{dept_view:$("sDv").value}:{}),owner_lock:num($("sLock").value)}:{},O&&document.querySelector("[data-pm]")?{paymodes:[...document.querySelectorAll("[data-pm]:checked")].map(c=>c.dataset.pm)}:{},O&&$("sNote")?{bill_note:$("sNote").value.replace(/\r/g,"").split("\n").map(l=>UP(l)).join("\n").trim().slice(0,500)}:{});save();render();toast("Settings saved.")};
+  $("toUsers").onclick=()=>go("users");bindPlanCard();bindDirectPrint();
+  if($("sPrint")){const sy=()=>{const n=$("sPrint").value==="normal";$("sPaperF").hidden=n;$("sTsF").hidden=n;$("sPageF").hidden=!n;if($("sHeadF"))$("sHeadF").hidden=!n;prevHead()};
+    /* live preview of the heading with the choices on screen (not saved until Save settings) */
+    const prevHead=()=>{const box=$("sInvPrev");if(!box||$("sHeadF").hidden)return;const keep={st:DB.settings.inv_style,c:DB.settings.inv_color};const ck=document.querySelector("[name=invc]:checked");
+      DB.settings.inv_style=$("sInvS").value;DB.settings.inv_color=ck?ck.value:"teal";$("sInvCF").hidden=$("sInvS").value==="classic";
+      const b=DB.bills.filter(x=>x.status==="active").slice(-1)[0]||{id:0,no:1,bill_date:today(),created_at:stamp(),items:[{name:"SAMPLE ITEM",qty:1,unit:"Nos",rate:100,amount:100}],subtotal:100,net:100,customer:"CASH",status:"active",paymode:"Cash",tax:{type:"none"}};
+      try{box.innerHTML=`<div>${invoiceHTML(b,false,"A4")}</div>`}catch(e){box.innerHTML=""}
+      if(keep.st===undefined)delete DB.settings.inv_style;else DB.settings.inv_style=keep.st;if(keep.c===undefined)delete DB.settings.inv_color;else DB.settings.inv_color=keep.c};
+    if($("sInvS")){$("sInvS").onchange=prevHead;$("sInvC").onchange=prevHead}
+    if($("sLogo"))$("sLogo").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;try{const im=await loadImage(f);const c=drawScaled(im,360);
+        let d=c.toDataURL("image/png");if(d.length>120000)d=c.toDataURL("image/jpeg",0.85);DB.settings.logo=d;save();renderSettings();toast("Logo added — it prints on A4 / A5 bills")}catch(err){toast(err instanceof Bad?err.message:"Couldn't read that picture.",true)}};
+    if($("sLogoDel"))$("sLogoDel").onclick=()=>{delete DB.settings.logo;save();renderSettings();toast("Logo removed")};
+    $("sPrint").onchange=sy;sy();
     if($("sWidth"))$("sWidth").onclick=()=>{const p=$("sPrint").value==="normal"?"80":$("sPaper").value;const keep=DB.settings.thermal_size;DB.settings.thermal_size=$("sTs").value;const h=widthCheckHTML(p);DB.settings.thermal_size=keep;printReceipt(h,p)};
     $("sTestPrint").onclick=()=>{const b=DB.bills.filter(x=>x.status==="active").slice(-1)[0];if(!b){toast("Make one bill first, then try a test print.",true);return}
       const n=$("sPrint").value==="normal",p=n?$("sPage").value:$("sPaper").value;const keep=DB.settings.thermal_size,keepR=DB.settings.print_rate;DB.settings.thermal_size=$("sTs").value;DB.settings.print_rate=$("sRate").value!=="no";const h=receiptHTML(b,true,p);DB.settings.thermal_size=keep;if(keepR===undefined)delete DB.settings.print_rate;else DB.settings.print_rate=keepR;printReceipt(h,p)}}
@@ -3082,6 +3208,10 @@ function printBox(s,O){const m=s.print_mode||"thermal";const nm=m==="normal"?`No
       <div class="field" id="sTsF"><label for="sTs">Thermal text size</label><select id="sTs">${[["N","Normal"],["L","Large (recommended)"],["X","Extra large"],["XX","Biggest"]].map(([v,t])=>`<option value="${v}" ${(s.thermal_size||"L")===v?"selected":""}>${t}</option>`).join("")}</select></div>
       <div class="field" id="sPageF"><label for="sPage">Page size</label><select id="sPage"><option value="A4" ${s.page!=="A5"?"selected":""}>A4 (full page)</option><option value="A5" ${s.page==="A5"?"selected":""}>A5 (half page, upright)</option><option value="A5L" ${s.page==="A5L"?"selected":""}>A5 landscape (half page, wide)</option></select></div>
       <div class="field" style="flex:0 0 auto"><label>&nbsp;</label><button type="button" class="btn" id="sTestPrint">Test print</button><button type="button" class="btn" id="sWidth">Width check</button></div></div>
+    <div id="sHeadF"><div class="field"><label for="sInvS">Bill heading (A4 / A5)</label><select id="sInvS">${Object.entries(INV_STYLES).map(([k,v])=>`<option value="${k}" ${invStyle()===k?"selected":""}>${v}</option>`).join("")}</select></div>
+      <div class="field" id="sInvCF"><label>Heading colour</label><div class="hpick" id="sInvC">${Object.entries(INV_COLORS).map(([k,[n,c]])=>`<label><input type="radio" name="invc" value="${k}" ${(INV_COLORS[s.inv_color]?s.inv_color:"teal")===k?"checked":""}><i style="background:${c}"></i>${n}</label>`).join("")}</div><span class="note">Colour prints on colour printers; on a black-and-white laser it prints as grey.</span></div>
+      <div class="field"><label>Shop logo (optional)</label><div class="row" style="align-items:center">${s.logo?`<img src="${s.logo}" alt="Logo" style="height:40px;max-width:120px;object-fit:contain;border:1px solid var(--line);border-radius:6px;background:#fff;padding:2px">`:""}<label class="btn sm" for="sLogo" style="cursor:pointer">${s.logo?"Change logo":"Add logo"}</label><input type="file" id="sLogo" accept="image/*" hidden>${s.logo?`<button class="btn sm" type="button" id="sLogoDel">Remove logo</button>`:""}</div><span class="note">A clear picture of the logo (photo or file). It prints on A4 / A5 bills.</span></div>
+      <div class="field"><label>Preview</label><div class="hprev" id="sInvPrev"></div></div></div>
     <p class="note"><b>A5 landscape</b> is printed sideways: wide columns, so item names stay on one line. Load A5 paper (or A4 cut in half) and pick <b>A5</b> + <b>Landscape</b> in the print screen.</p>
     <p class="note"><b>Thermal</b> prints a narrow roll receipt. <b>Normal</b> prints a full bill with a proper table — good for laser / inkjet printers and for GST tax invoices to business buyers. Bills, payment receipts and the day summary all follow this choice. The admin can't change it.</p>`}
 /* Settings → Plan & support */
