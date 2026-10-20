@@ -625,7 +625,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="4.20";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="4.23";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -1637,16 +1637,30 @@ async function dpReady(){const d=dpSaved();if(!d)throw new Bad("No printer conne
     if(!dev)throw new Bad("The USB printer isn't plugged in. Connect it with the OTG cable and try again.");await dpOpenUSB(dev);return}
   if(DP.port&&DP.port.writable)return;const L=await navigator.serial.getPorts();const port=L[0];if(!port)throw new Bad("The printer's port isn't available. Tap Connect again in Settings.");await dpOpenSerial(port)}
 const dpWait=ms=>new Promise(r=>setTimeout(r,ms));
-async function dpSend(bytes){const d=dpSaved();await dpReady();
+/* Never send faster than the printer prints. A small thermal printer keeps only a few KB in its memory: data sent
+   faster over Bluetooth is lost, the printer loses its place in the picture and prints the rest as rubbish
+   (Chinese-looking letters). So CB feeds it at a paper speed it can surely print (8 dot rows per mm), after a small
+   head start, and waits for each piece where the printer allows it. "Slow" halves the speed for slower printers. */
+const DP_MM_S={normal:40,slow:20},DP_HEAD={normal:1024,slow:384};
+const dpSpeed=()=>{const d=dpSaved();return d&&d.speed==="slow"?"slow":"normal"};
+const dpRate=(rowBytes,speed)=>DP_MM_S[speed]*8*rowBytes/1000;   /* bytes per millisecond */
+async function dpPaced(bytes,rowBytes,piece,write,onPct){const sp=dpSpeed(),rate=dpRate(rowBytes||48,sp),head=DP_HEAD[sp],t0=performance.now();let i=0,last=-1;
+  while(i<bytes.length){const len=Math.min(piece(),bytes.length-i),ahead=i+len-head-(performance.now()-t0)*rate;
+    if(ahead>0)await dpWait(Math.ceil(ahead/rate));
+    const n=await write(bytes.subarray(i,i+len));i+=n;
+    const pct=Math.floor(i*4/bytes.length);if(onPct&&pct!==last&&pct<4){last=pct;onPct(pct*25)}}}
+async function dpSend(bytes,rowBytes,onPct){const d=dpSaved();await dpReady();
   if(d.type==="usb"){for(let i=0;i<bytes.length;i+=16384)await DP.dev.transferOut(DP.ep,bytes.subarray(i,i+16384));return}
-  if(d.type==="serial"){const w=DP.port.writable.getWriter();try{for(let i=0;i<bytes.length;i+=1024)await w.write(bytes.subarray(i,i+1024))}finally{w.releaseLock()}return}
-  const ch=DP.ch,nr=ch.properties.writeWithoutResponse;let i=0,n=0;
-  while(i<bytes.length){const part=bytes.subarray(i,i+DP.chunk);
-    try{if(nr)await ch.writeValueWithoutResponse(part);else await ch.writeValueWithResponse(part)}
-    catch(e){if(DP.chunk>20){DP.chunk=DP.chunk>100?100:20;continue}throw new Bad("The printer stopped answering. Check paper and power, then print again.")}
-    i+=part.length;if(nr&&++n%16===0)await dpWait(25)}}
+  if(d.type==="serial"){const w=DP.port.writable.getWriter();try{await dpPaced(bytes,rowBytes,()=>256,async b=>{await w.write(b);return b.length},onPct)}finally{w.releaseLock()}return}
+  const ch=DP.ch,pr=ch.properties,slow=dpSpeed()==="slow";
+  const withResp=!!pr.write&&(slow||!pr.writeWithoutResponse);   /* waiting for each piece is safest; used when slow, or when it is the only way */
+  if(slow)DP.chunk=Math.min(DP.chunk,100);
+  await dpPaced(bytes,rowBytes,()=>DP.chunk,async part=>{
+    for(;;){try{if(withResp)await ch.writeValueWithResponse(part);else await ch.writeValueWithoutResponse(part);return part.length}
+      catch(e){if(DP.chunk>20&&part.length>20){DP.chunk=DP.chunk>100?100:20;part=part.subarray(0,DP.chunk);continue}
+        throw new Bad("The printer stopped answering. Check paper and power, then print again.")}}},onPct)}
 /* receipt picture → ESC/POS raster commands (black dots), then feed and cut */
-function escposFromCanvas(c){const W=c.width,H=c.height,bw=W>>3,d=c.getContext("2d").getImageData(0,0,W,H).data,band=128;
+function escposFromCanvas(c){const W=c.width,H=c.height,bw=W>>3,d=c.getContext("2d").getImageData(0,0,W,H).data,band=48;
   const out=new Uint8Array(2+Math.ceil(H/band)*8+bw*H+8);let o=0;out[o++]=0x1B;out[o++]=0x40;
   for(let y0=0;y0<H;y0+=band){const h=Math.min(band,H-y0);out.set([0x1D,0x76,0x30,0,bw&255,bw>>8,h&255,h>>8],o);o+=8;
     for(let y=y0;y<y0+h;y++)for(let bx=0;bx<bw;bx++){let b=0;for(let k=0;k<8;k++){const i=(y*W+bx*8+k)*4;if(d[i+3]>0&&d[i]*0.3+d[i+1]*0.59+d[i+2]*0.11<165)b|=0x80>>k}out[o++]=b}}
@@ -1656,19 +1670,22 @@ async function dpRender(html,paper){const dots=paper==="58"?384:576;const box=do
   const c=document.createElement("canvas");c.width=dots;c.height=r.c.height;const x=c.getContext("2d",{willReadFrequently:true});x.fillStyle="#fff";x.fillRect(0,0,dots,c.height);x.drawImage(r.c,0,0,Math.min(dots,r.c.width),r.c.height);return c}
 let dpBusy=false;
 async function dpPrint(html,paper){if(dpBusy){toast("Still printing the last one…");return}dpBusy=true;toast("Printing…");
-  try{const c=await dpRender(html,paper);await dpSend(escposFromCanvas(c));toast("Printed")}finally{dpBusy=false}}
+  try{const c=await dpRender(html,paper);const job=escposFromCanvas(c),long=job.length>dpRate(c.width>>3,dpSpeed())*4000;
+    await dpSend(job,c.width>>3,long?p=>toast(`Printing… ${p}%`):null);toast("Printed")}finally{dpBusy=false}}
 function directPrintCard(){const d=dpSaved(),any=dpCan.ble()||dpCan.usb()||dpCan.serial();
   return `<div class="card" id="dpCard"><h2>Print directly to the thermal printer</h2>
     <p class="note">For a printer that shows <b>paired but not connected</b>, or to print without RawBT: CB sends the bill to the printer itself. Set up once on each phone / tablet / laptop.</p>
     ${any?`<p class="note" id="dpState">${d?`✓ <b>Connected: ${esc(d.name)}</b> (${DP_NAME[d.type]}). Bills, payment slips and the day summary print straight to it.`:"Not set up — bills print through the phone's print screen (RawBT)."}</p>
     <div class="row">${dpCan.ble()?`<button class="btn" type="button" id="dpBle">🔵 Bluetooth printer</button>`:""}${dpCan.usb()?`<button class="btn" type="button" id="dpUsb">🔌 USB cable (OTG)</button>`:""}${dpCan.serial()?`<button class="btn" type="button" id="dpSer">💻 Laptop: Bluetooth / COM port</button>`:""}</div>
-    ${d?`<div class="row"><button class="btn primary" type="button" id="dpTest">Test print</button><button class="btn" type="button" id="dpOff">Stop printing directly</button></div>`:""}
+    ${d?`<div class="row"><button class="btn primary" type="button" id="dpTest">Test print</button><button class="btn" type="button" id="dpOff">Stop printing directly</button></div>
+    ${d.type!=="usb"?`<div class="field"><label for="dpSpeed">Printing speed</label><select id="dpSpeed"><option value="normal"${dpSpeed()==="normal"?" selected":""}>Normal</option><option value="slow"${dpSpeed()==="slow"?" selected":""}>Slow — if long reports print strange letters</option></select></div>`:""}`:""}
     <p class="note"><b>Bluetooth:</b> switch the printer on, tap <b>Bluetooth printer</b> and pick it in the list (it may show as "Printer", a model number or an unnamed device — the one that appears when the printer is on). Allow "Nearby devices", and on older phones switch on Location. If the printer never shows in the list it has only classic Bluetooth: use the <b>USB cable</b> with an OTG adapter, or RawBT.</p>
     <p class="note"><b>USB:</b> connect the printer's USB cable to the phone with an OTG adapter, tap <b>USB cable</b> and allow. Roll width and text size follow the Printer setting above.</p>`
     :`<p class="note">This browser can't talk to printers directly (iPhone / iPad, or not Chrome). Print through the phone's print screen instead.</p>`}</div>`}
 function bindDirectPrint(){const go_=t=>async()=>{try{if(await dpConnect(t)){toast("Printer connected — printing a test slip");renderSettings();await dpPrint(widthCheckHTML(S().paper==="58"?"58":"80"),S().paper==="58"?"58":"80")}}catch(e){toast(e instanceof Bad?e.message:"Couldn't connect to the printer.",true)}};
   if($("dpBle"))$("dpBle").onclick=go_("ble");if($("dpUsb"))$("dpUsb").onclick=go_("usb");if($("dpSer"))$("dpSer").onclick=go_("serial");
   if($("dpTest"))$("dpTest").onclick=async()=>{const p=S().paper==="58"?"58":"80",b=DB.bills.filter(x=>x.status==="active").slice(-1)[0];try{await dpPrint(b?receiptHTML(b,true,p):widthCheckHTML(p),p)}catch(e){toast(e instanceof Bad?e.message:"Couldn't print.",true)}};
+  if($("dpSpeed"))$("dpSpeed").onchange=e=>{const d=dpSaved();if(!d)return;LS.set("dprint",{...d,speed:e.target.value==="slow"?"slow":"normal"});toast(e.target.value==="slow"?"Printing speed: Slow":"Printing speed: Normal")};
   if($("dpOff"))$("dpOff").onclick=async()=>{LS.del("dprint");try{if(DP.dev&&DP.dev.gatt)DP.dev.gatt.disconnect();if(DP.dev&&DP.dev.close)await DP.dev.close();if(DP.port)await DP.port.close()}catch(e){}Object.assign(DP,{dev:null,ch:null,ep:null,port:null});toast("Direct printing switched off — bills use the print screen again");renderSettings()}}
 function printReceipt(html,paper,viaDialog){
   if(!viaDialog&&!isPage(paper)&&dpActive()){dpPrint(html,paper).catch(e=>{toast((e instanceof Bad?e.message:"Couldn't reach the printer.")+" Opening the print screen instead.",true);printReceipt(html,paper,true)});return}
@@ -1951,7 +1968,8 @@ const FEATURES={digital:"UPI, card & bank payments",credit:"Credit sales & dues"
 const ADDONS={billphoto:"Bill photo / PDF & e-invoice QR reading on purchases",distorder:"Order to distributor — sponsored shop (send orders on WhatsApp)"};
 /* the distributor who sponsors this shop: name, WhatsApp number, GSTIN — inside the signed plan code, so it can't be edited */
 const cleanSponsor=sp=>{if(!sp||typeof sp!=="object")return null;const n=UP(String(sp.n||"")).slice(0,60).trim(),w=String(sp.w||"").replace(/\D/g,"").slice(-12),g=String(sp.g||"").toUpperCase().trim();
-  return n?{n,w:w.length>=10?w:"",g:gstinCheck(g)?g:""}:null};
+  const l=String(sp.l||"").trim(),lok=l.length<=200&&/^https:\/\/script\.google\.com\/macros\/s\/[\w-]{20,}\/exec$/.test(l);
+  return n?{n,w:w.length>=10?w:"",g:gstinCheck(g)?g:"",...(lok?{l}:{})}:null};
 const BASIC_FEATURES=[];const TRIAL_DAYS=30;
 const OLD_CODE_FEATURES=["digital","audit"];   /* codes made before version 3.3 always included these */
 const V2_CODE_FEATURES=["ranking","cashbook"];   /* codes made before 4.3 had the ranking report and cash book included */
@@ -2845,96 +2863,216 @@ function renderPurEditor(){const P=purEdit==="new"?null:DB.purchases.find(x=>x.i
 /* ============================================================ ORDER TO THE DISTRIBUTOR (sponsored shops)
    The shop sends an order for the sponsor's own products, by WhatsApp or print. Nothing is sent automatically:
    only the items and quantities the shop chooses to send reach the distributor. */
-let dOrdF="need",dOrdQ={},dOrdNote="",dPickQ="";
-const distItems=()=>activeProducts().filter(p=>p.dist);
+let dOrdF="need",dOrdQ={},dOrdNote="",dPickQ="",dFindQ="";
+/* ---- the distributor's item list ----
+   Kept in the distributor's PRIVATE Google Sheet. A small script in that sheet (CB-Distributor-List-Script.gs) hands it
+   out only to a CB that shows a genuine signed plan code with this add-on for that distributor, still running and not
+   cancelled — nobody else can download it. The script's address is inside the signed plan code (the shop can't change
+   it and never sees it). CB asks when the phone is online (on opening, every few hours, and with Refresh) and keeps the
+   last copy for offline use. A file the shop uploads works the same way when there is no sheet. The shop's own extra items (DB.dmine)
+   are kept apart and never change the distributor's list. */
+const DCAT_MAX=5000,DCAT_HOURS=6;
+const distLink=()=>{const sp=sponsor();return sp&&sp.l||""};
+const nkey=s=>String(s||"").trim().toLowerCase().replace(/\s+/g," ");
+function catFromRows(rows){rows=(rows||[]).filter(r=>r&&r.some(x=>String(x??"").trim()!==""));if(rows.length<2)throw new Bad("The list is empty.");
+  const h=rows[0].map(x=>String(x??"").trim().toLowerCase()),find=re=>h.findIndex(x=>re.test(x));
+  const ni=find(/item|name|product|description|particular/),ci=find(/code|sku|item no/),ri=find(/^rate|price|^dp|dist|ptr|purchase/),mi=find(/mrp|sale|selling/),ui=find(/unit|uom/),hi=find(/hsn/),gi=find(/gst|tax/);
+  const pi=h.findIndex((x,i)=>i!==ni&&i!==ci&&i!==ui&&/pack|qty|quantity|size/.test(x));
+  if(ni<0)throw new Bad("Couldn't find the item name column. The first row should have a column called 'Item Name'.");
+  const seen=new Set(),items=[];
+  for(const r of rows.slice(1)){if(items.length>=DCAT_MAX)break;const n=UP(String(r[ni]??"").trim()).replace(/\s+/g," ").slice(0,80);if(!n)continue;
+    const c=ci>=0&&ci!==ni?String(r[ci]??"").trim().slice(0,30):"";const k=c?"c|"+c.toLowerCase():"n|"+n.toLowerCase();if(seen.has(k))continue;seen.add(k);
+    const it={n};if(c)it.c=c;const rr=ri>=0?num(r[ri]):0,mm=mi>=0?num(r[mi]):0;if(rr>0)it.r=r2(rr);if(mm>0)it.m=r2(mm);
+    const u0=ui>=0?String(r[ui]??"").trim().toLowerCase():"",u=UNITS.find(x=>x.toLowerCase()===u0||x.toLowerCase()===u0+"s"||x.toLowerCase().replace(/s$/,"")===u0);if(u)it.u=u;
+    const hs=hi>=0?String(r[hi]??"").replace(/\D/g,"").slice(0,8):"";if(hs)it.h=hs;
+    const pk=pi>=0?String(r[pi]??"").trim().replace(/\s+/g," ").slice(0,24):"";if(pk)it.pk=pk;
+    if(gi>=0&&String(r[gi]??"").trim()!==""){const g=num(r[gi]);if(GST_RATES.includes(g))it.g=g}
+    items.push(it)}
+  if(!items.length)throw new Bad("No items found in the list.");return items}
+/* pack size as the distributor writes it ("1 Kg", "500 g", "200 ml", "Box of 12", "12 x 100 g") → {n, u} in CB's units */
+function packOf(t){t=String(t||"").toLowerCase().replace(/,/g,"");if(!t)return null;
+  const U=[[/^(kg|kgs|kilo|kilos|kilogram|kilograms)$/,"Kgs",1],[/^(g|gm|gms|gram|grams|gr)$/,"Gms",1],[/^(l|ltr|ltrs|litre|litres|liter|liters)$/,"Ltr",1],[/^(ml|mls)$/,"Ltr",0.001],
+    [/^(pc|pcs|piece|pieces|nos|no|n|units?)$/,"Nos",1],[/^(dz|doz|dozen|dozens)$/,"Dozen",1],[/^(m|mtr|mtrs|metre|metres|meter|meters)$/,"Mtr",1],[/^(pair|pairs)$/,"Pair",1]];
+  const unit=w=>{for(const[re,u,f]of U)if(re.test(w||""))return[u,f];return null};
+  let m=t.match(/(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)\s*([a-z]+)?/);
+  if(m){const a=+m[1],b=+m[2],u=unit(m[3]);return u?{n:r2(a*b*u[1]),u:u[0]}:{n:r2(a*b),u:"Nos"}}
+  m=t.match(/(\d+(?:\.\d+)?)\s*([a-z]+)?/);if(!m)return null;const n=+m[1];if(!(n>0))return null;const u=unit(m[2]);
+  return u?{n:r2(n*u[1]),u:u[0]}:{n,u:"Nos"}}
+/* how many of the shop's own units are in one pack (1 when the units can't be converted: a 1 Kg packet sold as 1 Nos) */
+function perPack(pk,punit){const pk_=packOf(pk);if(!pk_)return 1;const f=unitFactor(pk_.u,punit);return f==null?1:r2(pk_.n*f)||1}
+const catKey=it=>it.c?"c|"+it.c.toLowerCase():"n|"+it.n.toLowerCase();
+function catMatch(items){const byName=new Map(),byCode=new Map(),byAlias=new Map();
+  activeProducts().forEach(p=>{byName.set(nkey(p.name),p);if(p.dcode)byCode.set(nkey(p.dcode),p);String(p.aliases||"").split(",").forEach(a=>{a=nkey(a);if(a&&!byAlias.has(a))byAlias.set(a,p)})});
+  return items.map(it=>(it.c&&byCode.get(nkey(it.c)))||byName.get(nkey(it.n))||byAlias.get(nkey(it.n))||null)}
+/* sample data: a small example list, so the screen can be shown */
+function demoCat(){const ps=activeProducts().slice(0,10);return ps.map((p,i)=>({n:p.name,c:"SW"+(101+i),r:r2(num(p.rate)*0.85),m:num(p.rate),u:p.unit}))
+  .concat([{n:"BASMATI RICE 5 KG BAG",c:"SW201",r:540,m:620,u:"Nos"},{n:"GROUNDNUT OIL 1 LTR",c:"SW202",r:168,m:190,u:"Nos"},{n:"PREMIUM TEA 250 G",c:"SW203",r:118,m:140,u:"Pkt"}])}
+const distCat=()=>DB.dcat&&Array.isArray(DB.dcat.items)?DB.dcat.items:(DB.demo?demoCat():[]);
+const dtime=s=>s?`${dmy(s)} ${hm(s)}`:"";
+let dcatBusy=false;
+async function fetchDistList(force){const url=distLink();if(!url||dcatBusy)return"skip";if(!navigator.onLine){if(force)DB.dcat_err={at:stamp(),msg:"No internet now — showing the list saved on this phone."};return"offline"}
+  const c=DB.dcat;if(!force&&c&&c.src===url&&c.at&&Date.now()-new Date(String(c.at).replace(" ","T")).getTime()<DCAT_HOURS*3600e3)return"fresh";
+  dcatBusy=true;try{const ac=new AbortController(),t=setTimeout(()=>ac.abort(),20000);let r;
+    const pl=readPlanCode(DB.plan_code);if(!pl)throw new Bad("No plan code on this phone.");
+    try{r=await fetch(url+"?code="+encodeURIComponent(pl.raw)+"&v="+APP_VERSION,{cache:"no-store",credentials:"omit",signal:ac.signal})}finally{clearTimeout(t)}
+    if(!r.ok)throw new Bad(`The distributor's list didn't open (error ${r.status}). Tell your support person.`);
+    const txt=await r.text();if(txt.length>4e6)throw new Bad("The distributor's list is too big (over 5,000 items).");
+    let j=null;try{j=JSON.parse(txt)}catch(_){}
+    if(!j||typeof j!=="object")throw new Bad("The distributor's list is not set up for CB yet. Tell your support person.");
+    if(!j.ok)throw new Bad("The distributor's list refused this shop: "+String(j.msg||"no reason given").slice(0,160));
+    if(!Array.isArray(j.rows))throw new Bad("The distributor's list came back empty.");
+    const items=catFromRows(j.rows.map(x=>Array.isArray(x)?x.map(v=>String(v??"")):[])),old=DB.dcat,same=!!(old&&old.src===url&&JSON.stringify(old.items)===JSON.stringify(items));
+    DB.dcat={items,at:stamp(),src:url};delete DB.dcat_err;
+    if(!same)act("product",`${sponsorShort()} item list updated from the distributor: ${items.length} item${items.length>1?"s":""}`,{},me?undefined:"CB (automatic)");else save();
+    return same?"same":"new"}
+  catch(e){DB.dcat_err={at:stamp(),msg:e instanceof Bad?e.message:"The distributor's list didn't answer. Check the internet and try again."};save();return"err"}
+  finally{dcatBusy=false}}
+function loadDistFile(rows){if(!can("dorder"))throw new Bad("Sending orders is switched off for your login.");const items=catFromRows(rows);
+  DB.dcat={items,at:stamp(),src:"file"};delete DB.dcat_err;act("product",`${sponsorShort()} item list loaded from a file: ${items.length} item${items.length>1?"s":""}`,{});save();return items.length}
+/* the shop's own extra items: only in its order book */
+function addMineItem(d){if(!can("dorder"))throw new Bad("Sending orders is switched off for your login.");
+  const n=UP(String(d.n||"").trim()).replace(/\s+/g," ").slice(0,80);if(!n)throw new Bad("Type the item name.");
+  const u=UNITS.includes(d.u)?d.u:"Nos",c=String(d.c||"").trim().slice(0,30);const L=DB.dmine=Array.isArray(DB.dmine)?DB.dmine:[];
+  if(L.some(x=>nkey(x.n)===nkey(n))||distCat().some(x=>nkey(x.n)===nkey(n)))throw new Bad(`${n} is already in your order list.`);
+  const it={id:nextId(),n,u};if(c)it.c=c;L.push(it);act("product",`Order item added by the shop: ${n}`,{ref:it.id});save();return it}
+function removeMineItem(id){if(!can("dorder"))throw new Bad("Sending orders is switched off for your login.");const L=DB.dmine||[],i=L.findIndex(x=>x.id===id);if(i<0)return;
+  const it=L.splice(i,1)[0];act("product",`Order item removed by the shop: ${it.n}`,{ref:it.id});save()}
+/* every line the shop can order: the distributor's list, then the shop's ticked products, then items it added */
+function distRows(){const cat=distCat(),m=catMatch(cat),used=new Set(),rows=[];
+  cat.forEach((it,i)=>{const p=m[i];if(p)used.add(p.id);const byPack=!!(it.pk&&!it.u);
+    rows.push({k:catKey(it),name:it.n,code:it.c||(p&&p.dcode)||"",pk:it.pk||"",byPack,unit:it.u||(byPack?"Pkt":(p&&p.unit)||"Nos"),rate:it.r||0,mrp:it.m||0,hsn:it.h||"",gst:it.g,p,src:"list"})});
+  activeProducts().filter(p=>p.dist&&!used.has(p.id)).forEach(p=>{used.add(p.id);rows.push({k:"p|"+p.id,name:p.name,code:p.dcode||"",unit:p.unit||"Nos",rate:p.drate||0,mrp:0,p,src:"product"})});
+  const byName=new Map(activeProducts().map(p=>[nkey(p.name),p]));
+  (DB.dmine||[]).forEach(it=>{const p=byName.get(nkey(it.n));const pp=p&&!used.has(p.id)?p:null;if(pp)used.add(pp.id);rows.push({k:"m|"+it.id,mid:it.id,name:it.n,code:it.c||"",unit:it.u||"Nos",rate:0,mrp:0,p:pp,src:"mine"})});
+  return rows}
+const distItems=()=>distRows().filter(r=>r.p).map(r=>r.p);
 function sold30(){const from=addDays(today(),-29),pm=new Map(DB.products.map(p=>[p.id,p])),m=new Map();
-  DB.bills.forEach(b=>{if(b.status!=="active"||b.bill_date<from)return;(b.items||[]).forEach(i=>{const p=pm.get(i.product_id);if(!p||!p.dist)return;const f=unitFactor(i.unit,p.unit);m.set(p.id,r2((m.get(p.id)||0)+num(i.qty)*(f==null?1:f)))})});return m}
+  DB.bills.forEach(b=>{if(b.status!=="active"||b.bill_date<from)return;(b.items||[]).forEach(i=>{const p=pm.get(i.product_id);if(!p)return;const f=unitFactor(i.unit,p.unit);m.set(p.id,r2((m.get(p.id)||0)+num(i.qty)*(f==null?1:f)))})});return m}
 /* suggested quantity: enough for about 15 days of sales, at least twice the re-order level, minus the stock in hand */
 function distSuggest(p,s30){const st=has("stock")?stockOf(p):null,tracked=!!(st&&st.state&&st.state!=="none"),re=num(p.reorder)||0;
   const target=Math.max(re*2,s30/2);const q=tracked?Math.max(0,Math.ceil(target-st.qty)):Math.ceil(s30/2);return{q,stock:tracked?st.qty:null,state:tracked?st.state:"none"}}
+/* the suggestion is worked out in the shop's unit; the order goes in the distributor's unit when they can be converted */
+function rowSuggest(r,S30){if(!r.p)return{q:0,s30:0,stock:null,state:"none"};const s30=S30.get(r.p.id)||0,s=distSuggest(r.p,s30);
+  if(r.byPack){const per=perPack(r.pk,r.p.unit);return{...s,s30,q:s.q>0?Math.ceil(r2(s.q/per)):0,conv:per!==1}}
+  const f=unitFactor(r.p.unit,r.unit);return{...s,s30,q:f==null||!(s.q>0)?0:Math.ceil(r2(s.q*f)),conv:f!==1}}
 const waNum=w=>{const d=String(w||"").replace(/\D/g,"");return d.length===10?"91"+d:d};
-function orderText(o){const sp=sponsor()||{n:o.to};return `*Order ${o.no}* from *${S().shop_name}*\n${headLines().filter(Boolean).slice(0,2).join(", ")}\nShop ID ${shopIdLabel(DB.shop_id)} · ${dmy(o.date)}\nTo: ${sp.n}\n\n`+o.lines.map((l,i)=>`${i+1}. ${l.name}${l.code?` [${l.code}]`:""} — ${fq(l.qty)} ${l.unit}`).join("\n")+(o.note?`\n\nNote: ${o.note}`:"")+`\n\n(${o.lines.length} item${o.lines.length>1?"s":""} · sent from CB)`}
+function orderText(o){const sp=sponsor()||{n:o.to};return `*Order ${o.no}* from *${S().shop_name}*\n${headLines().filter(Boolean).slice(0,2).join(", ")}\nShop ID ${shopIdLabel(DB.shop_id)} · ${dmy(o.date)}\nTo: ${sp.n}\n\n`+o.lines.map((l,i)=>`${i+1}. ${l.name}${l.code?` [${l.code}]`:""}${l.pk?` (${l.pk})`:""} — ${fq(l.qty)} ${l.unit}`).join("\n")+(o.note?`\n\nNote: ${o.note}`:"")+`\n\n(${o.lines.length} item${o.lines.length>1?"s":""} · sent from CB)`}
 function orderHTML(o,paper){const sp=sponsor()||{n:o.to};
   if(isPage(paper))return `<div class="inv ${paper}"><div class="ttl">PURCHASE ORDER</div><div class="top"><div class="shop"><span class="nm">${esc(S().shop_name)}</span>${headLines().filter(Boolean).map(l=>`<div>${esc(l)}</div>`).join("")}${S().gstin?`<div><b>GSTIN: ${esc(S().gstin)}</b></div>`:""}</div>
     <div class="meta"><div>Order No: <b>${esc(o.no)}</b></div><div>Date: ${dmy(o.date)}</div></div></div><div class="party"><div><div class="lb">To</div><b>${esc(sp.n)}</b>${sp.g?`<div>GSTIN: ${esc(sp.g)}</div>`:""}</div></div>
-    <table><thead><tr><th>#</th><th class="l">Item</th><th class="l">Code</th><th>Qty</th><th class="l">Unit</th></tr></thead><tbody>${o.lines.map((l,i)=>`<tr><td>${i+1}</td><td class="l">${esc(l.name)}</td><td class="l">${esc(l.code||"")}</td><td>${fq(l.qty)}</td><td class="l">${esc(l.unit)}</td></tr>`).join("")}</tbody></table>
+    <table><thead><tr><th>#</th><th class="l">Item</th><th class="l">Code</th><th>Qty</th><th class="l">Unit</th></tr></thead><tbody>${o.lines.map((l,i)=>`<tr><td>${i+1}</td><td class="l">${esc(l.name)}${l.pk?` <small>(${esc(l.pk)})</small>`:""}</td><td class="l">${esc(l.code||"")}</td><td>${fq(l.qty)}</td><td class="l">${esc(l.unit)}</td></tr>`).join("")}</tbody></table>
     ${o.note?`<div class="note">${esc(o.note)}</div>`:""}<div class="sign"><div></div><div class="r">For <b>${esc(S().shop_name)}</b><br><br><br>Authorised signatory</div></div></div>`;
   return `<div class="rcpt w${paper}${thermalClass(paper)}"><div class="c b">PURCHASE ORDER</div><div class="c b big">${esc(S().shop_name)}</div>${headLines().filter(Boolean).slice(0,2).map(l=>`<div class="c">${esc(l)}</div>`).join("")}
     <div class="hr"></div><div class="lr"><span>Order ${esc(o.no)}</span><span>${dmy(o.date)}</span></div><div>To: <b>${esc(sp.n)}</b></div><div class="hr"></div>
-    ${o.lines.map((l,i)=>`<div class="lr"><span>${i+1}. ${esc(l.name)}${l.code?` [${esc(l.code)}]`:""}</span><span>${fq(l.qty)} ${esc(l.unit)}</span></div>`).join("")}
+    ${o.lines.map((l,i)=>`<div class="lr"><span>${i+1}. ${esc(l.name)}${l.code?` [${esc(l.code)}]`:""}${l.pk?` (${esc(l.pk)})`:""}</span><span>${fq(l.qty)} ${esc(l.unit)}</span></div>`).join("")}
     <div class="hr"></div><div>${o.lines.length} item${o.lines.length>1?"s":""}</div>${o.note?`<div>Note: ${esc(o.note)}</div>`:""}</div>`}
+/* lines: [{name, code, unit, qty, product_id?, r?}] — a line with only product_id takes the product's name and unit */
 function makeOrder(lines,note){if(!can("dorder"))throw new Bad("Sending orders is switched off for your login.");const sp=sponsor();if(!sp)throw new Bad("Ordering is not part of this shop's plan.");
   lines=lines.filter(l=>num(l.qty)>0);if(!lines.length)throw new Bad("Type a quantity for at least one item.");
   DB.dorder_seq=(DB.dorder_seq||0)+1;const o={id:nextId(),no:"DO-"+DB.dorder_seq,date:today(),at:stamp(),by:me.id,to:sp.n,note:String(note||"").trim().slice(0,200),status:"sent",
-    lines:lines.map(l=>{const p=DB.products.find(x=>x.id===l.product_id)||{};return{product_id:l.product_id,name:p.name||l.name,code:p.dcode||"",qty:r2(num(l.qty)),unit:p.unit||"Nos"}})};
+    lines:lines.map(l=>{const p=l.product_id?DB.products.find(x=>x.id===l.product_id)||null:null;const x={product_id:p?p.id:null,name:String(l.name||(p&&p.name)||"").slice(0,80),code:String(l.code!==undefined?l.code:(p&&p.dcode)||"").slice(0,30),qty:r2(num(l.qty)),unit:l.unit||(p&&p.unit)||"Nos"};
+      if(l.pk)x.pk=String(l.pk).slice(0,24);if(num(l.r)>0)x.r=r2(num(l.r));if(num(l.m)>0)x.m=r2(num(l.m));if(l.h)x.h=String(l.h).slice(0,8);if(l.g!==undefined&&l.g!=="")x.g=num(l.g);return x})};
   (DB.dorders=DB.dorders||[]).push(o);act("order",`Order ${o.no} sent to ${sp.n} · ${o.lines.length} item${o.lines.length>1?"s":""}`,{ref:o.id});save();return o}
 function sendOrderWA(o){const sp=sponsor();const url=`https://wa.me/${sp&&sp.w?waNum(sp.w):""}?text=${encodeURIComponent(orderText(o))}`;try{window.open(url,"_blank")||(location.href=url)}catch(e){location.href=url}}
-/* distributor's product list (Excel / CSV): Item Name, Code, Rate, MRP, Unit, HSN, GST */
-function importDistList(rows,addNew){if(!can("products"))throw new Bad("Setting up the distributor's items needs the products right.");if(rows.length<2)throw new Bad("The file is empty.");
-  const h=rows[0].map(x=>String(x).trim().toLowerCase()),find=re=>h.findIndex(x=>re.test(x));
-  const ni=find(/item|name|product|description|particular/),ci=find(/code|sku|item no/),ri=find(/^rate|price|dp|dist|ptr|purchase/),mi=find(/mrp|sale|selling/),ui=find(/unit|uom/),hi=find(/hsn/),gi=find(/gst|tax/);
-  if(ni<0)throw new Bad("Couldn't find the item name column. Name a column 'Item Name'.");
-  const byName=new Map(activeProducts().map(p=>[p.name.toLowerCase(),p])),byCode=new Map(activeProducts().filter(p=>p.dcode).map(p=>[String(p.dcode).toLowerCase(),p]));
-  let matched=0,added=0;const missing=[];
-  rows.slice(1).forEach(r=>{const name=UP(String(r[ni]||"").trim()).slice(0,80);if(!name)return;const code=ci>=0?String(r[ci]||"").trim().slice(0,30):"";
-    let p=(code&&byCode.get(code.toLowerCase()))||byName.get(name.toLowerCase())||activeProducts().find(x=>String(x.aliases||"").toLowerCase().split(",").map(a=>a.trim()).includes(name.toLowerCase()));
-    const rate=ri>=0?num(r[ri]):0,mrp=mi>=0?num(r[mi]):0;
-    if(!p&&addNew){const unit=ui>=0&&UNITS.includes(String(r[ui]).trim())?String(r[ui]).trim():"Nos";p={id:nextId(),name,dept:UP(sponsorShort()||"DISTRIBUTOR").slice(0,30),rate:mrp||rate||0,unit,active:true,aliases:""};
-      if(hi>=0&&String(r[hi]).trim())p.hsn=String(r[hi]).trim().slice(0,8);if(gi>=0&&String(r[gi]).trim()!=="")p.gst=num(r[gi]);DB.products.push(p);byName.set(name.toLowerCase(),p);added++}
-    if(!p){missing.push(name);return}p.dist=1;if(code)p.dcode=code;if(rate>0)p.drate=rate;matched++});
-  act("product",`Distributor item list loaded: ${matched} item${matched===1?"":"s"} marked${added?`, ${added} new product${added>1?"s":""} added`:""}`,{});save();
-  return{matched,added,missing}}
 function markBoughtFromSponsor(){const sp=sponsor();if(!sp)return 0;const nm=sp.n.toLowerCase();let n=0;const ids=new Set();
   (DB.purchases||[]).forEach(x=>{if(x.status!=="active")return;if((sp.g&&x.gstin===sp.g)||x.supplier.toLowerCase()===nm)x.items.forEach(i=>ids.add(i.product_id))});
   activeProducts().forEach(p=>{if(ids.has(p.id)&&!p.dist){p.dist=1;n++}});if(n){act("product",`${n} item${n>1?"s":""} bought from ${sp.n} marked as distributor items`,{});save()}return n}
-function renderDistOrder(){const sp=sponsor(),items=sortProducts(distItems()),S30=sold30(),canP=can("products");
-  const rows=items.map(p=>{const s=distSuggest(p,S30.get(p.id)||0);const q=dOrdQ[p.id]!==undefined?dOrdQ[p.id]:(s.q>0?String(s.q):"");return{p,s,s30:S30.get(p.id)||0,q}});
-  const need=rows.filter(r=>num(r.q)>0),shown=dOrdF==="need"&&need.length?need:rows;
-  const orders=(DB.dorders||[]).slice().reverse().slice(0,30);
+/* goods arrived: order lines that are not products yet can be added to the products (so they can be billed and stocked) */
+function addOrderProducts(lines){if(!can("products"))throw new Bad("Adding products is switched off for your login.");const out=[];
+  lines.forEach(l=>{let p=activeProducts().find(x=>nkey(x.name)===nkey(l.name));
+    if(!p){p={id:nextId(),name:UP(l.name).slice(0,80),dept:UP(sponsorShort()||"DISTRIBUTOR").slice(0,30),rate:num(l.m)||0,unit:UNITS.includes(l.unit)?l.unit:"Nos",active:true,aliases:"",added_by:me.id,added_at:stamp()};
+      if(l.h)p.hsn=l.h;if(l.g!==undefined)p.gst=l.g;if(l.code)p.dcode=l.code;DB.products.push(p);act("product",`Added ${p.name} (from order ${l.no||""})`.replace(" ()",""),{ref:p.id,snap:prodSnap(p)})}
+    l.product_id=p.id;out.push(p)});save();return out}
+function goodsArrived(o){const pm=new Map(activeProducts().map(p=>[p.id,p])),byName=new Map(activeProducts().map(p=>[nkey(p.name),p]));
+  o.lines.forEach(l=>{if(!pm.get(l.product_id)){const p=byName.get(nkey(l.name));if(p)l.product_id=p.id}});
+  const missing=o.lines.filter(l=>!pm.get(l.product_id)&&!byName.get(nkey(l.name)));
+  const go=()=>{const pm2=new Map(activeProducts().map(p=>[p.id,p]));const lastRate=id=>{const x=[...(DB.purchases||[])].reverse().find(q=>q.status==="active"&&q.items.some(i=>i.product_id===id));const li=x&&x.items.find(i=>i.product_id===id);return li?String(li.rate):""};
+    const left=o.lines.filter(l=>!pm2.get(l.product_id));
+    purTab="bills";purEdit="new";purDraft={...blankPur(),supplier:o.to,gstin:(sponsor()||{}).g||"",order_id:o.id,
+      note:(`Against order ${o.no}`+(left.length?`. Not in products: ${left.map(l=>`${l.name} ${fq(l.qty)} ${l.unit}`).join(", ")}`:"")).slice(0,300),
+      items:o.lines.filter(l=>pm2.get(l.product_id)).map(l=>{const p=pm2.get(l.product_id);
+        if(l.pk&&l.unit==="Pkt"&&p.unit!=="Pkt"){const per=perPack(l.pk,p.unit);return{product_id:p.id,qty:String(r2(l.qty*per)),unit:p.unit,rate:l.r?String(r2(l.r/per)):p.drate?String(p.drate):lastRate(p.id),gst:p.gst===undefined||p.gst===""?"":num(p.gst)}}
+        const f=unitFactor(l.unit,p.unit);return{product_id:p.id,qty:String(f==null?l.qty:r2(l.qty*f)),unit:f==null?l.unit:p.unit,
+        rate:l.r?String(f==null||f===1?l.r:r2(l.r/f)):p.drate?String(p.drate):lastRate(p.id),gst:p.gst===undefined||p.gst===""?"":num(p.gst)}})};
+    renderPurchases();toast(left.length?`${left.length} item${left.length>1?"s":""} not in your products — listed in the note`:"Check the rates and quantities against the supplier's bill, then Save purchase")};
+  if(!missing.length||!can("products"))return go();
+  openModal(`<h2>New items in this order</h2><p class="note">These are not in your products yet. Add them, so you can sell them and see their stock? The sale rate is set to the MRP from ${esc(sponsorShort())}'s list — check it in Items.</p>
+    <ul>${missing.map(l=>`<li><b>${esc(l.name)}</b> · ${fq(l.qty)} ${esc(l.unit)}${l.m?` · MRP ₹${fmt(l.m)}`:" · <span class='down'>no MRP — set the rate</span>"}</li>`).join("")}</ul>
+    <div class="row"><button class="btn primary" id="gaAdd" style="flex:1">Add ${missing.length} item${missing.length>1?"s":""} and continue</button><button class="btn" id="gaSkip">Continue without them</button></div>`);
+  $("gaAdd").onclick=()=>{try{addOrderProducts(missing.map(l=>Object.assign(l,{no:o.no})));missing.forEach(l=>delete l.no);save();closeModal();go()}catch(err){toast(err instanceof Bad?err.message:"Couldn't add.",true)}};
+  $("gaSkip").onclick=()=>{closeModal();go()}}
+const D_SHOW=150;
+function renderDistOrder(){const sp=sponsor(),canP=can("products"),link=distLink(),cat=distCat();
+  if(link&&!dcatBusy)fetchDistList(false).then(r=>{if(r==="new"&&view==="purchases"&&purTab==="order"&&purEdit===null&&!document.activeElement.matches("input"))renderDistOrder()});
+  const all=distRows(),S30=sold30();
+  const rows=all.map(r=>{const s=rowSuggest(r,S30);const q=dOrdQ[r.k]!==undefined?dOrdQ[r.k]:(s.q>0?String(s.q):"");return{...r,s,q}});
+  const need=rows.filter(r=>num(r.q)>0),mine=rows.filter(r=>r.p||r.src!=="list");
+  if(dOrdF==="need"&&!need.length)dOrdF=mine.length?"mine":"all";
+  const base=dOrdF==="need"?need:dOrdF==="mine"?mine:rows,fq0=nkey(dFindQ),found=fq0?base.filter(r=>nkey(r.name).includes(fq0)||nkey(r.code).includes(fq0)):base,shown=found.slice(0,D_SHOW);
+  const orders=(DB.dorders||[]).slice().reverse().slice(0,30),err=DB.dcat_err,info=DB.dcat;
+  const listLine=link?`<b>${esc(sponsorShort())}'s list:</b> ${info&&info.src===link?`${info.items.length} item${info.items.length>1?"s":""} · checked ${dtime(info.at)}`:info&&info.src==="file"?`${info.items.length} items from a file (${dtime(info.at)}) — the distributor's list hasn't been read yet`:"not read yet"}${err?` <span class="down">· ${esc(err.msg)}</span>`:""}`
+    :info?`<b>${esc(sponsorShort())}'s list:</b> ${info.items.length} item${info.items.length>1?"s":""} from a file · ${dtime(info.at)}`:sp.demo?`<b>${esc(sponsorShort())}'s list:</b> example list (sample data)`:`<b>No list from ${esc(sponsorShort())} yet.</b> Ask your support person to connect ${esc(sp.n)}'s list to your plan, or upload their list below.`;
+  const rowHTML=r=>`<div class="dorow" data-k="${esc(r.k)}"><div class="nm"><b>${esc(r.name)}</b>${r.src==="mine"?` <span class="pill">added by you</span>`:r.src==="product"?` <span class="pill">ticked by you</span>`:""}<div class="note">${[r.code?`Code ${esc(r.code)}`:"",r.pk?`Pack ${esc(r.pk)}`:"",r.rate?`Rate ₹${fmt(r.rate)}`:"",r.mrp?`MRP ₹${fmt(r.mrp)}`:"",
+      r.p?(has("stock")?`In stock ${r.s.stock===null?"—":`<span class="${r.s.state==="out"||r.s.state==="low"?"down":""}">${fq(r.s.stock)} ${esc(r.p.unit)}${r.s.state==="out"?" (out)":r.s.state==="low"?" (low)":""}</span>`}`:"")+` · sold ${fq(r.s.s30)} ${esc(r.p.unit)} in 30 days`:r.src==="list"?"not in your products":""].filter(Boolean).join(" · ")}</div></div>
+      <div class="q"><input class="num" data-dq inputmode="decimal" value="${esc(r.q)}" placeholder="0" aria-label="Order quantity for ${esc(r.name)}"><span class="note">${esc(r.unit)}</span></div></div>`;
   $("view").innerHTML=`<div class="head"><h1 class="title">Purchases</h1><div class="row">${purTabsHTML()}</div></div>
    <div class="stack"><div class="card" id="doCard"><h2>Order to ${esc(sp.n)}</h2>
-    <p class="note">CB suggests what to order from ${esc(sp.n)} from your stock and the last 30 days' sales. Change any quantity, then send. <b>Only the items and quantities you send reach ${esc(sp.n)} — nothing is sent automatically.</b>${sp.demo?" (Sample data: the distributor is an example.)":""}</p>
-    ${items.length?`<div class="row" style="align-items:center"><div class="seg" role="group" aria-label="Show"><button type="button" data-df="need" aria-pressed="${dOrdF==="need"}">To order (${need.length})</button><button type="button" data-df="all" aria-pressed="${dOrdF==="all"}">All ${esc(sponsorShort())} items (${rows.length})</button></div></div>
-    <div id="doList" class="dolist">
-      ${shown.map(r=>`<div class="dorow" data-id="${r.p.id}"><div class="nm"><b>${esc(r.p.name)}</b><div class="note">${r.p.dcode?`Code ${esc(r.p.dcode)} · `:""}${has("stock")?`In stock ${r.s.stock===null?"—":`<span class="${r.s.state==="out"||r.s.state==="low"?"down":""}">${fq(r.s.stock)}${r.s.state==="out"?" (out)":r.s.state==="low"?" (low)":""}</span>`} · `:""}sold ${fq(r.s30)} in 30 days</div></div>
-        <div class="q"><input class="num" data-dq inputmode="decimal" value="${esc(r.q)}" placeholder="0" aria-label="Order quantity for ${esc(r.p.name)}"><span class="note">${esc(r.p.unit)}</span></div></div>`).join("")}</div>
+    <p class="note">CB suggests quantities from your stock and the last 30 days' sales. Change any quantity, then send. <b>Only the items and quantities you send reach ${esc(sp.n)} — nothing is sent automatically.</b>${sp.demo?" (Sample data: the distributor is an example.)":""}</p>
+    <p class="note" id="doListInfo">${listLine}${link?` <button class="btn sm" type="button" id="doRefresh"${dcatBusy?" disabled":""}>${dcatBusy?"Checking…":"Refresh list"}</button>`:""}</p>
+    ${rows.length?`<div class="row" style="align-items:center"><div class="seg" role="group" aria-label="Show"><button type="button" data-df="need" aria-pressed="${dOrdF==="need"}">To order (${need.length})</button><button type="button" data-df="mine" aria-pressed="${dOrdF==="mine"}">My items (${mine.length})</button><button type="button" data-df="all" aria-pressed="${dOrdF==="all"}">Full list (${rows.length})</button></div></div>
+    <div class="field"><label for="doFind">Find an item</label><input id="doFind" type="search" value="${esc(dFindQ)}" placeholder="Name or code" autocomplete="off"></div>
+    <div id="doList" class="dolist">${shown.map(rowHTML).join("")||`<p class="note">No item matches.</p>`}</div>
+    ${found.length>D_SHOW?`<p class="note">Showing ${D_SHOW} of ${found.length} — type in Find an item to see the rest.</p>`:""}
     <div class="field"><label for="doNote">Note for ${esc(sp.n)} (optional)</label><input id="doNote" maxlength="200" value="${esc(dOrdNote)}" placeholder="e.g. deliver by Saturday"></div>
     <div class="row"><button class="btn primary" type="button" id="doSend" style="flex:1">Send on WhatsApp${sp.w?"":" (choose the chat)"}</button><button class="btn" type="button" id="doPrn">Print</button><button class="btn" type="button" id="doClear">Clear quantities</button></div>
     <p class="note" id="doSum"></p>`
-    :`<div class="empty"><b>No ${esc(sponsorShort())} items yet</b>Set them up below — upload the distributor's product list, mark items you bought from them, or tick them one by one.</div>`}</div>
-   ${canP?`<div class="card" id="dsCard"><h3>${esc(sponsorShort())} items (${items.length})</h3>
-    <div class="row" style="align-items:center"><label class="btn" for="dsFile" style="cursor:pointer">Upload ${esc(sponsorShort())} product list (Excel / CSV)</label><input type="file" id="dsFile" accept=".csv,.xlsx,.xls,.txt" hidden>
-      <label class="chk"><input type="checkbox" id="dsAdd"> Also add items I don't have yet</label>${(DB.purchases||[]).length?`<button class="btn" type="button" id="dsMark">Mark items bought from ${esc(sponsorShort())}</button>`:""}</div>
-    <p class="note">Columns: Item Name, Code, Rate, MRP, Unit, HSN, GST — only Item Name is needed. Items are matched by name, other name or code.</p><p class="note" id="dsMsg"></p>
-    <div class="field"><label for="dsQ">Tick items one by one</label><input id="dsQ" placeholder="Type a few letters of the product" value="${esc(dPickQ)}" autocomplete="off"></div><div id="dsPick" class="stack" style="gap:4px"></div></div>`:""}
+    :`<div class="empty"><b>No items to order yet</b>${link?"The distributor's list will appear here once the phone is online.":"Upload the distributor's list or add your own items below."}</div>`}</div>
+   ${can("dorder")?`<div class="card" id="dmCard"><h3>Items you add (${(DB.dmine||[]).length})</h3>
+    <p class="note">For items that are not on ${esc(sponsorShort())}'s list. They are only in your order book — ${esc(sponsorShort())}'s list is not changed.</p>
+    <div class="row" style="align-items:flex-end"><div class="field" style="flex:2;min-width:160px"><label for="dmN">Item name</label><input id="dmN" maxlength="80" placeholder="e.g. RED CHILLI 500 G"></div>
+      <div class="field" style="min-width:90px"><label for="dmU">Unit</label><select id="dmU">${UNITS.map(u=>`<option>${u}</option>`).join("")}</select></div>
+      <div class="field" style="min-width:100px"><label for="dmC">Code (optional)</label><input id="dmC" maxlength="30"></div><button class="btn" type="button" id="dmAdd">Add</button></div>
+    ${(DB.dmine||[]).length?`<div class="stack" style="gap:4px;margin-top:6px" id="dmList">${DB.dmine.map(x=>`<div class="lr" data-mid="${x.id}"><span>${esc(x.n)} <span class="note">${esc(x.u)}${x.c?` · ${esc(x.c)}`:""}</span></span><button class="btn sm" type="button" data-mdel>Remove</button></div>`).join("")}</div>`:""}
+    <details style="margin-top:10px"><summary>More ways to choose items</summary>
+      <div class="row" style="align-items:center;margin-top:8px"><label class="btn" for="dsFile" style="cursor:pointer">Upload ${esc(sponsorShort())} list (Excel / CSV)</label><input type="file" id="dsFile" accept=".csv,.xlsx,.xls,.txt" hidden>
+        ${canP&&(DB.purchases||[]).length?`<button class="btn" type="button" id="dsMark">Tick items I bought from ${esc(sponsorShort())}</button>`:""}</div>
+      <p class="note">${link?"The distributor's own list replaces an uploaded file the next time the phone is online. ":""}Columns: Item Name, Code, Rate, MRP, Unit, HSN, GST — only Item Name is needed.</p><p class="note" id="dsMsg"></p>
+      ${canP?`<div class="field"><label for="dsQ">Tick your own products one by one</label><input id="dsQ" placeholder="Type a few letters of the product" value="${esc(dPickQ)}" autocomplete="off"></div><div id="dsPick" class="stack" style="gap:4px"></div>`:""}
+    </details></div>`:""}
    <div class="card" style="padding:0"><h3 style="padding:14px 16px 0">Orders sent</h3><div id="doHist" class="dolist" style="padding:0 16px 8px">
     ${orders.map(o=>`<div class="dohist" data-id="${o.id}"><div><b>${esc(o.no)}</b> · ${dmy(o.date)} · ${o.lines.length} item${o.lines.length>1?"s":""}<div class="note">${o.status==="received"?"✓ Goods received":"Sent"} · by ${esc(uname(o.by))}${o.note?` · ${esc(o.note)}`:""}</div></div>
       <div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" type="button" data-dre>Resend</button><button class="btn sm" type="button" data-dpr>Print</button>${o.status!=="received"&&has("purchases")&&can("purchases")?`<button class="btn sm" type="button" data-dgr>Goods arrived → purchase</button>`:""}</div></div>`).join("")||`<p class="note">No orders sent yet.</p>`}</div></div></div>`;
   bindPurTabs();
-  const sum=()=>{const n=Object.values(dOrdQ).length?rows.filter(r=>num(dOrdQ[r.p.id]!==undefined?dOrdQ[r.p.id]:r.q)>0).length:need.length;if($("doSum"))$("doSum").textContent=n?`${n} item${n>1?"s":""} will be ordered.`:"Type a quantity for the items you want."};sum();
+  const qOf=r=>dOrdQ[r.k]!==undefined?dOrdQ[r.k]:r.q;
+  const sum=()=>{const n=rows.filter(r=>num(qOf(r))>0).length;if($("doSum"))$("doSum").textContent=n?`${n} item${n>1?"s":""} will be ordered.`:"Type a quantity for the items you want."};sum();
   document.querySelectorAll("[data-df]").forEach(b=>b.onclick=()=>{dOrdF=b.dataset.df;renderDistOrder()});
-  if($("doList"))$("doList").addEventListener("input",e=>{if(!e.target.matches("[data-dq]"))return;dOrdQ[+e.target.closest("[data-id]").dataset.id]=e.target.value;sum()});
+  if($("doFind"))$("doFind").oninput=e=>{dFindQ=e.target.value;const pos=e.target.selectionStart;renderDistOrder();const f=$("doFind");if(f){f.focus();try{f.setSelectionRange(pos,pos)}catch(_){}}};
+  if($("doRefresh"))$("doRefresh").onclick=async()=>{const b=$("doRefresh");b.disabled=true;b.textContent="Checking…";const r=await fetchDistList(true);
+    toast(r==="new"?"List updated from the distributor":r==="same"?"The list is up to date":DB.dcat_err?DB.dcat_err.msg:"Couldn't check the list now.",r==="err"||r==="offline");if(view==="purchases"&&purTab==="order")renderDistOrder()};
+  if($("doList"))$("doList").addEventListener("input",e=>{if(!e.target.matches("[data-dq]"))return;dOrdQ[e.target.closest("[data-k]").dataset.k]=e.target.value;sum()});
   if($("doNote"))$("doNote").oninput=e=>dOrdNote=e.target.value;
-  const lines=()=>rows.map(r=>({product_id:r.p.id,qty:dOrdQ[r.p.id]!==undefined?dOrdQ[r.p.id]:r.q}));
-  if($("doSend"))$("doSend").onclick=()=>{try{const o=makeOrder(lines(),dOrdNote);dOrdQ={};dOrdNote="";sendOrderWA(o);toast(`Order ${o.no} ready in WhatsApp — tap Send there`);renderDistOrder()}catch(err){toast(err instanceof Bad?err.message:"Couldn't make the order.",true)}};
-  if($("doPrn"))$("doPrn").onclick=()=>{try{const o=makeOrder(lines(),dOrdNote);dOrdQ={};dOrdNote="";const pp=printSize();printReceipt(orderHTML(o,pp),pp);renderDistOrder()}catch(err){toast(err instanceof Bad?err.message:"Couldn't make the order.",true)}};
-  if($("doClear"))$("doClear").onclick=()=>{rows.forEach(r=>dOrdQ[r.p.id]="");renderDistOrder()};
+  const lines=()=>rows.map(r=>({product_id:r.p?r.p.id:null,name:r.name,code:r.code,pk:r.byPack||r.pk?r.pk:"",unit:r.unit,qty:qOf(r),r:r.rate,m:r.mrp,h:r.hsn,g:r.gst}));
+  const done=()=>{dOrdQ={};dOrdNote="";dFindQ=""};
+  if($("doSend"))$("doSend").onclick=()=>{try{const o=makeOrder(lines(),dOrdNote);done();sendOrderWA(o);toast(`Order ${o.no} ready in WhatsApp — tap Send there`);renderDistOrder()}catch(err){toast(err instanceof Bad?err.message:"Couldn't make the order.",true)}};
+  if($("doPrn"))$("doPrn").onclick=()=>{try{const o=makeOrder(lines(),dOrdNote);done();const pp=printSize();printReceipt(orderHTML(o,pp),pp);renderDistOrder()}catch(err){toast(err instanceof Bad?err.message:"Couldn't make the order.",true)}};
+  if($("doClear"))$("doClear").onclick=()=>{rows.forEach(r=>dOrdQ[r.k]="");renderDistOrder()};
   $("doHist").onclick=e=>{const tr=e.target.closest("[data-id]");if(!tr||!tr.dataset.id)return;const o=(DB.dorders||[]).find(x=>x.id===+tr.dataset.id);if(!o)return;
     if(e.target.closest("[data-dre]"))sendOrderWA(o);
     if(e.target.closest("[data-dpr]")){const pp=printSize();printReceipt(orderHTML(o,pp),pp)}
-    if(e.target.closest("[data-dgr]")){const pm=new Map(DB.products.map(p=>[p.id,p]));const lastRate=id=>{const x=[...(DB.purchases||[])].reverse().find(q=>q.status==="active"&&q.items.some(i=>i.product_id===id));const li=x&&x.items.find(i=>i.product_id===id);return li?String(li.rate):""};
-      purTab="bills";purEdit="new";purDraft={...blankPur(),supplier:o.to,gstin:(sponsor()||{}).g||"",note:`Against order ${o.no}`,order_id:o.id,
-        items:o.lines.filter(l=>pm.get(l.product_id)&&pm.get(l.product_id).active).map(l=>{const p=pm.get(l.product_id);return{product_id:p.id,qty:String(l.qty),rate:p.drate?String(p.drate):lastRate(p.id),gst:p.gst===undefined||p.gst===""?"":num(p.gst),unit:l.unit||p.unit}})};
-      renderPurchases();toast("Check the rates and quantities against the supplier's bill, then Save purchase")}};
+    if(e.target.closest("[data-dgr]"))goodsArrived(o)};
+  if(!can("dorder"))return;
+  $("dmAdd").onclick=()=>{try{const it=addMineItem({n:$("dmN").value,u:$("dmU").value,c:$("dmC").value});toast(`${it.n} added to your order list`);dOrdF="mine";renderDistOrder()}catch(err){toast(err instanceof Bad?err.message:"Couldn't add.",true)}};
+  $("dmN").onkeydown=e=>{if(e.key==="Enter")$("dmAdd").click()};
+  if($("dmList"))$("dmList").onclick=e=>{const b=e.target.closest("[data-mdel]");if(!b)return;if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Tap again";setTimeout(()=>{if(b.isConnected){b.classList.remove("armed");b.textContent="Remove"}},3000);return}
+    try{removeMineItem(+b.closest("[data-mid]").dataset.mid);renderDistOrder()}catch(err){toast(err.message,true)}};
+  $("dsFile").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;try{const rows=/\.xlsx?$/i.test(f.name)?await readXlsx(await f.arrayBuffer()):parseCSV(await f.text());const n=loadDistFile(rows);renderDistOrder();
+      const m=$("dsMsg");if(m)m.textContent=`✓ ${n} item${n>1?"s":""} loaded from ${f.name}.`}catch(err){toast(err instanceof Bad?err.message:"Couldn't read that file.",true)}};
   if(!canP)return;
-  const pick=()=>{const q=dPickQ.trim(),box=$("dsPick");if(!box)return;const list=q?prodSearch(q,12):items.slice(0,0);
+  if($("dsMark"))$("dsMark").onclick=()=>{const n=markBoughtFromSponsor();toast(n?`${n} item${n>1?"s":""} ticked`:`No new items found in purchases from ${sp.n}`);renderDistOrder()};
+  const pick=()=>{const q=dPickQ.trim(),box=$("dsPick");if(!box)return;const list=q?prodSearch(q,12):[];
     box.innerHTML=list.map(p=>`<label class="chk"><input type="checkbox" data-dp="${p.id}" ${p.dist?"checked":""}> ${esc(p.name)} <span class="note">${esc(p.dept)}</span></label>`).join("")||(q?`<p class="note">No product matches.</p>`:"")};pick();
   $("dsQ").oninput=e=>{dPickQ=e.target.value;pick()};
-  $("dsPick").onchange=e=>{const c=e.target.closest("[data-dp]");if(!c)return;const p=DB.products.find(x=>x.id===+c.dataset.dp);if(!p)return;if(c.checked)p.dist=1;else delete p.dist;act("product",`${p.name} ${c.checked?"marked":"unmarked"} as ${sponsorShort()} item`,{ref:p.id});save();const k=$("dsQ").value;renderDistOrder();const q=$("dsQ");if(q){q.focus();q.setSelectionRange(k.length,k.length)}};
-  if($("dsMark"))$("dsMark").onclick=()=>{const n=markBoughtFromSponsor();toast(n?`${n} item${n>1?"s":""} marked`:`No new items found in purchases from ${sp.n}`);renderDistOrder()};
-  $("dsFile").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;try{const rows=/\.xlsx?$/i.test(f.name)?await readXlsx(await f.arrayBuffer()):parseCSV(await f.text());const r=importDistList(rows,$("dsAdd").checked);renderDistOrder();
-      const m=$("dsMsg");if(m)m.innerHTML=`✓ ${r.matched} item${r.matched===1?"":"s"} marked${r.added?`, ${r.added} new product${r.added>1?"s":""} added (check their sale rates in Items)`:""}.${r.missing.length?` <b>${r.missing.length} not in your list</b>: ${r.missing.slice(0,8).map(esc).join(", ")}${r.missing.length>8?"…":""} — tick "Also add items I don't have yet" and upload again to add them.`:""}`}
-    catch(err){toast(err instanceof Bad?err.message:"Couldn't read that file.",true)}}}
+  $("dsPick").onchange=e=>{const c=e.target.closest("[data-dp]");if(!c)return;const p=DB.products.find(x=>x.id===+c.dataset.dp);if(!p)return;if(c.checked)p.dist=1;else delete p.dist;act("product",`${p.name} ${c.checked?"ticked":"unticked"} as ${sponsorShort()} item`,{ref:p.id});save();const k=$("dsQ").value;renderDistOrder();const d=document.querySelector("#dmCard details");if(d)d.open=true;const q=$("dsQ");if(q){q.focus();q.setSelectionRange(k.length,k.length)}}}
 /* a product that isn't in the list yet, typed on a purchase bill */
 function purNewProduct(name,then){if(!can("products")){toast(`${UP(name)} is not in the product list, and adding products is switched off for your login. Ask the owner.`,true);return}const strict=needTaxInfo();
   openModal(`<h2>New product</h2><p class="note">It's added to your product list (so you can sell it) and to this purchase.</p>
@@ -3405,7 +3543,8 @@ async function boot(){
   me=restoreSession();if(me){LS.set("lastAct",Date.now());const v=LS.get("view_"+me.id,"billing");view=VIEWS[v]&&viewOK(v)?v:"billing"}   /* a refresh keeps you on the same page */
   Bill.load();render();
   dailyBackup();setInterval(dailyBackup,60000);
-  setTimeout(()=>{checkin();fetchRevoked()},5000);addEventListener("online",()=>{checkin();fetchRevoked()});setInterval(()=>{checkin();fetchRevoked()},3600000);   /* also catches midnight if the app stays open */
+  const distBg=()=>{try{if(DB&&sponsor()&&distLink())fetchDistList(false).then(r=>{if(r==="new"&&me&&view==="purchases"&&purTab==="order"&&purEdit===null&&!(document.activeElement&&document.activeElement.matches("input,select,textarea")))renderDistOrder()})}catch(e){}};
+  setTimeout(()=>{checkin();fetchRevoked();distBg()},5000);addEventListener("online",()=>{checkin();fetchRevoked();distBg()});setInterval(()=>{checkin();fetchRevoked();distBg()},3600000);   /* also catches midnight if the app stays open */
   if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
 boot();
