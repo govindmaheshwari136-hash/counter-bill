@@ -155,6 +155,9 @@ tr.flash-row td{animation:rowflash 1.2s ease-out}
 .say input{flex:1;min-width:0;border:1px dashed var(--line);border-radius:7px;padding:7px 9px;background:var(--bg);font-size:12.5px}
 .depts{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
 .depts.dv-lines{flex-wrap:wrap;overflow:visible}
+.dolist{display:flex;flex-direction:column;margin:6px 0 10px}.dohist{padding:10px 0;border-bottom:1px solid var(--line)}.dohist:last-child{border-bottom:0}.dohist .row{flex-wrap:wrap}
+.dorow{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line)}
+.dorow .nm{flex:1;min-width:0}.dorow .q{display:flex;align-items:center;gap:6px;flex:none}.dorow .q input{width:78px;text-align:right;border:1px solid var(--line);border-radius:8px;padding:8px 9px;background:var(--bg);color:var(--ink);font:inherit}.dorow .q .note{min-width:30px}
 .dept.deptall{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:700}
 #deptPanel{position:fixed;inset:0;z-index:60;background:var(--paper);display:flex;flex-direction:column}
 #deptPanel .dph{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
@@ -622,7 +625,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="4.19";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="4.20";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -1883,7 +1886,7 @@ function viewOK(v){if(ADMIN_ONLY.has(v)&&!isOwner())return false;
   if(v==="credit")return has("credit")||creditBook().length>0;
   if(v==="stock")return has("stock")&&can("stockview");
   if(v==="cashbank")return isOwner()?(has("cashentry")||(DB.cashtx||[]).length>0):has("cashentry")&&can("cashentry");
-  if(v==="purchases")return can("purview")&&(has("purchases")||(DB.purchases||[]).length>0);
+  if(v==="purchases")return (can("purview")&&(has("purchases")||(DB.purchases||[]).length>0))||(!!sponsor()&&can("dorder"));
   return true}
 function go(v){if(!viewOK(v))v="billing";if(v==="bills"&&view!=="bills"&&isOwner()&&!billsModeSet)billsMode=DB.bills.some(b=>!isVerified(b))?"verify":"date";view=v;if(me)LS.set("view_"+me.id,v);render();window.scrollTo(0,0)}
 function render(){closeDeptPanel();try{auditSettings()}catch(e){}
@@ -1921,7 +1924,7 @@ function render(){closeDeptPanel();try{auditSettings()}catch(e){}
 /* ---------- login / setup */
 function loginHTML(){const demoUsers=DB.demo?DB.users.filter(u=>u.active&&["owner","ravi","ravi"].includes(u.username)):[];
   return `<div class="wrap"><div class="authwrap"><form class="card authcard" id="loginForm">
-  <div class="authhero">${LOGO("big")}<div><h1 class="title">Log in</h1><p class="note">Use the login ID and password given to you.</p></div></div>
+  <div class="authhero">${LOGO("big")}<div><h1 class="title">Log in</h1><p class="note">Use the login ID and password given to you.</p>${(()=>{try{const sp=sponsor();return sp&&!sp.demo?`<p class="note"><b>Free — sponsored by ${esc(sp.n)}</b></p>`:""}catch(e){return""}})()}</div></div>
   <div class="field"><label for="lgUser">Login ID</label><input id="lgUser" autocomplete="username" required></div>
   <div class="field"><label for="lgPw">Password</label><input id="lgPw" type="password" autocomplete="current-password" required></div>
   <button class="btn primary" style="padding:11px">Log in</button>
@@ -1945,7 +1948,10 @@ const FEATURES={digital:"UPI, card & bank payments",credit:"Credit sales & dues"
   gst_comp:"GST – Composition (bill of supply)",gst_reg:"GST – Regular (tax invoice, HSN, GSTR-1)",purchases:"Purchases",export:"Accounting export (Tally / Busy / Vyapar)",ranking:"Product ranking report (owner)",cashbook:"Cash & bank book (owner)",stock:"Stock maintenance (premium)",cashentry:"Cash & bank entries — expenses, withdrawals, income, capital (premium)"};
 /* ADD-ONS: switched on ONLY when the support person allots them in the plan code ("a" list).
    Never part of any plan or preset, never in the free trial, and never from an older code — even a "Full" one. */
-const ADDONS={billphoto:"Bill photo / PDF & e-invoice QR reading on purchases"};
+const ADDONS={billphoto:"Bill photo / PDF & e-invoice QR reading on purchases",distorder:"Order to distributor — sponsored shop (send orders on WhatsApp)"};
+/* the distributor who sponsors this shop: name, WhatsApp number, GSTIN — inside the signed plan code, so it can't be edited */
+const cleanSponsor=sp=>{if(!sp||typeof sp!=="object")return null;const n=UP(String(sp.n||"")).slice(0,60).trim(),w=String(sp.w||"").replace(/\D/g,"").slice(-12),g=String(sp.g||"").toUpperCase().trim();
+  return n?{n,w:w.length>=10?w:"",g:gstinCheck(g)?g:""}:null};
 const BASIC_FEATURES=[];const TRIAL_DAYS=30;
 const OLD_CODE_FEATURES=["digital","audit"];   /* codes made before version 3.3 always included these */
 const V2_CODE_FEATURES=["ranking","cashbook"];   /* codes made before 4.3 had the ranking report and cash book included */
@@ -1965,7 +1971,7 @@ const addDays=(d,n)=>isoDate(new Date(new Date(d+"T00:00").getTime()+n*864e5+12*
 function planInfo(){const T=planToday(),key=(DB.plan_code||"")+"|"+DB.shop_id+"|"+DB.trial_start+"|"+T+"|"+!!DB.demo+"|"+(DB.revoked||[]).join(",")+"|"+JSON.stringify(DB.revoked_on||{})+"|"+(DB.stop_codes||[]).join(",")+"|"+(DB.stop_shops||[]).join(",");if(planCache.key===key)return planCache.val;
   let v;const pl=readPlanCode(DB.plan_code);
   if(DB.demo)v={state:"demo",name:"Sample data — all features",features:new Set(Object.keys(FEATURES).concat(Object.keys(ADDONS)))};
-  else if(pl&&pl.s===DB.shop_id){const base={name:pl.n||"Custom",till:pl.t||"",ends:pl.e||"",issued:pl.i||"",client:pl.c||""};
+  else if(pl&&pl.s===DB.shop_id){const base={name:pl.n||"Custom",till:pl.t||"",ends:pl.e||"",issued:pl.i||"",client:pl.c||"",sponsor:cleanSponsor(pl.sp)};
     const stop=Number.isInteger(pl.x)&&pl.x>=0&&pl.x<=60?pl.x:null;base.stop=stop;   /* null = after the plan ends, cash bills still work */
     const lock=from=>{if(stop===null||!from)return{};const last=addDays(from,stop);return{stop_on:addDays(last,1),locked:T>last}};
     if((DB.revoked||[]).includes(codeId(pl.raw))){const on=(DB.revoked_on||{})[codeId(pl.raw)]||T;v={...base,state:"cancelled",features:new Set(BASIC_FEATURES),...lock(addDays(on,-1))}}
@@ -1976,17 +1982,18 @@ function planInfo(){const T=planToday(),key=(DB.plan_code||"")+"|"+DB.shop_id+"|
   if(!DB.demo){const pl2=readPlanCode(DB.plan_code);if((DB.stop_shops||[]).includes(DB.shop_id)||(pl2&&(DB.stop_codes||[]).includes(codeId(pl2.raw))))v={...v,state:["trial","basic","expired"].includes(v.state)?v.state:"cancelled",name:"Service stopped",features:new Set(BASIC_FEATURES),locked:true,stopped:true,stop_on:null}}
   planCache={key,val:v};return v}
 const has=f=>planInfo().features.has(f);
+const sponsor=()=>{const P=planInfo();if(DB&&DB.demo)return{n:"SHAH WHOLESALE TRADERS",w:"919800000000",g:"24AAACC1206D1ZM",demo:true};return P.sponsor&&has("distorder")?P.sponsor:null};
 const billingStopped=()=>!!planInfo().locked;
 const STOP_MSG="Billing is stopped: the plan has ended. Old bills, dues, reports and backups can still be seen. Enter a new plan code to bill again.";
 /* what an Admin may do. The owner can switch any of these off per Admin (plan feature "rights"); the owner can always do everything */
 const RIGHTS={rate:"Change the rate on a bill",discount:"Give discount / change round off",correct:"Correct or cancel saved bills",bills:"See old bills",
-  receive:"Receive credit payments",products:"Add, change or delete products",purview:"See purchases and supplier payments",purchases:"Enter or change purchases",pay:"Pay suppliers",
+  receive:"Receive credit payments",dorder:"Send orders to the distributor",products:"Add, change or delete products",purview:"See purchases and supplier payments",purchases:"Enter or change purchases",pay:"Pay suppliers",
   rep_sales:"Report: Sales (day end)",rep_rank:"Report: Product ranking",rep_stock:"Report: Stock summary",rep_pur:"Report: Purchases",rep_cash:"Report: Cash & bank book",export:"Accounting export",stockview:"See stock",stockcount:"Enter stock count (owner approves)",stockadj:"Adjust stock, opening stock, approve counts",cashentry:"Enter cash & bank expenses and income",settings:"Change settings",users:"Create logins / change other passwords",backup:"Download or send backups"};
 const RIGHT_OFF_BY_DEFAULT={stockadj:true,rep_rank:true,rep_cash:true};   /* ranking and cash book were owner-only before: the owner must tick them */   /* the owner must tick these to give them */
 const rightOn=(u,k)=>{const v=u&&u.rights?u.rights[k]:undefined;if(v===undefined&&(/^rep_/.test(k)||k==="export")&&u&&u.rights&&u.rights.reports===false)return false;   /* old "See reports" switched off = every report off */
   return v===true||(v!==false&&!RIGHT_OFF_BY_DEFAULT[k])};
 /* a right is offered only when the shop's plan has that feature — the owner can only give what the shop has bought */
-const RIGHT_NEEDS={receive:"credit",purview:"purchases",purchases:"purchases",pay:"purchases",export:"export",stockview:"stock",stockcount:"stock",stockadj:"stock",cashentry:"cashentry",rep_rank:"ranking",rep_stock:"stock",rep_pur:"purchases",rep_cash:"cashbook"};
+const RIGHT_NEEDS={dorder:"distorder",receive:"credit",purview:"purchases",purchases:"purchases",pay:"purchases",export:"export",stockview:"stock",stockcount:"stock",stockadj:"stock",cashentry:"cashentry",rep_rank:"ranking",rep_stock:"stock",rep_pur:"purchases",rep_cash:"cashbook"};
 const rightsOffered=()=>Object.keys(RIGHTS).filter(k=>!RIGHT_NEEDS[k]||has(RIGHT_NEEDS[k]));
 const can=r=>{if(!me)return false;if(me.role==="admin")return true;const u=DB.users.find(x=>x.id===me.id)||me;if(!rightOn(u,r))return false;
   if(r==="purchases"||r==="pay")return can("purview");if(r==="stockcount"||r==="stockadj")return can("stockview");return true};
@@ -2013,7 +2020,7 @@ function checkin(force){try{const url=checkinURL();if(!url||!/^https:\/\//.test(
     const P=planInfo(),act=DB.bills.filter(b=>b.status==="active");
     const data={shop_id:shopIdLabel(DB.shop_id),shop:S().shop_name,version:APP_VERSION,plan:P.name,plan_state:P.state,support_till:P.till||"",gst:S().gst_type||"none",
       bills_today:act.filter(b=>b.bill_date===today()).length,bills_total:act.length,last_bill:act.length?act[act.length-1].bill_date:"",products:DB.products.filter(p=>p.active).length,
-      purchases:(DB.purchases||[]).length,users:DB.users.filter(u=>u.active).length,sent:stamp(),device:deviceLabel(),code:DB.plan_code?codeId(DB.plan_code):"",trial_start:DB.trial_start||""};
+      purchases:(DB.purchases||[]).length,users:DB.users.filter(u=>u.active).length,sent:stamp(),device:deviceLabel(),code:DB.plan_code?codeId(DB.plan_code):"",trial_start:DB.trial_start||"",sponsor:(P.sponsor&&P.sponsor.n)||"",orders_30d:(DB.dorders||[]).filter(o=>o.date>=addDays(today(),-29)).length};
     fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify(data)}).then(()=>LS.set("checkin_day",today())).catch(()=>{})}catch(e){}}
 function resetRequest(){let r=DB.reset_req;
   if(!r||Date.now()-new Date(r.at).getTime()>7*864e5){const a=new Uint8Array(16);crypto.getRandomValues(a);r=DB.reset_req={code:[...a].map(x=>RESET_ABC[x&31]).join(""),at:stamp()};flush()}
@@ -2653,7 +2660,8 @@ const monthEnd=m=>{const[y,mm]=m.split("-").map(Number);return `${m}-${String(ne
 let purPhoto=null;   /* photo of the bill being entered (kept until the purchase is saved) */
 const blankPur=()=>({supplier:"",gstin:"",state:"",inv_no:"",date:today(),paymode:"Credit",round:"",note:"",items:[]});
 let purTab="bills";
-function renderPurchases(){if(purEdit!==null)return renderPurEditor();if(purTab==="pay")return renderSupPay();
+const purBillsOK=()=>can("purview")&&(has("purchases")||(DB.purchases||[]).length>0);
+function renderPurchases(){if(purEdit!==null)return renderPurEditor();if(!purBillsOK())purTab="order";if(purTab==="order"&&!sponsor())purTab="bills";if(purTab==="order")return renderDistOrder();if(purTab==="pay")return renderSupPay();
   const d1=purMonth+"-01",d2=monthEnd(purMonth),R=purchaseReport(d1,d2),REG=gstType()==="regular",canP=has("purchases")&&can("purchases");
   const all=(DB.purchases||[]).filter(p=>p.date>=d1&&p.date<=d2).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
   $("view").innerHTML=`<div class="head"><h1 class="title">Purchases</h1><div class="row">${purTabsHTML()}
@@ -2670,7 +2678,8 @@ function renderPurchases(){if(purEdit!==null)return renderPurEditor();if(purTab=
   if($("purNew"))$("purNew").onclick=()=>{purEdit="new";purDraft=LS.get("purdraft",null)||blankPur();renderPurchases()};
   $("purList").onclick=e=>{const tr=e.target.closest("tr");if(!tr)return;const p=DB.purchases.find(x=>x.id===+tr.dataset.id);if(!p)return;
     purEdit=p.id;purDraft={supplier:p.supplier,gstin:p.gstin,state:p.state,inv_no:p.inv_no,date:p.date,paymode:p.paymode,round:p.round_off?String(p.round_off):"",note:p.note||"",items:p.items.map(i=>({product_id:i.product_id,qty:String(i.qty),rate:String(i.rate),gst:i.gst,unit:i.unit}))};renderPurchases()}}
-const purTabsHTML=()=>`<div class="seg" role="group" aria-label="Purchases"><button data-pt="bills" aria-pressed="${purTab==="bills"}">Purchase bills</button><button data-pt="pay" aria-pressed="${purTab==="pay"}">Supplier payments</button></div>`;
+const purTabsHTML=()=>`<div class="seg" role="group" aria-label="Purchases">${purBillsOK()?`<button data-pt="bills" aria-pressed="${purTab==="bills"}">Purchase bills</button><button data-pt="pay" aria-pressed="${purTab==="pay"}">Supplier payments</button>`:""}${sponsor()&&can("dorder")?`<button data-pt="order" aria-pressed="${purTab==="order"}">Order to ${esc(sponsorShort())}</button>`:""}</div>`;
+const sponsorShort=()=>{const sp=sponsor();if(!sp)return"";const w=sp.n.split(/\s+/);return (w[0].length>=4||w.length===1?w[0]:w.slice(0,2).join(" ")).slice(0,18)};
 const bindPurTabs=()=>document.querySelectorAll("[data-pt]").forEach(b=>b.onclick=()=>{purTab=b.dataset.pt;renderPurchases()});
 /* supplier payments: who is owed, pay with a note, print the voucher */
 function renderSupPay(){const d1=purMonth+"-01",d2=monthEnd(purMonth),book=supplierBook(),due=book.filter(e=>e.due>0.004),canPay=has("purchases")&&can("pay");
@@ -2824,6 +2833,7 @@ function renderPurEditor(){const P=purEdit==="new"?null:DB.purchases.find(x=>x.i
   const doSave=allowDup=>{try{const body={...D,allowDup,items:D.items.map(l=>({...l}))};const p=savePurchase(body,P?P.id:null);
       if(!P&&purPhoto&&has("billphoto")){const ph=purPhoto;p.photo=1;if(D.qr&&D.qr.irn)p.irn=D.qr.irn;save();setBillPhoto(p.id,ph).then(()=>IDB.del("billphoto_draft")).catch(()=>{delete p.photo;save();toast("The bill photo couldn't be saved on this device.",true)})}
       else if(!P&&D.qr&&D.qr.irn){p.irn=D.qr.irn;save()}
+      if(!P&&D.order_id){const o=(DB.dorders||[]).find(x=>x.id===D.order_id);if(o){o.status="received";o.pur=p.id;save()}}
       purPhoto=null;
       if(!P)LS.del("purdraft");purEdit=null;purDraft=null;purMonth=p.date.slice(0,7);renderPurchases();toast(`Purchase saved · ${p.supplier} · ₹${fmt(p.total)}`)}
     catch(err){if(err&&err.dup){const b=$("puSave");if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Already entered? Tap again to save anyway";toast(err.message,true);return}return doSave(true)}
@@ -2831,6 +2841,100 @@ function renderPurEditor(){const P=purEdit==="new"?null:DB.purchases.find(x=>x.i
       if(err&&err.pid){const k=D.items.findIndex(l=>l.product_id===err.pid);const inp=document.querySelector(`#puLines .pline[data-k="${k}"] [data-f=${err.field}]`);if(inp){inp.focus();inp.select()}}
       else if(err&&/supplier's name/.test(err.message))$("puSup").focus();else if(err&&/GSTIN/.test(err.message))$("puGst").focus();else if(err&&/invoice number/.test(err.message))$("puInv").focus()}};
   $("puSave").onclick=()=>doSave(false)}
+
+/* ============================================================ ORDER TO THE DISTRIBUTOR (sponsored shops)
+   The shop sends an order for the sponsor's own products, by WhatsApp or print. Nothing is sent automatically:
+   only the items and quantities the shop chooses to send reach the distributor. */
+let dOrdF="need",dOrdQ={},dOrdNote="",dPickQ="";
+const distItems=()=>activeProducts().filter(p=>p.dist);
+function sold30(){const from=addDays(today(),-29),pm=new Map(DB.products.map(p=>[p.id,p])),m=new Map();
+  DB.bills.forEach(b=>{if(b.status!=="active"||b.bill_date<from)return;(b.items||[]).forEach(i=>{const p=pm.get(i.product_id);if(!p||!p.dist)return;const f=unitFactor(i.unit,p.unit);m.set(p.id,r2((m.get(p.id)||0)+num(i.qty)*(f==null?1:f)))})});return m}
+/* suggested quantity: enough for about 15 days of sales, at least twice the re-order level, minus the stock in hand */
+function distSuggest(p,s30){const st=has("stock")?stockOf(p):null,tracked=!!(st&&st.state&&st.state!=="none"),re=num(p.reorder)||0;
+  const target=Math.max(re*2,s30/2);const q=tracked?Math.max(0,Math.ceil(target-st.qty)):Math.ceil(s30/2);return{q,stock:tracked?st.qty:null,state:tracked?st.state:"none"}}
+const waNum=w=>{const d=String(w||"").replace(/\D/g,"");return d.length===10?"91"+d:d};
+function orderText(o){const sp=sponsor()||{n:o.to};return `*Order ${o.no}* from *${S().shop_name}*\n${headLines().filter(Boolean).slice(0,2).join(", ")}\nShop ID ${shopIdLabel(DB.shop_id)} · ${dmy(o.date)}\nTo: ${sp.n}\n\n`+o.lines.map((l,i)=>`${i+1}. ${l.name}${l.code?` [${l.code}]`:""} — ${fq(l.qty)} ${l.unit}`).join("\n")+(o.note?`\n\nNote: ${o.note}`:"")+`\n\n(${o.lines.length} item${o.lines.length>1?"s":""} · sent from CB)`}
+function orderHTML(o,paper){const sp=sponsor()||{n:o.to};
+  if(isPage(paper))return `<div class="inv ${paper}"><div class="ttl">PURCHASE ORDER</div><div class="top"><div class="shop"><span class="nm">${esc(S().shop_name)}</span>${headLines().filter(Boolean).map(l=>`<div>${esc(l)}</div>`).join("")}${S().gstin?`<div><b>GSTIN: ${esc(S().gstin)}</b></div>`:""}</div>
+    <div class="meta"><div>Order No: <b>${esc(o.no)}</b></div><div>Date: ${dmy(o.date)}</div></div></div><div class="party"><div><div class="lb">To</div><b>${esc(sp.n)}</b>${sp.g?`<div>GSTIN: ${esc(sp.g)}</div>`:""}</div></div>
+    <table><thead><tr><th>#</th><th class="l">Item</th><th class="l">Code</th><th>Qty</th><th class="l">Unit</th></tr></thead><tbody>${o.lines.map((l,i)=>`<tr><td>${i+1}</td><td class="l">${esc(l.name)}</td><td class="l">${esc(l.code||"")}</td><td>${fq(l.qty)}</td><td class="l">${esc(l.unit)}</td></tr>`).join("")}</tbody></table>
+    ${o.note?`<div class="note">${esc(o.note)}</div>`:""}<div class="sign"><div></div><div class="r">For <b>${esc(S().shop_name)}</b><br><br><br>Authorised signatory</div></div></div>`;
+  return `<div class="rcpt w${paper}${thermalClass(paper)}"><div class="c b">PURCHASE ORDER</div><div class="c b big">${esc(S().shop_name)}</div>${headLines().filter(Boolean).slice(0,2).map(l=>`<div class="c">${esc(l)}</div>`).join("")}
+    <div class="hr"></div><div class="lr"><span>Order ${esc(o.no)}</span><span>${dmy(o.date)}</span></div><div>To: <b>${esc(sp.n)}</b></div><div class="hr"></div>
+    ${o.lines.map((l,i)=>`<div class="lr"><span>${i+1}. ${esc(l.name)}${l.code?` [${esc(l.code)}]`:""}</span><span>${fq(l.qty)} ${esc(l.unit)}</span></div>`).join("")}
+    <div class="hr"></div><div>${o.lines.length} item${o.lines.length>1?"s":""}</div>${o.note?`<div>Note: ${esc(o.note)}</div>`:""}</div>`}
+function makeOrder(lines,note){if(!can("dorder"))throw new Bad("Sending orders is switched off for your login.");const sp=sponsor();if(!sp)throw new Bad("Ordering is not part of this shop's plan.");
+  lines=lines.filter(l=>num(l.qty)>0);if(!lines.length)throw new Bad("Type a quantity for at least one item.");
+  DB.dorder_seq=(DB.dorder_seq||0)+1;const o={id:nextId(),no:"DO-"+DB.dorder_seq,date:today(),at:stamp(),by:me.id,to:sp.n,note:String(note||"").trim().slice(0,200),status:"sent",
+    lines:lines.map(l=>{const p=DB.products.find(x=>x.id===l.product_id)||{};return{product_id:l.product_id,name:p.name||l.name,code:p.dcode||"",qty:r2(num(l.qty)),unit:p.unit||"Nos"}})};
+  (DB.dorders=DB.dorders||[]).push(o);act("order",`Order ${o.no} sent to ${sp.n} · ${o.lines.length} item${o.lines.length>1?"s":""}`,{ref:o.id});save();return o}
+function sendOrderWA(o){const sp=sponsor();const url=`https://wa.me/${sp&&sp.w?waNum(sp.w):""}?text=${encodeURIComponent(orderText(o))}`;try{window.open(url,"_blank")||(location.href=url)}catch(e){location.href=url}}
+/* distributor's product list (Excel / CSV): Item Name, Code, Rate, MRP, Unit, HSN, GST */
+function importDistList(rows,addNew){if(!can("products"))throw new Bad("Setting up the distributor's items needs the products right.");if(rows.length<2)throw new Bad("The file is empty.");
+  const h=rows[0].map(x=>String(x).trim().toLowerCase()),find=re=>h.findIndex(x=>re.test(x));
+  const ni=find(/item|name|product|description|particular/),ci=find(/code|sku|item no/),ri=find(/^rate|price|dp|dist|ptr|purchase/),mi=find(/mrp|sale|selling/),ui=find(/unit|uom/),hi=find(/hsn/),gi=find(/gst|tax/);
+  if(ni<0)throw new Bad("Couldn't find the item name column. Name a column 'Item Name'.");
+  const byName=new Map(activeProducts().map(p=>[p.name.toLowerCase(),p])),byCode=new Map(activeProducts().filter(p=>p.dcode).map(p=>[String(p.dcode).toLowerCase(),p]));
+  let matched=0,added=0;const missing=[];
+  rows.slice(1).forEach(r=>{const name=UP(String(r[ni]||"").trim()).slice(0,80);if(!name)return;const code=ci>=0?String(r[ci]||"").trim().slice(0,30):"";
+    let p=(code&&byCode.get(code.toLowerCase()))||byName.get(name.toLowerCase())||activeProducts().find(x=>String(x.aliases||"").toLowerCase().split(",").map(a=>a.trim()).includes(name.toLowerCase()));
+    const rate=ri>=0?num(r[ri]):0,mrp=mi>=0?num(r[mi]):0;
+    if(!p&&addNew){const unit=ui>=0&&UNITS.includes(String(r[ui]).trim())?String(r[ui]).trim():"Nos";p={id:nextId(),name,dept:UP(sponsorShort()||"DISTRIBUTOR").slice(0,30),rate:mrp||rate||0,unit,active:true,aliases:""};
+      if(hi>=0&&String(r[hi]).trim())p.hsn=String(r[hi]).trim().slice(0,8);if(gi>=0&&String(r[gi]).trim()!=="")p.gst=num(r[gi]);DB.products.push(p);byName.set(name.toLowerCase(),p);added++}
+    if(!p){missing.push(name);return}p.dist=1;if(code)p.dcode=code;if(rate>0)p.drate=rate;matched++});
+  act("product",`Distributor item list loaded: ${matched} item${matched===1?"":"s"} marked${added?`, ${added} new product${added>1?"s":""} added`:""}`,{});save();
+  return{matched,added,missing}}
+function markBoughtFromSponsor(){const sp=sponsor();if(!sp)return 0;const nm=sp.n.toLowerCase();let n=0;const ids=new Set();
+  (DB.purchases||[]).forEach(x=>{if(x.status!=="active")return;if((sp.g&&x.gstin===sp.g)||x.supplier.toLowerCase()===nm)x.items.forEach(i=>ids.add(i.product_id))});
+  activeProducts().forEach(p=>{if(ids.has(p.id)&&!p.dist){p.dist=1;n++}});if(n){act("product",`${n} item${n>1?"s":""} bought from ${sp.n} marked as distributor items`,{});save()}return n}
+function renderDistOrder(){const sp=sponsor(),items=sortProducts(distItems()),S30=sold30(),canP=can("products");
+  const rows=items.map(p=>{const s=distSuggest(p,S30.get(p.id)||0);const q=dOrdQ[p.id]!==undefined?dOrdQ[p.id]:(s.q>0?String(s.q):"");return{p,s,s30:S30.get(p.id)||0,q}});
+  const need=rows.filter(r=>num(r.q)>0),shown=dOrdF==="need"&&need.length?need:rows;
+  const orders=(DB.dorders||[]).slice().reverse().slice(0,30);
+  $("view").innerHTML=`<div class="head"><h1 class="title">Purchases</h1><div class="row">${purTabsHTML()}</div></div>
+   <div class="stack"><div class="card" id="doCard"><h2>Order to ${esc(sp.n)}</h2>
+    <p class="note">CB suggests what to order from ${esc(sp.n)} from your stock and the last 30 days' sales. Change any quantity, then send. <b>Only the items and quantities you send reach ${esc(sp.n)} — nothing is sent automatically.</b>${sp.demo?" (Sample data: the distributor is an example.)":""}</p>
+    ${items.length?`<div class="row" style="align-items:center"><div class="seg" role="group" aria-label="Show"><button type="button" data-df="need" aria-pressed="${dOrdF==="need"}">To order (${need.length})</button><button type="button" data-df="all" aria-pressed="${dOrdF==="all"}">All ${esc(sponsorShort())} items (${rows.length})</button></div></div>
+    <div id="doList" class="dolist">
+      ${shown.map(r=>`<div class="dorow" data-id="${r.p.id}"><div class="nm"><b>${esc(r.p.name)}</b><div class="note">${r.p.dcode?`Code ${esc(r.p.dcode)} · `:""}${has("stock")?`In stock ${r.s.stock===null?"—":`<span class="${r.s.state==="out"||r.s.state==="low"?"down":""}">${fq(r.s.stock)}${r.s.state==="out"?" (out)":r.s.state==="low"?" (low)":""}</span>`} · `:""}sold ${fq(r.s30)} in 30 days</div></div>
+        <div class="q"><input class="num" data-dq inputmode="decimal" value="${esc(r.q)}" placeholder="0" aria-label="Order quantity for ${esc(r.p.name)}"><span class="note">${esc(r.p.unit)}</span></div></div>`).join("")}</div>
+    <div class="field"><label for="doNote">Note for ${esc(sp.n)} (optional)</label><input id="doNote" maxlength="200" value="${esc(dOrdNote)}" placeholder="e.g. deliver by Saturday"></div>
+    <div class="row"><button class="btn primary" type="button" id="doSend" style="flex:1">Send on WhatsApp${sp.w?"":" (choose the chat)"}</button><button class="btn" type="button" id="doPrn">Print</button><button class="btn" type="button" id="doClear">Clear quantities</button></div>
+    <p class="note" id="doSum"></p>`
+    :`<div class="empty"><b>No ${esc(sponsorShort())} items yet</b>Set them up below — upload the distributor's product list, mark items you bought from them, or tick them one by one.</div>`}</div>
+   ${canP?`<div class="card" id="dsCard"><h3>${esc(sponsorShort())} items (${items.length})</h3>
+    <div class="row" style="align-items:center"><label class="btn" for="dsFile" style="cursor:pointer">Upload ${esc(sponsorShort())} product list (Excel / CSV)</label><input type="file" id="dsFile" accept=".csv,.xlsx,.xls,.txt" hidden>
+      <label class="chk"><input type="checkbox" id="dsAdd"> Also add items I don't have yet</label>${(DB.purchases||[]).length?`<button class="btn" type="button" id="dsMark">Mark items bought from ${esc(sponsorShort())}</button>`:""}</div>
+    <p class="note">Columns: Item Name, Code, Rate, MRP, Unit, HSN, GST — only Item Name is needed. Items are matched by name, other name or code.</p><p class="note" id="dsMsg"></p>
+    <div class="field"><label for="dsQ">Tick items one by one</label><input id="dsQ" placeholder="Type a few letters of the product" value="${esc(dPickQ)}" autocomplete="off"></div><div id="dsPick" class="stack" style="gap:4px"></div></div>`:""}
+   <div class="card" style="padding:0"><h3 style="padding:14px 16px 0">Orders sent</h3><div id="doHist" class="dolist" style="padding:0 16px 8px">
+    ${orders.map(o=>`<div class="dohist" data-id="${o.id}"><div><b>${esc(o.no)}</b> · ${dmy(o.date)} · ${o.lines.length} item${o.lines.length>1?"s":""}<div class="note">${o.status==="received"?"✓ Goods received":"Sent"} · by ${esc(uname(o.by))}${o.note?` · ${esc(o.note)}`:""}</div></div>
+      <div class="row" style="gap:6px;margin-top:6px"><button class="btn sm" type="button" data-dre>Resend</button><button class="btn sm" type="button" data-dpr>Print</button>${o.status!=="received"&&has("purchases")&&can("purchases")?`<button class="btn sm" type="button" data-dgr>Goods arrived → purchase</button>`:""}</div></div>`).join("")||`<p class="note">No orders sent yet.</p>`}</div></div></div>`;
+  bindPurTabs();
+  const sum=()=>{const n=Object.values(dOrdQ).length?rows.filter(r=>num(dOrdQ[r.p.id]!==undefined?dOrdQ[r.p.id]:r.q)>0).length:need.length;if($("doSum"))$("doSum").textContent=n?`${n} item${n>1?"s":""} will be ordered.`:"Type a quantity for the items you want."};sum();
+  document.querySelectorAll("[data-df]").forEach(b=>b.onclick=()=>{dOrdF=b.dataset.df;renderDistOrder()});
+  if($("doList"))$("doList").addEventListener("input",e=>{if(!e.target.matches("[data-dq]"))return;dOrdQ[+e.target.closest("[data-id]").dataset.id]=e.target.value;sum()});
+  if($("doNote"))$("doNote").oninput=e=>dOrdNote=e.target.value;
+  const lines=()=>rows.map(r=>({product_id:r.p.id,qty:dOrdQ[r.p.id]!==undefined?dOrdQ[r.p.id]:r.q}));
+  if($("doSend"))$("doSend").onclick=()=>{try{const o=makeOrder(lines(),dOrdNote);dOrdQ={};dOrdNote="";sendOrderWA(o);toast(`Order ${o.no} ready in WhatsApp — tap Send there`);renderDistOrder()}catch(err){toast(err instanceof Bad?err.message:"Couldn't make the order.",true)}};
+  if($("doPrn"))$("doPrn").onclick=()=>{try{const o=makeOrder(lines(),dOrdNote);dOrdQ={};dOrdNote="";const pp=printSize();printReceipt(orderHTML(o,pp),pp);renderDistOrder()}catch(err){toast(err instanceof Bad?err.message:"Couldn't make the order.",true)}};
+  if($("doClear"))$("doClear").onclick=()=>{rows.forEach(r=>dOrdQ[r.p.id]="");renderDistOrder()};
+  $("doHist").onclick=e=>{const tr=e.target.closest("[data-id]");if(!tr||!tr.dataset.id)return;const o=(DB.dorders||[]).find(x=>x.id===+tr.dataset.id);if(!o)return;
+    if(e.target.closest("[data-dre]"))sendOrderWA(o);
+    if(e.target.closest("[data-dpr]")){const pp=printSize();printReceipt(orderHTML(o,pp),pp)}
+    if(e.target.closest("[data-dgr]")){const pm=new Map(DB.products.map(p=>[p.id,p]));const lastRate=id=>{const x=[...(DB.purchases||[])].reverse().find(q=>q.status==="active"&&q.items.some(i=>i.product_id===id));const li=x&&x.items.find(i=>i.product_id===id);return li?String(li.rate):""};
+      purTab="bills";purEdit="new";purDraft={...blankPur(),supplier:o.to,gstin:(sponsor()||{}).g||"",note:`Against order ${o.no}`,order_id:o.id,
+        items:o.lines.filter(l=>pm.get(l.product_id)&&pm.get(l.product_id).active).map(l=>{const p=pm.get(l.product_id);return{product_id:p.id,qty:String(l.qty),rate:p.drate?String(p.drate):lastRate(p.id),gst:p.gst===undefined||p.gst===""?"":num(p.gst),unit:l.unit||p.unit}})};
+      renderPurchases();toast("Check the rates and quantities against the supplier's bill, then Save purchase")}};
+  if(!canP)return;
+  const pick=()=>{const q=dPickQ.trim(),box=$("dsPick");if(!box)return;const list=q?prodSearch(q,12):items.slice(0,0);
+    box.innerHTML=list.map(p=>`<label class="chk"><input type="checkbox" data-dp="${p.id}" ${p.dist?"checked":""}> ${esc(p.name)} <span class="note">${esc(p.dept)}</span></label>`).join("")||(q?`<p class="note">No product matches.</p>`:"")};pick();
+  $("dsQ").oninput=e=>{dPickQ=e.target.value;pick()};
+  $("dsPick").onchange=e=>{const c=e.target.closest("[data-dp]");if(!c)return;const p=DB.products.find(x=>x.id===+c.dataset.dp);if(!p)return;if(c.checked)p.dist=1;else delete p.dist;act("product",`${p.name} ${c.checked?"marked":"unmarked"} as ${sponsorShort()} item`,{ref:p.id});save();const k=$("dsQ").value;renderDistOrder();const q=$("dsQ");if(q){q.focus();q.setSelectionRange(k.length,k.length)}};
+  if($("dsMark"))$("dsMark").onclick=()=>{const n=markBoughtFromSponsor();toast(n?`${n} item${n>1?"s":""} marked`:`No new items found in purchases from ${sp.n}`);renderDistOrder()};
+  $("dsFile").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;try{const rows=/\.xlsx?$/i.test(f.name)?await readXlsx(await f.arrayBuffer()):parseCSV(await f.text());const r=importDistList(rows,$("dsAdd").checked);renderDistOrder();
+      const m=$("dsMsg");if(m)m.innerHTML=`✓ ${r.matched} item${r.matched===1?"":"s"} marked${r.added?`, ${r.added} new product${r.added>1?"s":""} added (check their sale rates in Items)`:""}.${r.missing.length?` <b>${r.missing.length} not in your list</b>: ${r.missing.slice(0,8).map(esc).join(", ")}${r.missing.length>8?"…":""} — tick "Also add items I don't have yet" and upload again to add them.`:""}`}
+    catch(err){toast(err instanceof Bad?err.message:"Couldn't read that file.",true)}}}
 /* a product that isn't in the list yet, typed on a purchase bill */
 function purNewProduct(name,then){if(!can("products")){toast(`${UP(name)} is not in the product list, and adding products is switched off for your login. Ask the owner.`,true);return}const strict=needTaxInfo();
   openModal(`<h2>New product</h2><p class="note">It's added to your product list (so you can sell it) and to this purchase.</p>
@@ -3220,6 +3324,7 @@ function planCard(O){const P=planInfo(),till=P.till?dmy(P.till):"";
   if(!O)return `<div class="card"><h2>Plan</h2><p class="note"><b>${esc(P.name)}</b>${till?` · support till ${till}`:""}. Only the owner can change the plan.</p></div>`;
   return `<div class="card" id="planCard"><h2>Plan &amp; support</h2>
     <p class="note"><b>${esc(P.name)}</b> <span class="pill ${P.state==="active"?"green":["basic","expired","cancelled"].includes(P.state)?"red":""}">${st}</span>${P.ends?`<br>Features ${P.state==="expired"?"ended":"valid till"} <b>${dmy(P.ends)}</b>`:""}${P.stop!==null&&P.stop!==undefined?`<br>When the plan ends: ${P.stop?`cash bills for ${P.stop} day${P.stop>1?"s":""}, then `:""}<b>billing stops</b>${P.stop_on&&!P.locked?` on ${dmy(P.stop_on)}`:""}`:""}${till?`<br>Support &amp; updates valid till <b>${till}</b>`:""}</p>
+    ${P.sponsor?`<p class="note">🤝 <b>Sponsored by ${esc(P.sponsor.n)}</b>${has("distorder")?` — send orders from Purchases › Order to ${esc(sponsorShort())}. Only what you send is shared with them.`:""}</p>`:""}
     <div class="field"><label>Shop ID</label><div class="row" style="align-items:center"><span class="reqcode" style="font-size:18px;padding:6px 10px;flex:1">${shopIdLabel(DB.shop_id)}</span><button type="button" class="btn sm" id="plSend">Send to support</button></div></div>
     <p class="note">This device: <b class="num">${deviceLabel()}</b></p>
     <div class="featlist">${Object.entries(FEATURES).map(([k,v])=>`<div class="${P.features.has(k)?"on":"off"}">${P.features.has(k)?"✓":"—"} ${esc(v)}</div>`).join("")}

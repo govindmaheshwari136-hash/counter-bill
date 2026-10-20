@@ -1,6 +1,6 @@
 /* Keeps the whole app on the device so it opens without internet.
    With internet, the app page is fetched fresh first (so updates show immediately); without it, the saved copy opens. */
-const VERSION = "cb-v4.19";
+const VERSION = "cb-v4.20";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 /* the PDF reader (used only for bill PDFs on purchases): kept offline too, but the app still installs if these files are missing */
 const EXTRA = ["./cb-pdf.js", "./cb-pdf-worker.js"];
