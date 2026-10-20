@@ -625,7 +625,7 @@ const fyOf=d=>{const[y,m]=d.split("-").map(Number);const s=m>=4?y:y-1;return `${
 const UNITS=["Nos","Kgs","Gms","Dozen","Set","Ltr","Mtr","Pkt","Box","Pair"];
 const UNIT_ALIAS={no:"Nos",nos:"Nos",pc:"Nos",pcs:"Nos",piece:"Nos",pieces:"Nos",kg:"Kgs",kgs:"Kgs",kilo:"Kgs",g:"Gms",gm:"Gms",gms:"Gms",gram:"Gms",grams:"Gms",dozen:"Dozen",dz:"Dozen",doz:"Dozen",set:"Set",sets:"Set",l:"Ltr",lt:"Ltr",ltr:"Ltr",litre:"Ltr",liter:"Ltr",m:"Mtr",mtr:"Mtr",meter:"Mtr",metre:"Mtr",pkt:"Pkt",packet:"Pkt",pack:"Pkt",box:"Box",pair:"Pair",pairs:"Pair"};
 const normUnit=u=>{if(!u)return"Nos";const k=String(u).trim().toLowerCase().replace(/\./g,"");return UNIT_ALIAS[k]||UNITS.find(x=>x.toLowerCase()===k)||"Nos"};
-const APP_VERSION="4.23";   /* shown in Settings and on the login screen — tell support this number */
+const APP_VERSION="4.24";   /* shown in Settings and on the login screen — tell support this number */
 const PAID=["Cash","UPI","Card","Bank"];            /* ways money is actually received */
 const PAYMODES=[...PAID,"Credit"];
 const PAYKEY={Cash:"cash",UPI:"upi",Card:"card",Bank:"bank",Credit:"credit"};
@@ -2950,11 +2950,11 @@ function sold30(){const from=addDays(today(),-29),pm=new Map(DB.products.map(p=>
   DB.bills.forEach(b=>{if(b.status!=="active"||b.bill_date<from)return;(b.items||[]).forEach(i=>{const p=pm.get(i.product_id);if(!p)return;const f=unitFactor(i.unit,p.unit);m.set(p.id,r2((m.get(p.id)||0)+num(i.qty)*(f==null?1:f)))})});return m}
 /* suggested quantity: enough for about 15 days of sales, at least twice the re-order level, minus the stock in hand */
 function distSuggest(p,s30){const st=has("stock")?stockOf(p):null,tracked=!!(st&&st.state&&st.state!=="none"),re=num(p.reorder)||0;
-  const target=Math.max(re*2,s30/2);const q=tracked?Math.max(0,Math.ceil(target-st.qty)):Math.ceil(s30/2);return{q,stock:tracked?st.qty:null,state:tracked?st.state:"none"}}
+  const target=Math.max(re*2,s30/2),qr=r2(tracked?Math.max(0,target-st.qty):s30/2);return{q:Math.ceil(qr),qr,stock:tracked?st.qty:null,state:tracked?st.state:"none"}}
 /* the suggestion is worked out in the shop's unit; the order goes in the distributor's unit when they can be converted */
 function rowSuggest(r,S30){if(!r.p)return{q:0,s30:0,stock:null,state:"none"};const s30=S30.get(r.p.id)||0,s=distSuggest(r.p,s30);
-  if(r.byPack){const per=perPack(r.pk,r.p.unit);return{...s,s30,q:s.q>0?Math.ceil(r2(s.q/per)):0,conv:per!==1}}
-  const f=unitFactor(r.p.unit,r.unit);return{...s,s30,q:f==null||!(s.q>0)?0:Math.ceil(r2(s.q*f)),conv:f!==1}}
+  if(r.byPack){const per=perPack(r.pk,r.p.unit);return{...s,s30,q:s.qr>0?Math.ceil(r2(s.qr/per)):0,conv:per!==1}}
+  const f=unitFactor(r.p.unit,r.unit);return{...s,s30,q:f==null||!(s.qr>0)?0:Math.ceil(r2(s.qr*f)),conv:f!==1}}
 const waNum=w=>{const d=String(w||"").replace(/\D/g,"");return d.length===10?"91"+d:d};
 function orderText(o){const sp=sponsor()||{n:o.to};return `*Order ${o.no}* from *${S().shop_name}*\n${headLines().filter(Boolean).slice(0,2).join(", ")}\nShop ID ${shopIdLabel(DB.shop_id)} · ${dmy(o.date)}\nTo: ${sp.n}\n\n`+o.lines.map((l,i)=>`${i+1}. ${l.name}${l.code?` [${l.code}]`:""}${l.pk?` (${l.pk})`:""} — ${fq(l.qty)} ${l.unit}`).join("\n")+(o.note?`\n\nNote: ${o.note}`:"")+`\n\n(${o.lines.length} item${o.lines.length>1?"s":""} · sent from CB)`}
 function orderHTML(o,paper){const sp=sponsor()||{n:o.to};
@@ -2987,14 +2987,18 @@ function goodsArrived(o){const pm=new Map(activeProducts().map(p=>[p.id,p])),byN
   o.lines.forEach(l=>{if(!pm.get(l.product_id)){const p=byName.get(nkey(l.name));if(p)l.product_id=p.id}});
   const missing=o.lines.filter(l=>!pm.get(l.product_id)&&!byName.get(nkey(l.name)));
   const go=()=>{const pm2=new Map(activeProducts().map(p=>[p.id,p]));const lastRate=id=>{const x=[...(DB.purchases||[])].reverse().find(q=>q.status==="active"&&q.items.some(i=>i.product_id===id));const li=x&&x.items.find(i=>i.product_id===id);return li?String(li.rate):""};
-    const left=o.lines.filter(l=>!pm2.get(l.product_id));
+    const left=o.lines.filter(l=>!pm2.get(l.product_id)),ask=[];
     purTab="bills";purEdit="new";purDraft={...blankPur(),supplier:o.to,gstin:(sponsor()||{}).g||"",order_id:o.id,
       note:(`Against order ${o.no}`+(left.length?`. Not in products: ${left.map(l=>`${l.name} ${fq(l.qty)} ${l.unit}`).join(", ")}`:"")).slice(0,300),
       items:o.lines.filter(l=>pm2.get(l.product_id)).map(l=>{const p=pm2.get(l.product_id);
         if(l.pk&&l.unit==="Pkt"&&p.unit!=="Pkt"){const per=perPack(l.pk,p.unit);return{product_id:p.id,qty:String(r2(l.qty*per)),unit:p.unit,rate:l.r?String(r2(l.r/per)):p.drate?String(p.drate):lastRate(p.id),gst:p.gst===undefined||p.gst===""?"":num(p.gst)}}
-        const f=unitFactor(l.unit,p.unit);return{product_id:p.id,qty:String(f==null?l.qty:r2(l.qty*f)),unit:f==null?l.unit:p.unit,
+        const f=unitFactor(l.unit,p.unit);
+        /* units that can't be converted (2 Box of PARLE G, the shop counts pieces): never guess — leave the quantity and rate for the shop to type */
+        if(f==null&&l.unit!==p.unit){ask.push(`${p.name}: ${fq(l.qty)} ${l.unit} — type the quantity in ${p.unit}`);return{product_id:p.id,qty:"",unit:p.unit,rate:"",gst:p.gst===undefined||p.gst===""?"":num(p.gst)}}
+        return{product_id:p.id,qty:String(f==null?l.qty:r2(l.qty*f)),unit:f==null?l.unit:p.unit,
         rate:l.r?String(f==null||f===1?l.r:r2(l.r/f)):p.drate?String(p.drate):lastRate(p.id),gst:p.gst===undefined||p.gst===""?"":num(p.gst)}})};
-    renderPurchases();toast(left.length?`${left.length} item${left.length>1?"s":""} not in your products — listed in the note`:"Check the rates and quantities against the supplier's bill, then Save purchase")};
+    if(ask.length)purDraft.note=(purDraft.note+". Check: "+ask.join("; ")).slice(0,400);
+    renderPurchases();toast(ask.length?`${ask.length} item${ask.length>1?"s":""} in another unit — type the quantity and rate (see the note)`:left.length?`${left.length} item${left.length>1?"s":""} not in your products — listed in the note`:"Check the rates and quantities against the supplier's bill, then Save purchase")};
   if(!missing.length||!can("products"))return go();
   openModal(`<h2>New items in this order</h2><p class="note">These are not in your products yet. Add them, so you can sell them and see their stock? The sale rate is set to the MRP from ${esc(sponsorShort())}'s list — check it in Items.</p>
     <ul>${missing.map(l=>`<li><b>${esc(l.name)}</b> · ${fq(l.qty)} ${esc(l.unit)}${l.m?` · MRP ₹${fmt(l.m)}`:" · <span class='down'>no MRP — set the rate</span>"}</li>`).join("")}</ul>
